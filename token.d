@@ -1,4 +1,4 @@
-enum TokType
+enum TokenType
 {
 	INTEGER,
 	CHARACTER,
@@ -20,24 +20,25 @@ enum TokType
 	EOF
 }
 
-struct Tok
+struct Token
 {
-	TokType type;
+	TokenType type;
 	string lexeme;
 }
 
 private:
-immutable TokRegex[] rules;
+immutable TokenRegex[] rules;
 
-struct TokRegex
+struct TokenRegex
 {
-	TokType type;
+	TokenType type;
 	string regex;
 }
 
 static this()
 {
 	rules = [
-		TokRegex(TokType.CHARACTER, r"[a-zA-Z]")
+		TokenRegex(TokenType.KEYWORD, r"atoi|bool|class|char|cin|cout|else|false|if|int|itoa|main|new|null|object|public|private|return|string|this|true|void|while"),
+		TokenRegex(TokenType.CHARACTER, r"[a-zA-Z]")
 	];
 }
