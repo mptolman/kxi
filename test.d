@@ -15,12 +15,12 @@ auto truncate(T,D)(T t, D delim)
 
 auto isKeyword(T)(T t)
 {
-	return !find(keywords,t).empty;
+	return cast(bool)find(keywords,t).length;
 }
 
 auto isModifier(T)(T t)
 {
-	return !find(modifiers,t).empty;
+	return cast(bool)find(modifiers,t).length;
 }
 
 enum TType {
@@ -47,17 +47,16 @@ struct Token
 
 void main()
 {
-	File file = File(r"C:\A.kxi","r");
+	File file = File(r"A.kxi","r");
 	Token[] tokens;
 
 	char[] buf;
-	string tok;
 	for (size_t lineNum = 1; file.readln(buf); ++lineNum) {
 		auto line = strip(truncate(buf,"//"));
 		if (line.empty) continue;
 
 		for (auto c = line.ptr; c < line.ptr+line.length; ++c) {
-			tok = [*c];
+			string tok = [*c];
 
 			if (isAlpha(*c)) {
 				while (isAlphaNum(*++c))
