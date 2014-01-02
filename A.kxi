@@ -164,7 +164,7 @@ void main() {
 	    msg.msg2('k');
 
 	msg.msg3();
-	cin >> key;
+	cin >> key
 	cout << "\n";
     }
 } // End of main
