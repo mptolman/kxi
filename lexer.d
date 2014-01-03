@@ -73,16 +73,20 @@ class Lexer
 			return t;
 		}
 
-		char[] buf;		
+		char[] buf;
 		while (_file.readln(buf)) {
 			++_lineNum;
-			auto line = strip(truncate(buf,"//"));
-			if (line.length == 0) continue;
+			auto line = strip(truncate(buf,"//")); // ignore comments
+			if (line.length == 0) continue; // skip empty lines
 
 			for (auto c = line.ptr; c < line.ptr+line.length; ++c) {
 				string tok = [*c];
 
-				if (isAlpha(*c)) {
+				if (isWhite(*c)) {
+					// ignore whitespace	
+				}
+
+				else if (isAlpha(*c)) {
 					while (isAlphaNum(*(c+1)))
 						tok ~= *++c;
 
@@ -90,6 +94,12 @@ class Lexer
 						_tokens ~= Token(TType.KEYWORD,tok,_lineNum);
 					else
 						_tokens ~= Token(TType.IDENTIFIER,tok,_lineNum);
+				}
+
+				else if (isDigit(*c)) {
+					while (isDigit(*(c+1)))
+						tok ~= *++c;
+					_tokens ~= Token(TType.NUMBER,tok,_lineNum);
 				}
 
 				else if (*c == '-' || *c == '+') {
@@ -102,12 +112,6 @@ class Lexer
 					else {
 						_tokens ~= Token(TType.MATH_OP,tok,_lineNum);
 					}
-				}
-
-				else if (isDigit(*c)) {
-					while (isDigit(*(c+1)))
-						tok ~= *++c;
-					_tokens ~= Token(TType.NUMBER,tok,_lineNum);
 				}
 
 				else if (match(tok, regex(r"[,\.]"))) {
@@ -200,26 +204,9 @@ class Lexer
 				}
 
 				else if (*c == '\'') {
-					if (*++c == '\\') {
-						switch (*++c) {
-						case 'n':
-							tok = "\\n";
-							break;
-						case 't':
-							tok = "\\t";
-							break;
-						case '\\':
-							tok = "\\";
-							break;
-						}
-					}
-					else {
-						tok = [*c];
-					}
-				}
-
-				else if (isWhite(*c)) {
-					// Ignore whitespace
+					if (*(c+1) == '\\')
+						tok ~= *++c;
+					tok ~= *++c;
 				}
 
 				else {
@@ -238,21 +225,11 @@ class Lexer
 	}
 }
 
-void main() {
-	Lexer lexer = new Lexer(File("A.kxi"));
-	Token t;
-	do {
-		t = lexer.next();
-		writeln(t);
-	} while (t.type != TType.EOF);
-}
-
 /**********************************
  Private data
 ***********************************/
 private:
 immutable string[] keywords;
-immutable string punctuation;
 
 static this()
 {
