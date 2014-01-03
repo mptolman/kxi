@@ -23,7 +23,8 @@ auto isKeyword(string s)
 /**********************************
  Types
 ***********************************/
-enum TType : byte {
+enum TType : byte 
+{
 	NUMBER,
 	CHARACTER,
 	IDENTIFIER,
@@ -55,26 +56,26 @@ struct Token
 class Lexer
 {
 	private File _file;
-	private Token[] tokens;
+	private Token[] _tokens;
+	private size_t _lineNum;
 	private static immutable LINES_TO_BUFFER = 5;
 
-	this(File file) {
+	this(File file) 
+	{
 		this._file = file;
 	}
 
 	Token next()
 	{
-		static size_t lineNum;
-
-		if (tokens.length) {
-			Token t = tokens[0];
-			tokens = tokens[1..$];
+		if (_tokens.length) {
+			Token t = _tokens[0];
+			_tokens = _tokens[1..$];
 			return t;
 		}
 
 		char[] buf;		
 		while (_file.readln(buf)) {
-			++lineNum;
+			++_lineNum;
 			auto line = strip(truncate(buf,"//"));
 			if (line.length == 0) continue;
 
@@ -86,9 +87,9 @@ class Lexer
 						tok ~= *++c;
 
 					if (isKeyword(tok))
-						tokens ~= Token(TType.KEYWORD,tok,lineNum);
+						_tokens ~= Token(TType.KEYWORD,tok,_lineNum);
 					else
-						tokens ~= Token(TType.IDENTIFIER,tok,lineNum);
+						_tokens ~= Token(TType.IDENTIFIER,tok,_lineNum);
 				}
 
 				else if (*c == '-' || *c == '+') {
@@ -96,110 +97,125 @@ class Lexer
 						do {
 							tok ~= *++c;
 						} while (isDigit(*(c+1)));
-						tokens ~= Token(TType.NUMBER,tok,lineNum);
+						_tokens ~= Token(TType.NUMBER,tok,_lineNum);
 					}
 					else {
-						tokens ~= Token(TType.MATH_OP,tok,lineNum);
+						_tokens ~= Token(TType.MATH_OP,tok,_lineNum);
 					}
 				}
 
 				else if (isDigit(*c)) {
 					while (isDigit(*(c+1)))
 						tok ~= *++c;
-					tokens ~= Token(TType.NUMBER,tok,lineNum);
+					_tokens ~= Token(TType.NUMBER,tok,_lineNum);
 				}
 
 				else if (match(tok, regex(r"[,\.]"))) {
-					tokens ~= Token(TType.PUNCTUATION,tok,lineNum);
+					_tokens ~= Token(TType.PUNCTUATION,tok,_lineNum);
 				}
 
 				else if (match(tok, regex(r"[\+\-\*/%]"))) {
-					tokens ~= Token(TType.MATH_OP,tok,lineNum);				
+					_tokens ~= Token(TType.MATH_OP,tok,_lineNum);				
 				}
 
 				else if (*c == '{') {
-					tokens ~= Token(TType.BLOCK_BEGIN,tok,lineNum);
+					_tokens ~= Token(TType.BLOCK_BEGIN,tok,_lineNum);
 				}
 
 				else if (*c == '}') {
-					tokens ~= Token(TType.BLOCK_END,tok,lineNum);
+					_tokens ~= Token(TType.BLOCK_END,tok,_lineNum);
 				}
 
 				else if (*c == '(') {
-					tokens ~= Token(TType.PAREN_OPEN,tok,lineNum);
+					_tokens ~= Token(TType.PAREN_OPEN,tok,_lineNum);
 				}
 
 				else if (*c == ')') {
-					tokens ~= Token(TType.PAREN_CLOSE,tok,lineNum);
+					_tokens ~= Token(TType.PAREN_CLOSE,tok,_lineNum);
 				}
 
 				else if (*c == '[') {
-					tokens ~= Token(TType.ARRAY_BEGIN,tok,lineNum);
+					_tokens ~= Token(TType.ARRAY_BEGIN,tok,_lineNum);
 				}
 
 				else if (*c == ']') {
-					tokens ~= Token(TType.ARRAY_END,tok,lineNum);
+					_tokens ~= Token(TType.ARRAY_END,tok,_lineNum);
 				}
 
 				else if (*c == '=') {
 					if (*(c+1) == '=') {
 						tok ~= *++c;
-						tokens ~= Token(TType.RELATIONAL_OP,tok,lineNum);
+						_tokens ~= Token(TType.RELATIONAL_OP,tok,_lineNum);
 					}
 					else {
-						tokens ~= Token(TType.ASSIGN_OP,tok,lineNum);
+						_tokens ~= Token(TType.ASSIGN_OP,tok,_lineNum);
 					}
 				}
 
 				else if (*c == '!' && *(c+1) == '=') {
 					tok ~= *++c;
-					tokens ~= Token(TType.RELATIONAL_OP,tok,lineNum);
+					_tokens ~= Token(TType.RELATIONAL_OP,tok,_lineNum);
 				}
 
 				else if (*c == '<') {
 					if (*(c+1) == '<') {
 						tok ~= *++c;
-						tokens ~= Token(TType.IO_OP,tok,lineNum);
+						_tokens ~= Token(TType.IO_OP,tok,_lineNum);
 					}
 					else if (*(c+1) == '=') {
 						tok ~= *++c;
-						tokens ~= Token(TType.RELATIONAL_OP,tok,lineNum);
+						_tokens ~= Token(TType.RELATIONAL_OP,tok,_lineNum);
 					}
 					else {
-						tokens ~= Token(TType.RELATIONAL_OP,tok,lineNum);
+						_tokens ~= Token(TType.RELATIONAL_OP,tok,_lineNum);
 					}
 				}
 
 				else if (*c == '>') {
 					if (*(c+1) == '>') {
 						tok ~= *++c;
-						tokens ~= Token(TType.IO_OP,tok,lineNum);
+						_tokens ~= Token(TType.IO_OP,tok,_lineNum);
 					}
 					else if (*(c+1) == '=') {
 						tok ~= *++c;
-						tokens ~= Token(TType.RELATIONAL_OP,tok,lineNum);		
+						_tokens ~= Token(TType.RELATIONAL_OP,tok,_lineNum);		
 					}
 					else {
-						tokens ~= Token(TType.RELATIONAL_OP,tok,lineNum);
+						_tokens ~= Token(TType.RELATIONAL_OP,tok,_lineNum);
 					}
 				}
 
 				else if (*c == '&' && *(c+1) == '&') {
 					tok ~= *++c;
-					tokens ~= Token(TType.LOGICAL_OP,tok,lineNum);
+					_tokens ~= Token(TType.LOGICAL_OP,tok,_lineNum);
 				}
 
 				else if (*c == '|' && *(c+1) == '|') {
 					tok ~= *++c;
-					tokens ~= Token(TType.LOGICAL_OP,tok,lineNum);
+					_tokens ~= Token(TType.LOGICAL_OP,tok,_lineNum);
 				}
 
 				else if (*c == ';') {					
-					tokens ~= Token(TType.EOT,tok,lineNum);
+					_tokens ~= Token(TType.EOT,tok,_lineNum);
 				}
 
 				else if (*c == '\'') {
-
+					if (*++c == '\\') {
+						switch (*++c) {
+						case 'n':
+							tok = "\\n";
+							break;
+						case 't':
+							tok = "\\t";
+							break;
+						case '\\':
+							tok = "\\";
+							break;
+						}
+					}
+					else {
+						tok = [*c];
+					}
 				}
 
 				else if (isWhite(*c)) {
@@ -207,16 +223,16 @@ class Lexer
 				}
 
 				else {
-					tokens ~= Token(TType.UNKNOWN,tok,lineNum);
+					_tokens ~= Token(TType.UNKNOWN,tok,_lineNum);
 				}
 			}
 
-			if (lineNum % LINES_TO_BUFFER == 0)
+			if (_lineNum % LINES_TO_BUFFER == 0)
 				break;
 		}
 
 		if (_file.eof())
-			tokens ~= Token(TType.EOF);
+			_tokens ~= Token(TType.EOF);
 
 		return next();
 	}
