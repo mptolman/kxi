@@ -1,28 +1,8 @@
 import std.algorithm : find;
 import std.ascii : isAlpha, isAlphaNum, isDigit, isWhite;
-import std.regex;
 import std.stdio;
 import std.string;
 
-/**********************************
- Helper functions
-***********************************/
-auto truncate(T,U)(T t, U delim)
-{
-	auto pos = indexOf(t, delim);
-	if (pos >= 0)
-		return t[0..pos];
-	return t;
-}
-
-auto isKeyword(string s)
-{
-	return cast(bool)find(keywords,s).length;
-}
-
-/**********************************
- Types
-***********************************/
 enum TType : byte 
 {
 	NUMBER,
@@ -114,12 +94,12 @@ class Lexer
 					}
 				}
 
-				else if (match(tok, regex(r"[,\.]"))) {
+				else if (*c == ',' || *c == '.') {
 					_tokens ~= Token(TType.PUNCTUATION,tok,_lineNum);
 				}
 
-				else if (match(tok, regex(r"[\+\-\*/%]"))) {
-					_tokens ~= Token(TType.MATH_OP,tok,_lineNum);				
+				else if (*c == '+' || *c == '-' || *c == '*' || *c == '/' || *c == '%') {
+					_tokens ~= Token(TType.MATH_OP,tok,_lineNum);
 				}
 
 				else if (*c == '{') {
@@ -205,8 +185,10 @@ class Lexer
 
 				else if (*c == '\'') {
 					if (*(c+1) == '\\')
-						tok ~= *++c;
-					tok ~= *++c;
+						tok ~= *++c; // escape character
+					tok ~= *++c; // character
+					tok ~= *++c; // single quote
+					_tokens ~= Token(TType.CHARACTER,tok,_lineNum);
 				}
 
 				else {
@@ -258,4 +240,18 @@ static this()
 		"void",
 		"while"
 	];
+}
+
+/**********************************
+ Helper functions
+***********************************/
+auto truncate(T,U)(T t, U delim)
+{
+	auto pos = indexOf(t, delim);
+	return pos >= 0 ? t[0..pos] : t;
+}
+
+auto isKeyword(string s)
+{
+	return cast(bool)find(keywords,s).length;
 }
