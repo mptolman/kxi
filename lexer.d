@@ -35,11 +35,13 @@ struct Token
 
 class Lexer
 {
-	private File _file;
-	private Token[] _tokens;
-	private size_t _lineNum;
-	private static immutable LINES_TO_BUFFER = 5;
+private:
+	File _file;
+	Token[] _tokens;
+	size_t _lineNum;
+	static immutable LINES_TO_BUFFER = 5;
 
+public:
 	this(File file) 
 	{
 		this._file = file;
@@ -57,7 +59,7 @@ class Lexer
 		while (_file.readln(buf)) {
 			++_lineNum;
 			auto line = strip(truncate(buf,"//")); // ignore comments
-			if (line.length == 0) continue; // skip empty lines
+			if (!line.length) continue; // skip empty lines
 
 			for (auto c = line.ptr; c < line.ptr+line.length; ++c) {
 				string tok = [*c];
