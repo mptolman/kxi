@@ -40,7 +40,7 @@ private:
 	File _file;
 	Token[] _tokens;
 	size_t _lineNum;
-	static immutable TOKENS_TO_BUFFER = 100;
+	static immutable BUFFER_SIZE = 100;
 
 public:
 	this(File file) 
@@ -201,7 +201,7 @@ public:
 				}
 			}
 
-			if (_tokens.length >= TOKENS_TO_BUFFER)
+			if (_tokens.length >= BUFFER_SIZE)
 				break;
 		}
 
