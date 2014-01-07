@@ -5,24 +5,25 @@ import std.string;
 
 enum TType : byte 
 {
-	NUMBER,
-	CHARACTER,
-	IDENTIFIER,
-	PUNCTUATION,
-	KEYWORD,
-	MATH_OP,
-	RELATIONAL_OP,
-	LOGICAL_OP,
-	ASSIGN_OP,
-	IO_OP,
 	ARRAY_BEGIN,
 	ARRAY_END,
+	ASSIGN_OP,
 	BLOCK_BEGIN,
 	BLOCK_END,
-	PAREN_OPEN,
-	PAREN_CLOSE,
+	CHARACTER,
 	EOT,
 	EOF,
+	IDENTIFIER,
+	IO_OP,
+	KEYWORD,
+	LOGICAL_OP,
+	MATH_OP,
+	MODIFIER,
+	NUMBER,
+	PAREN_OPEN,
+	PAREN_CLOSE,		
+	PUNCTUATION,
+	RELATIONAL_OP,
 	UNKNOWN
 }
 
@@ -39,7 +40,7 @@ private:
 	File _file;
 	Token[] _tokens;
 	size_t _lineNum;
-	static immutable LINES_TO_BUFFER = 5;
+	static immutable TOKENS_TO_BUFFER = 100;
 
 public:
 	this(File file) 
@@ -72,7 +73,9 @@ public:
 					while (isAlphaNum(*(c+1)))
 						tok ~= *++c;
 
-					if (isKeyword(tok))
+					if (isModifier(tok))
+						_tokens ~= Token(TType.MODIFIER,tok,_lineNum);
+					else if (isKeyword(tok))
 						_tokens ~= Token(TType.KEYWORD,tok,_lineNum);
 					else
 						_tokens ~= Token(TType.IDENTIFIER,tok,_lineNum);
@@ -198,7 +201,7 @@ public:
 				}
 			}
 
-			if (_lineNum % LINES_TO_BUFFER == 0)
+			if (_tokens.length >= TOKENS_TO_BUFFER)
 				break;
 		}
 
@@ -214,6 +217,7 @@ public:
 ***********************************/
 private:
 immutable string[] keywords;
+immutable string[] modifiers;
 
 static this()
 {
@@ -242,6 +246,11 @@ static this()
 		"void",
 		"while"
 	];
+
+	modifiers = [
+		"private",
+		"public"
+	];
 }
 
 /**********************************
@@ -256,4 +265,9 @@ auto truncate(T,U)(T t, U delim)
 auto isKeyword(string s)
 {
 	return cast(bool)find(keywords,s).length;
+}
+
+auto isModifier(string s)
+{
+	return cast(bool)find(modifiers,s).length;
 }
