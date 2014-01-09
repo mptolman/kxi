@@ -3,15 +3,25 @@ import std.stdio;
 
 int main(string[] args)
 {
-	File file = File("A.kxi");
-	File output = File(r"C:\out.txt", "w");
-	Lexer l = new Lexer(file);
+    if (args.length != 2) {
+        writefln("Usage: %s <file>",args[0]);
+        return 1;
+    }
 
-	Token t;
-	do {
-		t = l.next();
-        output.writeln(t);
-	} while (t.type != TType.EOF);
+    try {   
+        File input = File(args[1]);
+        File output = File(r"C:\out.txt", "w");
+        Lexer l = new Lexer(input);
 
-	return 0;
+        Token t;
+        do {
+            t = l.next();
+            output.writeln(t);        
+        } while (t.type != TType.EOF);
+    }
+    catch (Exception e) {
+        writeln(e.msg);
+    }
+
+    return 0;
 }
