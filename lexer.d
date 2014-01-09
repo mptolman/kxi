@@ -1,9 +1,5 @@
-import std.algorithm : find;
 import std.ascii : isAlpha, isAlphaNum, isDigit, isWhite;
-import std.conv;
-import std.regex;
 import std.stdio;
-import std.string;
 
 enum TType : byte 
 {
@@ -15,26 +11,36 @@ enum TType : byte
 	// Modifiers
 	PRIVATE, PUBLIC,
 
-	// Arrays
-	ARRAY_BEGIN,
-	ARRAY_END,
-
-	// Operators	
-	ASSIGN_OP, IO_OP, LOGIC_OP, MATH_OP, REL_OP,
+	// Identifiers
+	ID,
 
 	// Literals
 	CHAR_LITERAL, INT_LITERAL,
 
-	BLOCK_BEGIN,
-	BLOCK_END,
-	
-	EOT,
-	EOF,
-	ID,	
-	
-	PAREN_OPEN,
-	PAREN_CLOSE,		
+	// Arrays
+	ARRAY_BEGIN, ARRAY_END,
+
+	// Blocks
+	BLOCK_BEGIN, BLOCK_END,
+
+	// Parenthesis
+	PAREN_OPEN, PAREN_CLOSE,
+
+	// Operators	
+	ASSIGN_OP, // =
+	LOGIC_OP,  // &&, ||
+	REL_OP,	   // <,>,<=,>=,==,!=
+	IO_OP, 	   // <<,>>
+	MATH_OP,   // +,-,*,/,%
+
+	// Punctuation [,.]
 	PUNCTUATION,
+
+	// End of statement [;]
+	EOS,
+
+	// End of file
+	EOF,
 	
 	UNKNOWN
 }
@@ -46,24 +52,21 @@ struct Token
 	size_t line;
 }
 
-struct Rule
-{
-	Regex!char rgx;
-	TType type;
-}
-
 class Lexer
 {
-private:
-	File _file;
-	Token[] _tokens;
-	size_t _lineNum;
-	static immutable BUFFER_SIZE = 100;
-
 public:
 	this(File file) 
 	{
-		this._file = file;
+		_file = file;
+	}
+
+	Token peek()
+	{
+		if (_tokens.length)
+			return _tokens[0];
+
+		loadMoreTokens();
+		return peek();
 	}
 
 	Token next()
@@ -74,24 +77,198 @@ public:
 			return t;
 		}
 
-		char[] buf;
-		while (_file.readln(buf)) {
-			++_lineNum;
-			auto line = strip(truncate(buf,"//")); // ignore comments
+		loadMoreTokens();
+		return next();
+	}
 
-			while(line.length) {
-				auto matchFound = false;
-				foreach (r; rules) {
-					auto m = match(line, r.rgx);
-					if (!m) continue;
-					matchFound = true;
-					Token t = Token(r.type, to!string(m.captures[1]), _lineNum);
-					_tokens ~= t;
-					//writeln(t);
-					line = line[m.captures[1].length..$];
+private:
+	File _file;
+	Token[] _tokens;
+	size_t _lineNum;
+	static immutable BUFFER_SIZE = 100;
+
+	void loadMoreTokens()
+	{
+		enum State : byte
+		{
+			ALPHANUM,
+			AND,
+			BEGIN,
+			CHAR_BEGIN,
+			CHAR_END,
+			CHAR_ESCAPE,
+			DIGIT,
+			EQUALS,
+			GT,
+			LT,
+			OR,
+			PLUS_OR_MINUS,
+			POSSIBLE_COMMENT,
+			COMMENT
+		}
+
+		char[] line;
+		while (_file.readln(line)) {
+			++_lineNum;
+			
+			string tok;
+			State state = State.BEGIN;
+			for (auto i = 0; i < line.length; ++i) {
+				auto c = line[i];
+
+				switch (state) {
+				case State.BEGIN:
+					tok = [c];
+
+					if (isWhite(c)) { /* ignore whitespace */ }
+					else if (isAlpha(c))
+						state = State.ALPHANUM;
+					else if (isDigit(c))
+						state = State.DIGIT;
+					else if (c == '<')
+						state = State.LT;
+					else if (c == '>')
+						state = State.GT;
+					else if (c == '=')
+						state = State.EQUALS;
+					else if (c == '&')
+						state = State.AND;
+					else if (c == '|')
+						state = State.OR;
+					else if (c == '\'')
+						state = State.CHAR_BEGIN;
+					else if (c == '+' || c == '-')
+						state = State.PLUS_OR_MINUS;
+					else if (c == '/')
+						state = State.POSSIBLE_COMMENT;
+					else if (tok in tokenMap)
+						_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+					break;
+
+				case State.ALPHANUM:
+					if (isAlphaNum(c)) {
+						tok ~= c;
+						break;
+					}
+					if (tok in tokenMap)
+						_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+					else if (tok.length < 80)
+						_tokens ~= Token(TType.ID,tok,_lineNum);
+					state = State.BEGIN;
+					--i;
+					break;
+
+				case State.DIGIT:
+					if (isDigit(c)) {
+						tok ~= c;
+						break;
+					}
+					_tokens ~= Token(TType.INT_LITERAL,tok,_lineNum);
+					state = State.BEGIN;
+					--i;
+					break;
+
+				case State.PLUS_OR_MINUS:
+					if (isDigit(c)) {
+						tok ~= c;
+						state = State.DIGIT;
+						break;
+					}
+					_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+					state = State.BEGIN;
+					break;
+
+				case State.EQUALS:
+					if (c == '=')
+						tok ~= c;
+					else
+						--i;
+					_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+					state = State.BEGIN;
+					break;
+
+				case State.AND:
+					if (c == '&') {
+						tok ~= c;
+						_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+					}
+					else
+						--i;
+					state = State.BEGIN;
+					break;
+
+				case State.OR:
+					if (c == '|') {
+						tok ~= c;
+						_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+					}
+					else
+						--i;
+					state = State.BEGIN;
+					break;
+
+				case State.LT:
+					if (c == '=' || c == '<')
+						tok ~= c;
+					else
+						--i;
+					_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+					state = State.BEGIN;
+					break;
+
+				case State.GT:
+					if (c == '=' || c == '>')
+						tok ~= c;
+					else
+						--i;
+					_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+					state = State.BEGIN;
+					break;
+
+				case State.CHAR_BEGIN:
+					tok ~= c;
+					if (c == '\\')
+						state = State.CHAR_ESCAPE;
+					else
+						state = State.CHAR_END;
+					break;
+
+				case State.CHAR_ESCAPE:
+					if (c == 't' || c == 'n' || c == '\\' || c == '0') {
+						tok ~= c;
+						state = State.CHAR_END;
+						break;
+					}
+					state = State.BEGIN;
+					--i;
+					break;
+
+				case State.CHAR_END:
+					if (c == '\'') {
+						tok ~= c;
+						_tokens ~= Token(TType.CHAR_LITERAL,tok,_lineNum);
+						break;
+					}
+					state = State.BEGIN;
+					--i;
+					break;
+
+				case State.POSSIBLE_COMMENT:
+					if (c == '/') {
+						state = State.COMMENT;
+						break;
+					}
+					state = State.BEGIN;
+					--i;
+
+				case State.COMMENT:
+					if (c == '\n')
+						state = State.BEGIN;
+					break;
+
+				default:
+					break;
 				}
-				if (!matchFound)
-					line = line[1..$];
 			}
 
 			if (_tokens.length >= BUFFER_SIZE)
@@ -100,8 +277,6 @@ public:
 
 		if (_file.eof)
 			_tokens ~= Token(TType.EOF);
-
-		return next();
 	}
 }
 
@@ -109,79 +284,58 @@ public:
  Private data
 ***********************************/
 private:
-Rule[] rules;
+immutable TType[string] tokenMap;
 
 static this()
 {
-	rules = [
-
-		// Keywords
-		Rule(regex(r"^(atoi)(?:\W|$)"), TType.ATOI),
-		Rule(regex(r"^(bool)(?:\W|$)"), TType.BOOL),
-		Rule(regex(r"^(class)(?:\W|$)"), TType.CLASS),
-		Rule(regex(r"^(char)(?:\W|$)"), TType.CHAR),
-		Rule(regex(r"^(cin)(?:\W|$)"), TType.CIN),
-		Rule(regex(r"^(cout)(?:\W|$)"), TType.COUT),
-		Rule(regex(r"^(else)(?:\W|$)"), TType.ELSE),
-		Rule(regex(r"^(false)(?:\W|$)"), TType.FALSE),
-		Rule(regex(r"^(if)(?:\W|$)"), TType.IF),
-		Rule(regex(r"^(int)(?:\W|$)"), TType.INT),
-		Rule(regex(r"^(itoa)(?:\W|$)"), TType.ITOA),
-		Rule(regex(r"^(main)(?:\W|$)"), TType.MAIN),
-		Rule(regex(r"^(new)(?:\W|$)"), TType.NEW),
-		Rule(regex(r"^(null)(?:\W|$)"), TType.NULL),
-		Rule(regex(r"^(object)(?:\W|$)"), TType.OBJECT),
-		Rule(regex(r"^(return)(?:\W|$)"), TType.RETURN),
-		Rule(regex(r"^(string)(?:\W|$)"), TType.STRING),
-		Rule(regex(r"^(this)(?:\W|$)"), TType.THIS),
-		Rule(regex(r"^(true)(?:\W|$)"), TType.TRUE),
-		Rule(regex(r"^(void)(?:\W|$)"), TType.VOID),
-		Rule(regex(r"^(while)(?:\W|$)"), TType.WHILE),
-		Rule(regex(r"^(public)(?:\W|$)"), TType.PUBLIC),
-		Rule(regex(r"^(private)(?:\W|$)"), TType.PRIVATE),
-
-		// Identifiers
-		Rule(regex(r"^([a-zA-Z]+\w*)(?:\W|$)"), TType.ID),
-
-		// Literals
-		Rule(regex(r"^('\\?.')"), TType.CHAR_LITERAL),
-		Rule(regex(r"^((\+|\-)?\d+)(?:\D|$)"), TType.INT_LITERAL),
-
-		// Operators
-		Rule(regex(r"^(<<|>>)"), TType.IO_OP),
-		Rule(regex(r"^(&&|\|\|)"), TType.LOGIC_OP),
-		Rule(regex(r"^(==|<=|<|>=|>)"), TType.REL_OP),
-		Rule(regex(r"^(=)"), TType.ASSIGN_OP),
-		Rule(regex(r"^(\+|\-|\*|/|%)(?:\D|$)"), TType.MATH_OP),
-
-		Rule(regex(r"^(,|\.)"), TType.PUNCTUATION),
-
-		Rule(regex(r"^(\[)"), TType.ARRAY_BEGIN),
-		Rule(regex(r"^(\])"), TType.ARRAY_END),
-		Rule(regex(r"^(\()"), TType.PAREN_OPEN),
-		Rule(regex(r"^(\))"), TType.PAREN_CLOSE),
-		Rule(regex(r"^(\{)"), TType.BLOCK_BEGIN),
-		Rule(regex(r"^(\})"), TType.BLOCK_END),
-
-		Rule(regex(r"^(;)"), TType.EOT)
+	tokenMap = [
+		"atoi" : TType.ATOI,
+		"bool" : TType.BOOL,
+		"class" : TType.CLASS,
+		"char" : TType.CHAR,
+		"cin" : TType.CIN,
+		"cout" : TType.COUT,
+		"else" : TType.ELSE,
+		"false" : TType.FALSE,
+		"if" : TType.IF,
+		"int" : TType.INT,
+		"itoa" : TType.ITOA,
+		"main" : TType.MAIN,
+		"new" : TType.NEW,
+		"null" : TType.NULL,
+		"object" : TType.OBJECT,
+		"private" : TType.PRIVATE,
+		"public" : TType.PUBLIC,
+		"return" : TType.RETURN,
+		"string" : TType.STRING,
+		"this" : TType.THIS,
+		"true" : TType.TRUE,
+		"void" : TType.VOID,
+		"while" : TType.WHILE,
+		"{" : TType.BLOCK_BEGIN,
+		"}" : TType.BLOCK_END,
+		"(" : TType.PAREN_OPEN,
+		")" : TType.PAREN_CLOSE,
+		"[" : TType.ARRAY_BEGIN,
+		"]" : TType.ARRAY_END,
+		"."	: TType.PUNCTUATION,
+		"," : TType.PUNCTUATION,
+		"+" : TType.MATH_OP,
+		"-" : TType.MATH_OP,
+		"*" : TType.MATH_OP,
+		"/" : TType.MATH_OP,
+		"%" : TType.MATH_OP,
+		"<" : TType.REL_OP,
+		">" : TType.REL_OP,
+		"<=" : TType.REL_OP,
+		">=" : TType.REL_OP,
+		"!=" : TType.REL_OP,
+		"==" : TType.REL_OP,
+		"<<" : TType.IO_OP,
+		">>" : TType.IO_OP,
+		"=" : TType.ASSIGN_OP,
+		"&&" : TType.LOGIC_OP,
+		"||" : TType.LOGIC_OP,
+		";" : TType.EOS
 	];
 }
-
-/**********************************
- Helper functions
-***********************************/
-auto truncate(T,U)(T t, U delim)
-{
-	auto pos = indexOf(t, delim);
-	return pos >= 0 ? t[0..pos] : t;
-}
-
-//auto isKeyword(string s)
-//{
-//	return cast(bool)find(keywords,s).length;
-//}
-
-//auto isModifier(string s)
-//{
-//	return cast(bool)find(modifiers,s).length;
-//}
