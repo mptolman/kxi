@@ -107,16 +107,18 @@ private:
 			COMMENT
 		}
 
+		immutable MAX_ID_LEN = 80;
+
 		char[] line;
 		while (_file.readln(line)) {
 			++_lineNum;
-			
+
 			string tok;
 			State state = State.BEGIN;
 			for (auto i = 0; i < line.length; ++i) {
 				auto c = line[i];
 
-				switch (state) {
+				final switch (state) {
 				case State.BEGIN:
 					tok = [c];
 
@@ -152,7 +154,7 @@ private:
 					}
 					if (tok in tokenMap)
 						_tokens ~= Token(tokenMap[tok],tok,_lineNum);
-					else if (tok.length < 80)
+					else if (tok.length < MAX_ID_LEN)
 						_tokens ~= Token(TType.ID,tok,_lineNum);
 					state = State.BEGIN;
 					--i;
@@ -188,10 +190,8 @@ private:
 					break;
 
 				case State.AND:
-					if (c == '&') {
-						tok ~= c;
-						_tokens ~= Token(tokenMap[tok],tok,_lineNum);
-					}
+					if (c == '&')
+						_tokens ~= Token(tokenMap[tok],tok~c,_lineNum);
 					else
 						--i;
 					state = State.BEGIN;
@@ -199,8 +199,7 @@ private:
 
 				case State.OR:
 					if (c == '|') {
-						tok ~= c;
-						_tokens ~= Token(tokenMap[tok],tok,_lineNum);
+						_tokens ~= Token(tokenMap[tok],tok~c,_lineNum);
 					}
 					else
 						--i;
@@ -245,8 +244,7 @@ private:
 
 				case State.CHAR_END:
 					if (c == '\'') {
-						tok ~= c;
-						_tokens ~= Token(TType.CHAR_LITERAL,tok,_lineNum);
+						_tokens ~= Token(TType.CHAR_LITERAL,tok~c,_lineNum);
 						break;
 					}
 					state = State.BEGIN;
@@ -260,13 +258,11 @@ private:
 					}
 					state = State.BEGIN;
 					--i;
+					break;
 
 				case State.COMMENT:
 					if (c == '\n')
 						state = State.BEGIN;
-					break;
-
-				default:
 					break;
 				}
 			}
