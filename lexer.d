@@ -4,15 +4,18 @@ import std.stdio;
 enum TType : byte 
 {
     // Keywords
-    ATOI, BOOL, CLASS, CHAR, CIN, COUT, ELSE, FALSE,
-    IF, INT, ITOA, MAIN, NEW, NULL, OBJECT, RETURN,
+    ATOI, CLASS, CIN, COUT, ELSE, FALSE,
+    IF, ITOA, MAIN, NEW, NULL, OBJECT, RETURN,
     STRING, THIS, TRUE, VOID, WHILE,
 
-    // Modifiers
-    PRIVATE, PUBLIC,
+    // Types (bool, char, int)
+    TYPE,
+
+    // Modifiers (private, public)
+    MODIFIER,
 
     // Identifiers
-    ID,
+    IDENTIFIER,
 
     // Literals
     CHAR_LITERAL, INT_LITERAL,
@@ -85,7 +88,7 @@ private:
     File _file;
     Token[] _tokens;
     size_t _lineNum;
-    static immutable BUFFER_SIZE = 100;
+    static immutable BUFFER_SIZE = 500;
 
     void loadMoreTokens()
     {
@@ -97,6 +100,7 @@ private:
             CHAR_BEGIN,
             CHAR_END,
             CHAR_ESCAPE,
+            COMMENT,
             DIGIT,
             EQUALS,
             GT,
@@ -104,8 +108,7 @@ private:
             OR,
             NOT,
             PLUS_OR_MINUS,
-            POSSIBLE_COMMENT,
-            COMMENT
+            POSSIBLE_COMMENT
         }
 
         immutable MAX_ID_LEN = 80;
@@ -158,7 +161,7 @@ private:
                     if (tok in tokenMap)
                         _tokens ~= Token(tokenMap[tok],tok,_lineNum);
                     else if (tok.length < MAX_ID_LEN)
-                        _tokens ~= Token(TType.ID,tok,_lineNum);
+                        _tokens ~= Token(TType.IDENTIFIER,tok,_lineNum);
                     state = State.BEGIN;
                     --i;
                     break;
@@ -306,28 +309,28 @@ static this()
 {
     tokenMap = [
         "atoi" : TType.ATOI,
-        "bool" : TType.BOOL,
         "class" : TType.CLASS,
-        "char" : TType.CHAR,
         "cin" : TType.CIN,
         "cout" : TType.COUT,
         "else" : TType.ELSE,
         "false" : TType.FALSE,
         "if" : TType.IF,
-        "int" : TType.INT,
         "itoa" : TType.ITOA,
         "main" : TType.MAIN,
         "new" : TType.NEW,
         "null" : TType.NULL,
         "object" : TType.OBJECT,
-        "private" : TType.PRIVATE,
-        "public" : TType.PUBLIC,
+        "private" : TType.MODIFIER,
+        "public" : TType.MODIFIER,
         "return" : TType.RETURN,
         "string" : TType.STRING,
         "this" : TType.THIS,
         "true" : TType.TRUE,
         "void" : TType.VOID,
         "while" : TType.WHILE,
+        "bool" : TType.TYPE,
+        "char" : TType.TYPE,
+        "int" : TType.TYPE,
         "{" : TType.BLOCK_BEGIN,
         "}" : TType.BLOCK_END,
         "(" : TType.PAREN_OPEN,

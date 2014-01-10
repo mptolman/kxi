@@ -1,5 +1,5 @@
-import lexer;
 import std.stdio;
+import lexer, parser;
 
 int main(string[] args)
 {
@@ -13,11 +13,7 @@ int main(string[] args)
         File output = File(r"C:\out.txt", "w");
         Lexer l = new Lexer(input);
 
-        Token t;
-        do {
-            t = l.next();
-            output.writeln(t);        
-        } while (t.type != TType.EOF);
+        parse(l);
     }
     catch (Exception e) {
         writeln(e.msg);
