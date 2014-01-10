@@ -1,4 +1,4 @@
-import std.ascii : isAlpha, isAlphaNum, isDigit, isWhite;
+import std.ascii;
 import std.stdio;
 
 enum TType : byte 
@@ -84,6 +84,13 @@ public:
         return next();
     }
 
+    void rewind()
+    {
+        _tokens = null;
+        _lineNum = 0;
+        _file.rewind();
+    }
+
 private:
     File _file;
     Token[] _tokens;
@@ -105,8 +112,8 @@ private:
             EQUALS,
             GT,
             LT,
-            OR,
             NOT,
+            OR,
             PLUS_OR_MINUS,
             POSSIBLE_COMMENT
         }
@@ -308,53 +315,53 @@ immutable TType[string] tokenMap;
 static this()
 {
     tokenMap = [
-        "atoi" : TType.ATOI,
-        "class" : TType.CLASS,
-        "cin" : TType.CIN,
-        "cout" : TType.COUT,
-        "else" : TType.ELSE,
-        "false" : TType.FALSE,
-        "if" : TType.IF,
-        "itoa" : TType.ITOA,
-        "main" : TType.MAIN,
-        "new" : TType.NEW,
-        "null" : TType.NULL,
-        "object" : TType.OBJECT,
-        "private" : TType.MODIFIER,
-        "public" : TType.MODIFIER,
-        "return" : TType.RETURN,
-        "string" : TType.STRING,
-        "this" : TType.THIS,
-        "true" : TType.TRUE,
-        "void" : TType.VOID,
-        "while" : TType.WHILE,
-        "bool" : TType.TYPE,
-        "char" : TType.TYPE,
-        "int" : TType.TYPE,
-        "{" : TType.BLOCK_BEGIN,
-        "}" : TType.BLOCK_END,
-        "(" : TType.PAREN_OPEN,
-        ")" : TType.PAREN_CLOSE,
-        "[" : TType.ARRAY_BEGIN,
-        "]" : TType.ARRAY_END,
-        "." : TType.PUNCTUATION,
-        "," : TType.PUNCTUATION,
-        "+" : TType.MATH_OP,
-        "-" : TType.MATH_OP,
-        "*" : TType.MATH_OP,
-        "/" : TType.MATH_OP,
-        "%" : TType.MATH_OP,
-        "<" : TType.REL_OP,
-        ">" : TType.REL_OP,
-        "<=" : TType.REL_OP,
-        ">=" : TType.REL_OP,
-        "!=" : TType.REL_OP,
-        "==" : TType.REL_OP,
-        "<<" : TType.IO_OP,
-        ">>" : TType.IO_OP,
-        "=" : TType.ASSIGN_OP,
-        "&&" : TType.LOGIC_OP,
-        "||" : TType.LOGIC_OP,
-        ";" : TType.EOS
+        "atoi"      : TType.ATOI,
+        "class"     : TType.CLASS,
+        "cin"       : TType.CIN,
+        "cout"      : TType.COUT,
+        "else"      : TType.ELSE,
+        "false"     : TType.FALSE,
+        "if"        : TType.IF,
+        "itoa"      : TType.ITOA,
+        "main"      : TType.MAIN,
+        "new"       : TType.NEW,
+        "null"      : TType.NULL,
+        "object"    : TType.OBJECT,
+        "private"   : TType.MODIFIER,
+        "public"    : TType.MODIFIER,
+        "return"    : TType.RETURN,
+        "string"    : TType.STRING,
+        "this"      : TType.THIS,
+        "true"      : TType.TRUE,
+        "void"      : TType.VOID,
+        "while"     : TType.WHILE,
+        "bool"      : TType.TYPE,
+        "char"      : TType.TYPE,
+        "int"       : TType.TYPE,
+        "{"         : TType.BLOCK_BEGIN,
+        "}"         : TType.BLOCK_END,
+        "("         : TType.PAREN_OPEN,
+        ")"         : TType.PAREN_CLOSE,
+        "["         : TType.ARRAY_BEGIN,
+        "]"         : TType.ARRAY_END,
+        "."         : TType.PUNCTUATION,
+        ","         : TType.PUNCTUATION,
+        "+"         : TType.MATH_OP,
+        "-"         : TType.MATH_OP,
+        "*"         : TType.MATH_OP,
+        "/"         : TType.MATH_OP,
+        "%"         : TType.MATH_OP,
+        "<"         : TType.REL_OP,
+        ">"         : TType.REL_OP,
+        "<="        : TType.REL_OP,
+        ">="        : TType.REL_OP,
+        "!="        : TType.REL_OP,
+        "=="        : TType.REL_OP,
+        "<<"        : TType.IO_OP,
+        ">>"        : TType.IO_OP,
+        "="         : TType.ASSIGN_OP,
+        "&&"        : TType.LOGIC_OP,
+        "||"        : TType.LOGIC_OP,
+        ";"         : TType.EOS
     ];
 }

@@ -10,10 +10,7 @@ int main(string[] args)
 
     try {   
         File input = File(args[1]);
-        File output = File(r"C:\out.txt", "w");
-        Lexer l = new Lexer(input);
-
-        parse(l);
+        parse(new Lexer(input));
     }
     catch (Exception e) {
         writeln(e.msg);

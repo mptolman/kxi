@@ -1,5 +1,5 @@
-import std.stdio;
 import std.conv;
+import std.stdio;
 import lexer;
 
 string[Symbol] symbols;
@@ -13,28 +13,35 @@ struct Symbol
     string data;
 }
 
-void parse(Lexer l)
+void parse(Lexer lex)
 {
-    tokens = l;
+    tokens = lex;
 
-    // compiliation_unit::= 
-    //    {class_declaration} 
-    //    "void" "main" "(" ")" method_body
-    // ;
+    void continueParse()
+    {
+        // compiliation_unit::= 
+        //    {class_declaration} 
+        //    "void" "main" "(" ")" method_body
+        // ;
 
-    next();
-    while (ct.type == TType.CLASS)
-        class_declaration();
+        next();
+        while (ct.type == TType.CLASS)
+            class_declaration();
 
-    assertType(TType.VOID);
-    next();
-    assertType(TType.MAIN);
-    next();
-    assertType(TType.PAREN_OPEN);
-    next();
-    assertType(TType.PAREN_CLOSE);
-    next();
-    method_body();
+        assertType(TType.VOID);
+        next();
+        assertType(TType.MAIN);
+        next();
+        assertType(TType.PAREN_OPEN);
+        next();
+        assertType(TType.PAREN_CLOSE);
+        next();
+        method_body();
+    }
+
+    continueParse(); // first pass
+    tokens.rewind();
+    continueParse(); // second pass
 }
 
 class SyntaxError : Exception
@@ -65,7 +72,7 @@ Token peek()
 void assertType(TType type)
 {
     if (ct.type != type)
-        throw new SyntaxError(ct.line,"Expected type ",type,"; found",ct.type);
+        throw new SyntaxError(ct.line,"Expected ",type,"; found ",ct.type," (",ct.value,")");
 }
 
 void argument_list()
