@@ -33,11 +33,13 @@ enum TType : byte
     ASSIGN_OP, // =
     LOGIC_OP,  // &&, ||
     REL_OP,    // <,>,<=,>=,==,!=
-    IO_OP,     // <<,>>
     MATH_OP,   // +,-,*,/,%
 
+    // IO operations
+    STREAM_INPUT, STREAM_OUTPUT
+
     // Punctuation [,.]
-    PUNCTUATION,
+    COMMA, DOT
 
     // End of statement [;]
     EOS,
@@ -344,8 +346,8 @@ static this()
         ")"         : TType.PAREN_CLOSE,
         "["         : TType.ARRAY_BEGIN,
         "]"         : TType.ARRAY_END,
-        "."         : TType.PUNCTUATION,
-        ","         : TType.PUNCTUATION,
+        "."         : TType.DOT,
+        ","         : TType.COMMA,
         "+"         : TType.MATH_OP,
         "-"         : TType.MATH_OP,
         "*"         : TType.MATH_OP,
@@ -357,8 +359,8 @@ static this()
         ">="        : TType.REL_OP,
         "!="        : TType.REL_OP,
         "=="        : TType.REL_OP,
-        "<<"        : TType.IO_OP,
-        ">>"        : TType.IO_OP,
+        "<<"        : TType.STREAM_OUTPUT,
+        ">>"        : TType.STREAM_INPUT,
         "="         : TType.ASSIGN_OP,
         "&&"        : TType.LOGIC_OP,
         "||"        : TType.LOGIC_OP,

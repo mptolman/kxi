@@ -77,7 +77,10 @@ void assertType(TType type)
 
 void argument_list()
 {
-
+    // argument_list::= expression { "," expression } ;
+    expression();
+    while (ct.type == TType.COMMA)
+        expression();
 }
 
 void assignment_expression()
@@ -93,6 +96,7 @@ void assignment_expression()
     switch (ct.type) {
     case TType.THIS:
         next();
+        // TODO
         break;
     case TType.NEW:
         next();
@@ -179,6 +183,9 @@ void expression()
         next();
         expressionz();
     }
+    else if (ct.type == TType.IDENTIFIER) {
+
+    }
 }
 
 void expressionz()
@@ -217,7 +224,27 @@ void expressionz()
 
 void field_declaration()
 {
+    // field_declaration::=
+    //     ["[" "]"] ["=" assignment_expression ] ";"  
+    //    | "(" [parameter_list] ")" method_body
+    //    ;
 
+}
+
+void fn_array_member()
+{
+    // fn_arr_member::= "(" [ argument_list ] ")" | "[" expression "]" ;
+
+    if (ct.type == TType.PAREN_OPEN) {
+        argument_list();
+        assertType(TType.PAREN_CLOSE);
+    }
+    else {
+        assertType(TType.ARRAY_BEGIN);
+        expression();
+        assertType(TType.ARRAY_END);
+    }
+    next();
 }
 
 void method_body()
@@ -286,7 +313,7 @@ void statement()
     //    | "cin" ">>" expression ";"
     // ;
 
-
+    
 }
 
 void variable_declaration()
@@ -302,8 +329,8 @@ void variable_declaration()
     if (ct.type == TType.ARRAY_BEGIN) {
         next();
         assertType(TType.ARRAY_END);
+        next();
     }
-    next();
 
     if (ct.type == TType.ASSIGN_OP) {
         next();
