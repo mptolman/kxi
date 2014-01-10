@@ -36,12 +36,12 @@ enum TType : byte
     MATH_OP,   // +,-,*,/,%
 
     // IO operations
-    STREAM_INPUT, STREAM_OUTPUT
+    STREAM_INPUT, STREAM_OUTPUT,
 
     // Punctuation [,.]
-    COMMA, DOT
+    COMMA, DOT,
 
-    // End of statement [;]
+    // End of statement (;)
     EOS,
 
     // End of file

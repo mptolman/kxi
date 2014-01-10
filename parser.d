@@ -48,7 +48,7 @@ class SyntaxError : Exception
 {
     this(Args...)(size_t line, Args args)
     {
-        super(text("[",line,"]: ",args));
+        super(text("(",line,"): Error: ",args));
     }
 }
 
@@ -72,7 +72,7 @@ Token peek()
 void assertType(TType type)
 {
     if (ct.type != type)
-        throw new SyntaxError(ct.line,"Expected ",type,"; found ",ct.type," (",ct.value,")");
+        throw new SyntaxError(ct.line,"Expected ",type,"; found ",ct.type," \"",ct.value,"\"");
 }
 
 void argument_list()
@@ -185,6 +185,19 @@ void expression()
     }
     else if (ct.type == TType.IDENTIFIER) {
 
+    }
+    else {
+        switch (ct.type) {
+        case TType.TRUE:
+        case TType.FALSE:
+        case TType.NULL:
+        case TType.INT_LITERAL:
+        case TType.CHAR_LITERAL:
+            next();
+            break;
+        default:
+            break;
+        }
     }
 }
 
