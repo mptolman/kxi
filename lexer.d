@@ -39,7 +39,7 @@ enum TType : byte
     STREAM_INPUT, STREAM_OUTPUT,
 
     // Punctuation [,.;]
-    COMMA, DOT, SEMICOLON,
+    COMMA, PERIOD, SEMICOLON,
 
     // End of file
     EOF,
@@ -101,8 +101,7 @@ private:
         enum State : byte
         {
             ALPHANUM,
-            AND,
-            BEGIN,
+            AND,            
             CHAR_BEGIN,
             CHAR_END,
             CHAR_ESCAPE,
@@ -114,7 +113,8 @@ private:
             NOT,
             OR,
             PLUS_OR_MINUS,
-            POSSIBLE_COMMENT
+            POSSIBLE_COMMENT,
+            START
         }
 
         immutable MAX_ID_LEN = 80;
@@ -124,12 +124,12 @@ private:
             ++_lineNum;
 
             string tok;
-            State state = State.BEGIN;
+            State state = State.START;
             for (auto i = 0; i < line.length; ++i) {
                 auto c = line[i];
 
                 final switch (state) {
-                case State.BEGIN:
+                case State.START:
                     tok = [c];
 
                     if (isWhite(c)) { /* ignore whitespace */ }
@@ -168,7 +168,7 @@ private:
                         _tokens ~= Token(tokenMap[tok],tok,_lineNum);
                     else if (tok.length < MAX_ID_LEN)
                         _tokens ~= Token(TType.IDENTIFIER,tok,_lineNum);
-                    state = State.BEGIN;
+                    state = State.START;
                     --i;
                     break;
 
@@ -178,7 +178,7 @@ private:
                         break;
                     }
                     _tokens ~= Token(TType.INT_LITERAL,tok,_lineNum);
-                    state = State.BEGIN;
+                    state = State.START;
                     --i;
                     break;
 
@@ -189,7 +189,7 @@ private:
                         break;
                     }
                     _tokens ~= Token(tokenMap[tok],tok,_lineNum);
-                    state = State.BEGIN;
+                    state = State.START;
                     --i;
                     break;
 
@@ -199,7 +199,7 @@ private:
                     else
                         --i;
                     _tokens ~= Token(tokenMap[tok],tok,_lineNum);
-                    state = State.BEGIN;
+                    state = State.START;
                     break;
 
                 case State.AND:
@@ -210,7 +210,7 @@ private:
                     else {
                         --i;
                     }
-                    state = State.BEGIN;
+                    state = State.START;
                     break;
 
                 case State.OR:
@@ -221,7 +221,7 @@ private:
                     else {
                         --i;
                     }
-                    state = State.BEGIN;
+                    state = State.START;
                     break;
 
                 case State.NOT:
@@ -232,7 +232,7 @@ private:
                     else {
                         --i;
                     }
-                    state = State.BEGIN;
+                    state = State.START;
                     break;
 
                 case State.LT:
@@ -241,7 +241,7 @@ private:
                     else
                         --i;
                     _tokens ~= Token(tokenMap[tok],tok,_lineNum);
-                    state = State.BEGIN;
+                    state = State.START;
                     break;
 
                 case State.GT:
@@ -250,7 +250,7 @@ private:
                     else
                         --i;
                     _tokens ~= Token(tokenMap[tok],tok,_lineNum);
-                    state = State.BEGIN;
+                    state = State.START;
                     break;
 
                 case State.CHAR_BEGIN:
@@ -272,7 +272,7 @@ private:
                         _tokens ~= Token(TType.CHAR_LITERAL,tok,_lineNum);
                         break;
                     }
-                    state = State.BEGIN;
+                    state = State.START;
                     --i;
                     break;
 
@@ -285,13 +285,13 @@ private:
                         // Divide operator
                         _tokens ~= Token(tokenMap[tok],tok,_lineNum);
                     }
-                    state = State.BEGIN;
+                    state = State.START;
                     --i;
                     break;
 
                 case State.COMMENT:
                     if (c == '\n')
-                        state = State.BEGIN;
+                        state = State.START;
                     break;
                 }
             }
@@ -343,7 +343,7 @@ static this()
         ")"         : TType.PAREN_CLOSE,
         "["         : TType.ARRAY_BEGIN,
         "]"         : TType.ARRAY_END,
-        "."         : TType.DOT,
+        "."         : TType.PERIOD,
         ","         : TType.COMMA,
         "+"         : TType.MATH_OP,
         "-"         : TType.MATH_OP,

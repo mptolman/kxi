@@ -1,5 +1,5 @@
 import std.stdio;
-import lexer, parser;
+import compiler;
 
 int main(string[] args)
 {
@@ -9,12 +9,8 @@ int main(string[] args)
     }
 
     try {   
-        File input = File(args[1]);
-        parse(new Lexer(input));
+        compile(args[1]);
         writeln("success");
-    }
-    catch (SyntaxError e) {
-        writeln("Syntax error. ",e.msg);
     }
     catch (Exception e) {
         writeln(e.msg);

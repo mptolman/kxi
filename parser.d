@@ -2,20 +2,9 @@ import std.conv;
 import std.stdio;
 import lexer;
 
-string[Symbol] symbols;
-
-struct Symbol
+void parse(File src)
 {
-    string id;
-    string kind;
-    string value;
-    string scop;
-    string data;
-}
-
-void parse(Lexer lex)
-{
-    tokens = lex;
+    tokens = new Lexer(src);
 
     compilation_unit(); // first pass
     tokens.rewind();
@@ -62,6 +51,7 @@ void assertType(TType type)
 void argument_list()
 {
     // argument_list::= expression { "," expression } ;
+
     expression();
     while (ct.type == TType.COMMA) {
         next();
@@ -157,7 +147,6 @@ void compilation_unit()
     next();
     while (ct.type == TType.CLASS)
         class_declaration();
-
     assertType(TType.VOID); 
     next();
     assertType(TType.MAIN); 
@@ -166,7 +155,6 @@ void compilation_unit()
     next();
     assertType(TType.PAREN_CLOSE); 
     next();
-
     method_body();
 }
 
@@ -182,7 +170,6 @@ void constructor_declaration()
         parameter_list();
     assertType(TType.PAREN_CLOSE); 
     next();
-
     method_body();
 }
 
@@ -203,11 +190,15 @@ void expression()
         expression();
         assertType(TType.PAREN_CLOSE);
         next();
-        //expressionz();
+        expressionz();
     }
     else if (ct.type == TType.IDENTIFIER) {
         next();
-        
+        if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
+            fn_arr_member();
+        if (ct.type == TType.PERIOD)
+            member_refz();
+        expressionz();
     }
     else {
         switch (ct.type) {
@@ -217,9 +208,10 @@ void expression()
         case TType.INT_LITERAL:
         case TType.CHAR_LITERAL:
             next();
+            expressionz();
             break;
         default:
-            break;
+            throw new SyntaxError(ct.line,"Expected expression; found ",ct.type," \"",ct.value,"\"");
         }
     }
 }
@@ -288,9 +280,11 @@ void field_declaration()
     }
 }
 
-void fn_array_member()
+void fn_arr_member()
 {
-    // fn_arr_member::= "(" [ argument_list ] ")" | "[" expression "]" ;
+    // fn_arr_member::= 
+    //        "(" [ argument_list ] ")" 
+    //      | "[" expression "]" ;
 
     if (ct.type == TType.PAREN_OPEN) {
         next();
@@ -312,13 +306,13 @@ void member_refz()
 {
     // member_refz::= "." identifier [ fn_arr_member ] [ member_refz ] ;
 
-    assertType(TType.DOT);
+    assertType(TType.PERIOD);
     next();
     assertType(TType.IDENTIFIER);
     next();
-    if (ct.type == TType.PAREN_OPEN)
+    if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
         fn_arr_member();
-    if (ct.type == TType.DOT)
+    if (ct.type == TType.PERIOD)
         member_refz();
 }
 
@@ -329,13 +323,10 @@ void method_body()
 
     assertType(TType.BLOCK_BEGIN);
     next();
-
     while (ct.type == TType.TYPE)
         variable_declaration();
-
     while (ct.type != TType.BLOCK_END)
         statement();
-
     assertType(TType.BLOCK_END);
     next();
 }
@@ -343,7 +334,7 @@ void method_body()
 void new_declaration()
 {
     // new_declaration::=
-    //    "(" [ argument_list ] ")"
+    //      "(" [ argument_list ] ")"
     //    | "[" expression "]"
     // ;
 
@@ -471,18 +462,15 @@ void variable_declaration()
     next();
     assertType(TType.IDENTIFIER);
     next();
-
     if (ct.type == TType.ARRAY_BEGIN) {
         next();
         assertType(TType.ARRAY_END);
         next();
     }
-
     if (ct.type == TType.ASSIGN_OP) {
         next();
         assignment_expression();
     }
-
     assertType(TType.SEMICOLON);
     next();
 }
