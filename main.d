@@ -10,9 +10,11 @@ int main(string[] args)
 
     try {   
         File input = File(args[1]);
-        File output = File(r"C:\out.txt", "w");
         parse(new Lexer(input));
         writeln("success");
+    }
+    catch (SyntaxError e) {
+        writeln("Syntax error. ",e.msg);
     }
     catch (Exception e) {
         writeln(e.msg);

@@ -38,11 +38,8 @@ enum TType : byte
     // IO operations
     STREAM_INPUT, STREAM_OUTPUT,
 
-    // Punctuation [,.]
-    COMMA, DOT,
-
-    // End of statement (;)
-    EOS,
+    // Punctuation [,.;]
+    COMMA, DOT, SEMICOLON,
 
     // End of file
     EOF,
@@ -364,6 +361,6 @@ static this()
         "="         : TType.ASSIGN_OP,
         "&&"        : TType.LOGIC_OP,
         "||"        : TType.LOGIC_OP,
-        ";"         : TType.EOS
+        ";"         : TType.SEMICOLON
     ];
 }

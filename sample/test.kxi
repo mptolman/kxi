@@ -1,4 +1,11 @@
+class Foo
+{
+    private int x;
+    Foo() { }
+}
+
 void main()
 {
     int x = 0;
+    cout << x;
 }

@@ -17,48 +17,29 @@ void parse(Lexer lex)
 {
     tokens = lex;
 
-    void continueParse()
-    {
-        // compiliation_unit::= 
-        //    {class_declaration} 
-        //    "void" "main" "(" ")" method_body
-        // ;
-
-        next();
-        while (ct.type == TType.CLASS)
-            class_declaration();
-
-        assertType(TType.VOID);
-        next();
-        assertType(TType.MAIN);
-        next();
-        assertType(TType.PAREN_OPEN);
-        next();
-        assertType(TType.PAREN_CLOSE);
-        next();
-        method_body();
-    }
-
-    continueParse(); // first pass
+    compilation_unit(); // first pass
     tokens.rewind();
-    continueParse(); // second pass
+    compilation_unit(); // second pass
 }
 
 class SyntaxError : Exception
 {
     this(Args...)(size_t line, Args args)
     {
-        super(text("(",line,"): Error: ",args));
+        super(text("(",line,"): ",args));
     }
 }
 
 /****************************
- Private data
- /***************************/
+ * Module-level data
+ ***************************/
 private:
 Lexer tokens;
 Token ct;
 
+/****************************
+* Helper functions
+/***************************/
 void next()
 {
     ct = tokens.next();
@@ -75,12 +56,17 @@ void assertType(TType type)
         throw new SyntaxError(ct.line,"Expected ",type,"; found ",ct.type," \"",ct.value,"\"");
 }
 
+/****************************
+* Nonterminal procedures
+****************************/
 void argument_list()
 {
     // argument_list::= expression { "," expression } ;
     expression();
-    while (ct.type == TType.COMMA)
+    while (ct.type == TType.COMMA) {
+        next();
         expression();
+    }
 }
 
 void assignment_expression()
@@ -96,7 +82,6 @@ void assignment_expression()
     switch (ct.type) {
     case TType.THIS:
         next();
-        // TODO
         break;
     case TType.NEW:
         next();
@@ -128,16 +113,18 @@ void class_declaration()
 
     assertType(TType.CLASS);
     next();
-    assertType(TType.IDENTIFIER);
+    assertType(TType.IDENTIFIER);     
+    auto className = ct.value;
     next();
-    assertType(TType.BLOCK_BEGIN);
+    assertType(TType.BLOCK_BEGIN); 
     next();
-    class_member_declaration();
-    assertType(TType.BLOCK_END);
+    while (ct.type != TType.BLOCK_END)
+        class_member_declaration(className);
+    assertType(TType.BLOCK_END); 
     next();
 }
 
-void class_member_declaration()
+void class_member_declaration(string className)
 {
     // class_member_declaration::=
     //      modifier type identifier field_declaration
@@ -146,15 +133,41 @@ void class_member_declaration()
 
     if (ct.type == TType.MODIFIER) {
         next();
-        assertType(TType.TYPE);
+        assertType(TType.TYPE); 
         next();
-        assertType(TType.IDENTIFIER);
+        assertType(TType.IDENTIFIER); 
         next();
         field_declaration();
     }
-    else {
-        constructor_declaration();        
+    else if (ct.value == className) {
+        constructor_declaration();
     }
+    else {
+        throw new SyntaxError(ct.line,"Expected modifier or constructor; found ",ct.type," \"",ct.value,"\"");
+    }
+}
+
+void compilation_unit()
+{
+    // compilation_unit::= 
+    //    {class_declaration} 
+    //    "void" "main" "(" ")" method_body
+    // ;
+
+    next();
+    while (ct.type == TType.CLASS)
+        class_declaration();
+
+    assertType(TType.VOID); 
+    next();
+    assertType(TType.MAIN); 
+    next();
+    assertType(TType.PAREN_OPEN); 
+    next();
+    assertType(TType.PAREN_CLOSE); 
+    next();
+
+    method_body();
 }
 
 void constructor_declaration()
@@ -162,6 +175,15 @@ void constructor_declaration()
     // constructor_declaration::=
     //    class_name "(" [parameter_list] ")" method_body ;
 
+    next();
+    assertType(TType.PAREN_OPEN);
+    next();
+    if (ct.type != TType.PAREN_CLOSE)
+        parameter_list();
+    assertType(TType.PAREN_CLOSE); 
+    next();
+
+    method_body();
 }
 
 void expression()
@@ -181,10 +203,11 @@ void expression()
         expression();
         assertType(TType.PAREN_CLOSE);
         next();
-        expressionz();
+        //expressionz();
     }
     else if (ct.type == TType.IDENTIFIER) {
-
+        next();
+        
     }
     else {
         switch (ct.type) {
@@ -242,6 +265,27 @@ void field_declaration()
     //    | "(" [parameter_list] ")" method_body
     //    ;
 
+    if (ct.type == TType.PAREN_OPEN) {
+        next();
+        if (ct.type != TType.PAREN_CLOSE)
+            parameter_list();
+        assertType(TType.PAREN_CLOSE);
+        next();
+        method_body();
+    }
+    else {
+        if (ct.type == TType.ARRAY_BEGIN) {
+            next();
+            assertType(TType.ARRAY_END); 
+            next();
+        }
+        if (ct.type == TType.ASSIGN_OP) {
+            next();
+            assignment_expression();
+        }
+        assertType(TType.SEMICOLON); 
+        next();
+    }
 }
 
 void fn_array_member()
@@ -249,15 +293,33 @@ void fn_array_member()
     // fn_arr_member::= "(" [ argument_list ] ")" | "[" expression "]" ;
 
     if (ct.type == TType.PAREN_OPEN) {
-        argument_list();
+        next();
+        if (ct.type != TType.PAREN_CLOSE)
+            argument_list();
         assertType(TType.PAREN_CLOSE);
+        next();
     }
     else {
         assertType(TType.ARRAY_BEGIN);
+        next();
         expression();
         assertType(TType.ARRAY_END);
+        next();
     }
+}
+
+void member_refz()
+{
+    // member_refz::= "." identifier [ fn_arr_member ] [ member_refz ] ;
+
+    assertType(TType.DOT);
     next();
+    assertType(TType.IDENTIFIER);
+    next();
+    if (ct.type == TType.PAREN_OPEN)
+        fn_arr_member();
+    if (ct.type == TType.DOT)
+        member_refz();
 }
 
 void method_body()
@@ -290,27 +352,42 @@ void new_declaration()
         if (ct.type != TType.PAREN_CLOSE)
             argument_list();
         assertType(TType.PAREN_CLOSE);
+        next();
     }
     else if (ct.type == TType.ARRAY_BEGIN) {
         next();
         expression();
         assertType(TType.ARRAY_END);
+        next();
     }
-    next();
+    else {
+        throw new SyntaxError(ct.line,"new_declaration");
+    }
 }
 
 void parameter()
 {
     // parameter::= type identifier ["[" "]"] ;
 
-    assertType(TType.TYPE);
-    next();
-    assertType(TType.IDENTIFIER);
+    assertType(TType.TYPE); 
+    next();    
+    assertType(TType.IDENTIFIER); 
     next();
     if (ct.type == TType.ARRAY_BEGIN) {
         next();
-        assertType(TType.ARRAY_END);
+        assertType(TType.ARRAY_END); 
         next();
+    }
+}
+
+void parameter_list()
+{
+    // parameter_list::= parameter { "," parameter } ;
+
+    parameter();
+    while (ct.type == TType.COMMA) {
+        next();
+        parameter(); 
     }
 }
 
@@ -326,7 +403,63 @@ void statement()
     //    | "cin" ">>" expression ";"
     // ;
 
-    
+    switch (ct.type) {
+    case TType.BLOCK_BEGIN:
+        next();
+        while (ct.type != TType.BLOCK_END)
+            statement();
+        assertType(TType.BLOCK_END);
+        next();
+        break;
+    case TType.IF:
+        next();
+        assertType(TType.PAREN_OPEN);
+        next();
+        expression();
+        assertType(TType.PAREN_CLOSE);
+        next();
+        statement();
+        if (ct.type == TType.ELSE)
+            statement();
+        break;
+    case TType.WHILE:
+        next();
+        assertType(TType.PAREN_OPEN);
+        next();
+        expression();
+        assertType(TType.PAREN_CLOSE);
+        next();
+        statement();
+        break;
+    case TType.RETURN:
+        next();
+        if (ct.type != TType.SEMICOLON)
+            expression();
+        assertType(TType.SEMICOLON);
+        next();
+        break;
+    case TType.COUT:
+        next();
+        assertType(TType.STREAM_OUTPUT);
+        next();
+        expression();
+        assertType(TType.SEMICOLON);
+        next();
+        break;
+    case TType.CIN:
+        next();
+        assertType(TType.STREAM_INPUT);
+        next();
+        expression();
+        assertType(TType.SEMICOLON);
+        next();
+        break;
+    default:
+        expression();
+        assertType(TType.SEMICOLON);
+        next();
+        break;
+    }
 }
 
 void variable_declaration()
@@ -350,6 +483,6 @@ void variable_declaration()
         assignment_expression();
     }
 
-    assertType(TType.EOS);
+    assertType(TType.SEMICOLON);
     next();
 }
