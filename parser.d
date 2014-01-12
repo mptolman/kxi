@@ -1,6 +1,6 @@
 import std.conv;
 import std.stdio;
-import lexer;
+import lexer, symbol;
 
 void parse(File src)
 {
