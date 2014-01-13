@@ -38,8 +38,8 @@ enum TType : byte
     // IO operations
     STREAM_INPUT, STREAM_OUTPUT,
 
-    // Punctuation [,.;]
-    COMMA, PERIOD, SEMICOLON,
+    // Punctuation [,.;']
+    COMMA, PERIOD, SEMICOLON, CHAR_DELIM,
 
     // End of file
     EOF,
@@ -133,7 +133,7 @@ private:
                     tok = [c];
 
                     if (isWhite(c)) { /* ignore whitespace */ }
-                    else if (isAlpha(c))
+                    else if (isAlpha(c) || c == '_')
                         state = State.ALPHANUM;
                     else if (isDigit(c))
                         state = State.DIGIT;
@@ -157,10 +157,12 @@ private:
                         state = State.PLUS_OR_MINUS;
                     else if (tok in tokenMap)
                         _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                    else
+                        _tokens ~= Token(TType.UNKNOWN,tok,_lineNum);
                     break;
 
                 case State.ALPHANUM:
-                    if (isAlphaNum(c)) {
+                    if (isAlphaNum(c) || c == '_') {
                         tok ~= c;
                         break;
                     }
@@ -168,6 +170,8 @@ private:
                         _tokens ~= Token(tokenMap[tok],tok,_lineNum);
                     else if (tok.length < MAX_ID_LEN)
                         _tokens ~= Token(TType.IDENTIFIER,tok,_lineNum);
+                    else
+                        _tokens ~= Token(TType.UNKNOWN,tok,_lineNum);
                     state = State.START;
                     --i;
                     break;
@@ -254,7 +258,9 @@ private:
                     break;
 
                 case State.CHAR_BEGIN:
-                    tok ~= c;
+                    _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                    tok = [c];
+                    _tokens ~= Token(TType.CHAR_LITERAL,tok,_lineNum);
                     if (c == '\\')
                         state = State.CHAR_ESCAPE;
                     else
@@ -262,16 +268,19 @@ private:
                     break;
 
                 case State.CHAR_ESCAPE:
-                    tok ~= c;
+                    tok = [c];
+                    _tokens ~= Token(TType.CHAR_LITERAL,tok,_lineNum);
                     state = State.CHAR_END;
                     break;
 
                 case State.CHAR_END:
+                    tok = [c];
                     if (c == '\'') {
-                        tok ~= c;
-                        _tokens ~= Token(TType.CHAR_LITERAL,tok,_lineNum);
+                        _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                        state = State.START;
                         break;
                     }
+                    _tokens ~= Token(TType.UNKNOWN,tok,_lineNum);
                     state = State.START;
                     --i;
                     break;
@@ -361,6 +370,7 @@ static this()
         "="         : TType.ASSIGN_OP,
         "&&"        : TType.LOGIC_OP,
         "||"        : TType.LOGIC_OP,
-        ";"         : TType.SEMICOLON
+        ";"         : TType.SEMICOLON,
+        "\'"        : TType.CHAR_DELIM
     ];
 }

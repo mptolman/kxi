@@ -1,5 +1,6 @@
 import std.conv;
 import std.stdio;
+import std.string;
 import lexer, symbol;
 
 void parse(File src)
@@ -13,6 +14,8 @@ void parse(File src)
 
     firstPass = false;
     compilation_unit(); // second pass
+
+    SymbolTable.print();
 }
 
 class SyntaxError : Exception
@@ -27,9 +30,40 @@ class SyntaxError : Exception
  * Module-level data
  ***************************/
 private:
+
 bool firstPass;
 Lexer tokens;
 Token ct;
+Scope cs;
+
+struct Scope
+{
+private:
+    static string _scope;
+
+public:    
+    static void push(T)(T t)
+    {
+        _scope ~= _scope.length ? '.' ~ to!string(t) : to!string(t);
+    }
+
+    static void pop()
+    {
+        auto pos = lastIndexOf(_scope,'.');
+        if (pos >= 0)
+            _scope = _scope[0..pos];
+    }
+
+    static void reset()
+    {
+        _scope = null;
+    }
+
+    static auto toString()
+    {
+        return _scope;
+    }
+}
 
 /****************************
 * Helper functions
@@ -53,15 +87,251 @@ void assertType(TType type)
 /****************************
 * Nonterminal procedures
 ****************************/
-void argument_list()
+void compilation_unit()
 {
-    // argument_list::= expression { "," expression } ;
+    // compilation_unit::= 
+    //    {class_declaration} 
+    //    "void" "main" "(" ")" method_body
+    // ;
 
-    expression();
+    Scope.reset();
+    Scope.push('g');
+
+    next();
+    while (ct.type == TType.CLASS)
+        class_declaration();
+
+    assertType(TType.VOID);
+    auto returnType = ct.value;
+    
+    next();
+    assertType(TType.MAIN);
+    auto methodName = ct.value;
+
+    Scope.push(methodName);
+
+    next();
+    assertType(TType.PAREN_OPEN); 
+    next();
+    assertType(TType.PAREN_CLOSE); 
+    next();
+    method_body();
+
+    Scope.pop();
+
+    if (firstPass)
+        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER));
+}
+
+void class_declaration()
+{
+    // class_declaration::=
+    //    "class" class_name "{" 
+    //    {class_member_declaration} "}" 
+    // ;
+
+    assertType(TType.CLASS);
+    next();
+    assertType(TType.IDENTIFIER);  
+    auto className = ct.value;
+
+    Scope.push(className);    
+
+    next();
+    assertType(TType.BLOCK_BEGIN);     
+    next();
+    while (ct.type != TType.BLOCK_END)
+        class_member_declaration(className);
+    assertType(TType.BLOCK_END); 
+    next();
+
+    Scope.pop();
+
+    if (firstPass)
+        SymbolTable.add(new ClassSymbol(className));
+}
+
+void class_member_declaration(string className)
+{
+    // class_member_declaration::=
+    //      modifier type identifier field_declaration
+    //    | constructor_declaration  
+    // ;
+
+    if (ct.type == TType.MODIFIER) {
+        auto modifier = ct.value;
+
+        next();
+        assertType(TType.TYPE);
+        auto type = ct.value;
+
+        next();        
+        assertType(TType.IDENTIFIER);
+        auto identifier = ct.value;
+
+        next();
+        field_declaration(identifier,type,modifier);
+    }
+    else if (ct.value == className) {
+        constructor_declaration();
+    }
+    else {
+        throw new SyntaxError(ct.line,"Expected modifier or constructor; found ",ct.type," \"",ct.value,"\"");
+    }
+}
+
+void constructor_declaration()
+{
+    // constructor_declaration::=
+    //    class_name "(" [parameter_list] ")" method_body ;
+
+    auto className = ct.value;
+    auto methodSymbol = new MethodSymbol(className,"this",PUBLIC_MODIFIER);
+
+    Scope.push(className);
+
+    next();
+    assertType(TType.PAREN_OPEN);
+    next();
+    if (ct.type != TType.PAREN_CLOSE)
+        parameter_list(methodSymbol);
+    assertType(TType.PAREN_CLOSE); 
+    next();    
+
+    method_body();
+
+    Scope.pop();
+
+    if (firstPass)
+        SymbolTable.add(methodSymbol);
+}
+
+void field_declaration(string identifier, string type, string modifier)
+{
+    // field_declaration::=
+    //     ["[" "]"] ["=" assignment_expression ] ";"  
+    //    | "(" [parameter_list] ")" method_body
+    //    ;
+
+    Symbol s;
+
+    if (ct.type == TType.PAREN_OPEN) {
+        Scope.push(identifier);
+        s = new MethodSymbol(identifier,type,modifier);
+
+        next();
+        if (ct.type != TType.PAREN_CLOSE)
+            parameter_list(cast(MethodSymbol)s);
+        assertType(TType.PAREN_CLOSE);
+        next();
+
+        method_body();
+        Scope.pop();
+    }
+    else {
+        s = new IVarSymbol(identifier,type,modifier);
+
+        if (ct.type == TType.ARRAY_BEGIN) {
+            next();
+            assertType(TType.ARRAY_END); 
+            next();
+        }
+        if (ct.type == TType.ASSIGN_OP) {
+            next();
+            assignment_expression();
+        }
+
+        assertType(TType.SEMICOLON); 
+        next();
+    }
+
+    if (firstPass)
+        SymbolTable.add(s);
+}
+
+void parameter_list(MethodSymbol methodSymbol)
+{
+    // parameter_list::= parameter { "," parameter } ;
+
+    parameter(methodSymbol);
     while (ct.type == TType.COMMA) {
         next();
-        expression();
+        parameter(methodSymbol); 
     }
+}
+
+void parameter(MethodSymbol methodSymbol)
+{
+    // parameter::= type identifier ["[" "]"] ;
+
+    assertType(TType.TYPE);
+    auto type = ct.value;
+
+    next();    
+    assertType(TType.IDENTIFIER); 
+    auto identifier = ct.value;
+
+    next();
+    if (ct.type == TType.ARRAY_BEGIN) {
+        next();
+        assertType(TType.ARRAY_END); 
+        next();
+    }
+
+    if (firstPass) {
+        auto p = new ParamSymbol(identifier,type);
+        methodSymbol.params ~= p.id;
+        SymbolTable.add(p);
+    }
+}
+
+void method_body()
+{
+    // method_body::=
+    //    "{" {variable_declaration} {statement} "}" ;
+
+    assertType(TType.BLOCK_BEGIN);
+    next();
+
+    while (ct.type == TType.TYPE)
+        variable_declaration();
+
+    while (ct.type != TType.BLOCK_END)
+        statement();
+
+    assertType(TType.BLOCK_END);
+    next();
+}
+
+void variable_declaration()
+{
+    // variable_declaration::= 
+    //    type identifier ["[" "]"] ["=" assignment_expression ] ";" ;
+
+    assertType(TType.TYPE);
+    auto type = ct.value;
+
+    next();
+    assertType(TType.IDENTIFIER);
+    auto identifier = ct.value;
+
+    next();
+    if (ct.type == TType.ARRAY_BEGIN) {
+        next();
+        assertType(TType.ARRAY_END);
+        next();
+    }
+
+    if (ct.type == TType.ASSIGN_OP) {
+        next();
+        assignment_expression();
+    }
+
+    assertType(TType.SEMICOLON);
+    next();
+
+    if (firstPass)
+        SymbolTable.add(new LVarSymbol(identifier,type));
 }
 
 void assignment_expression()
@@ -96,314 +366,6 @@ void assignment_expression()
     default:
         expression();
         break;
-    }
-}
-
-void class_declaration()
-{
-    // class_declaration::=
-    //    "class" class_name "{" 
-    //    {class_member_declaration} "}" 
-    // ;
-
-    assertType(TType.CLASS);
-    next();
-    assertType(TType.IDENTIFIER);     
-    auto className = ct.value;
-
-    if (firstPass) {
-        auto s = new ClassSymbol();
-        s.value = ct.value;
-        symbol.symbolTable[s.id] = s;
-    }
-
-    next();
-    assertType(TType.BLOCK_BEGIN); 
-    next();
-    while (ct.type != TType.BLOCK_END)
-        class_member_declaration(className);
-    assertType(TType.BLOCK_END); 
-    next();
-}
-
-void class_member_declaration(string className)
-{
-    // class_member_declaration::=
-    //      modifier type identifier field_declaration
-    //    | constructor_declaration  
-    // ;
-
-    if (ct.type == TType.MODIFIER) {
-        auto modifier = ct.value;
-        next();
-        assertType(TType.TYPE);
-        next();
-        assertType(TType.IDENTIFIER); 
-        next();
-        field_declaration();
-    }
-    else if (ct.value == className) {
-        constructor_declaration();
-    }
-    else {
-        throw new SyntaxError(ct.line,"Expected modifier or constructor; found ",ct.type," \"",ct.value,"\"");
-    }
-}
-
-void compilation_unit()
-{
-    // compilation_unit::= 
-    //    {class_declaration} 
-    //    "void" "main" "(" ")" method_body
-    // ;
-
-    next();
-    while (ct.type == TType.CLASS)
-        class_declaration();
-
-    assertType(TType.VOID);
-    auto returnType = ct.value;
-    
-    next();
-    assertType(TType.MAIN);
-    auto methodName = ct.value;
-
-    if (firstPass) {
-        auto s = new MethodSymbol();
-        s.value = methodName;
-        s.returnType = returnType;
-        symbol.symbolTable[s.id] = s;
-    }
-
-    next();
-    assertType(TType.PAREN_OPEN); 
-    next();
-    assertType(TType.PAREN_CLOSE); 
-    next();
-    method_body();
-}
-
-void constructor_declaration()
-{
-    // constructor_declaration::=
-    //    class_name "(" [parameter_list] ")" method_body ;
-
-    next();
-    assertType(TType.PAREN_OPEN);
-    next();
-    if (ct.type != TType.PAREN_CLOSE)
-        parameter_list();
-    assertType(TType.PAREN_CLOSE); 
-    next();
-    method_body();
-}
-
-void expression()
-{
-    // expression::=
-    //      "(" expression ")" [ expressionz ]
-    //    | "true" [ expressionz ]
-    //    | "false" [ expressionz ]
-    //    | "null" [ expressionz ]
-    //    | numeric_literal [ expressionz ]
-    //    | character_literal [ expressionz ]
-    //    | identifier [ fn_arr_member ] [ member_refz ] [ expressionz ]
-    // ;
-
-    if (ct.type == TType.PAREN_OPEN) {
-        next();
-        expression();
-        assertType(TType.PAREN_CLOSE);
-        next();
-        expressionz();
-    }
-    else if (ct.type == TType.IDENTIFIER) {
-        next();
-        if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
-            fn_arr_member();
-        if (ct.type == TType.PERIOD)
-            member_refz();
-        expressionz();
-    }
-    else {
-        switch (ct.type) {
-        case TType.TRUE:
-        case TType.FALSE:
-        case TType.NULL:
-        case TType.INT_LITERAL:
-        case TType.CHAR_LITERAL:
-            next();
-            expressionz();
-            break;
-        default:
-            throw new SyntaxError(ct.line,"Expected expression; found ",ct.type," \"",ct.value,"\"");
-        }
-    }
-}
-
-void expressionz()
-{
-    // expressionz::=
-    //        "=" assignment_expression 
-    //      | "&&" expression       /* logical connective expression */
-    //      | "||" expression       /* logical connective expression */
-    //      | "==" expression       /* boolean expression */
-    //      | "!=" expression       /* boolean expression */
-    //      | "<=" expression       /* boolean expression */
-    //      | ">=" expression       /* boolean expression */
-    //      | "<" expression        /* boolean expression */
-    //      | ">" expression        /* boolean expression */
-    //      | "+" expression        /* mathematical expression */
-    //      | "-" expression        /* mathematical expression */
-    //      | "*" expression        /* mathematical expression */
-    //      | "/" expression        /* mathematical expression */
-    // ;
-
-    switch (ct.type) {
-    case TType.ASSIGN_OP:
-        next();
-        assignment_expression();
-        break;
-    case TType.LOGIC_OP:
-    case TType.REL_OP:
-    case TType.MATH_OP:
-        next();
-        expression();
-        break;
-    default:
-        break;
-    } 
-}
-
-void field_declaration()
-{
-    // field_declaration::=
-    //     ["[" "]"] ["=" assignment_expression ] ";"  
-    //    | "(" [parameter_list] ")" method_body
-    //    ;
-
-    if (ct.type == TType.PAREN_OPEN) {
-        next();
-        if (ct.type != TType.PAREN_CLOSE)
-            parameter_list();
-        assertType(TType.PAREN_CLOSE);
-        next();
-        method_body();
-    }
-    else {
-        if (ct.type == TType.ARRAY_BEGIN) {
-            next();
-            assertType(TType.ARRAY_END); 
-            next();
-        }
-        if (ct.type == TType.ASSIGN_OP) {
-            next();
-            assignment_expression();
-        }
-        assertType(TType.SEMICOLON); 
-        next();
-    }
-}
-
-void fn_arr_member()
-{
-    // fn_arr_member::= 
-    //        "(" [ argument_list ] ")" 
-    //      | "[" expression "]" ;
-
-    if (ct.type == TType.PAREN_OPEN) {
-        next();
-        if (ct.type != TType.PAREN_CLOSE)
-            argument_list();
-        assertType(TType.PAREN_CLOSE);
-        next();
-    }
-    else {
-        assertType(TType.ARRAY_BEGIN);
-        next();
-        expression();
-        assertType(TType.ARRAY_END);
-        next();
-    }
-}
-
-void member_refz()
-{
-    // member_refz::= "." identifier [ fn_arr_member ] [ member_refz ] ;
-
-    assertType(TType.PERIOD);
-    next();
-    assertType(TType.IDENTIFIER);
-    next();
-    if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
-        fn_arr_member();
-    if (ct.type == TType.PERIOD)
-        member_refz();
-}
-
-void method_body()
-{
-    // method_body::=
-    //    "{" {variable_declaration} {statement} "}" ;
-
-    assertType(TType.BLOCK_BEGIN);
-    next();
-    while (ct.type == TType.TYPE)
-        variable_declaration();
-    while (ct.type != TType.BLOCK_END)
-        statement();
-    assertType(TType.BLOCK_END);
-    next();
-}
-
-void new_declaration()
-{
-    // new_declaration::=
-    //      "(" [ argument_list ] ")"
-    //    | "[" expression "]"
-    // ;
-
-    if (ct.type == TType.PAREN_OPEN) {
-        next();
-        if (ct.type != TType.PAREN_CLOSE)
-            argument_list();
-        assertType(TType.PAREN_CLOSE);
-        next();
-    }
-    else if (ct.type == TType.ARRAY_BEGIN) {
-        next();
-        expression();
-        assertType(TType.ARRAY_END);
-        next();
-    }
-    else {
-        throw new SyntaxError(ct.line,"new_declaration");
-    }
-}
-
-void parameter()
-{
-    // parameter::= type identifier ["[" "]"] ;
-
-    assertType(TType.TYPE); 
-    next();    
-    assertType(TType.IDENTIFIER); 
-    next();
-    if (ct.type == TType.ARRAY_BEGIN) {
-        next();
-        assertType(TType.ARRAY_END); 
-        next();
-    }
-}
-
-void parameter_list()
-{
-    // parameter_list::= parameter { "," parameter } ;
-
-    parameter();
-    while (ct.type == TType.COMMA) {
-        next();
-        parameter(); 
     }
 }
 
@@ -478,24 +440,208 @@ void statement()
     }
 }
 
-void variable_declaration()
+void expression()
 {
-    // variable_declaration::= 
-    //    type identifier ["[" "]"] ["=" assignment_expression ] ";" ;
+    // expression::=
+    //      "(" expression ")" [ expressionz ]
+    //    | "true" [ expressionz ]
+    //    | "false" [ expressionz ]
+    //    | "null" [ expressionz ]
+    //    | numeric_literal [ expressionz ]
+    //    | character_literal [ expressionz ]
+    //    | identifier [ fn_arr_member ] [ member_refz ] [ expressionz ]
+    // ;
 
-    assertType(TType.TYPE);
-    next();
-    assertType(TType.IDENTIFIER);
-    next();
-    if (ct.type == TType.ARRAY_BEGIN) {
+    if (ct.type == TType.PAREN_OPEN) {
         next();
+        expression();
+        assertType(TType.PAREN_CLOSE);
+        next();
+        expressionz();
+    }
+    else if (ct.type == TType.IDENTIFIER) {
+        next();
+        if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
+            fn_arr_member();
+        if (ct.type == TType.PERIOD)
+            member_refz();
+        expressionz();
+    }
+    else {
+        switch (ct.type) {
+        case TType.TRUE:
+        case TType.FALSE:
+        case TType.NULL:
+        case TType.INT_LITERAL:
+            numeric_literal();
+            expressionz();
+            break;
+        case TType.CHAR_DELIM:
+            character_literal();
+            expressionz();
+            break;
+        default:
+            throw new SyntaxError(ct.line,"Expected expression; found ",ct.type," \"",ct.value,"\"");
+        }
+    }
+}
+
+void expressionz()
+{
+    // expressionz::=
+    //        "=" assignment_expression 
+    //      | "&&" expression       /* logical connective expression */
+    //      | "||" expression       /* logical connective expression */
+    //      | "==" expression       /* boolean expression */
+    //      | "!=" expression       /* boolean expression */
+    //      | "<=" expression       /* boolean expression */
+    //      | ">=" expression       /* boolean expression */
+    //      | "<" expression        /* boolean expression */
+    //      | ">" expression        /* boolean expression */
+    //      | "+" expression        /* mathematical expression */
+    //      | "-" expression        /* mathematical expression */
+    //      | "*" expression        /* mathematical expression */
+    //      | "/" expression        /* mathematical expression */
+    // ;
+
+    switch (ct.type) {
+    case TType.ASSIGN_OP:
+        next();
+        assignment_expression();
+        break;
+    case TType.LOGIC_OP:
+    case TType.REL_OP:
+    case TType.MATH_OP:
+        next();
+        expression();
+        break;
+    default:
+        break;
+    } 
+}
+
+void new_declaration()
+{
+    // new_declaration::=
+    //      "(" [ argument_list ] ")"
+    //    | "[" expression "]"
+    // ;
+
+    if (ct.type == TType.PAREN_OPEN) {
+        next();
+        if (ct.type != TType.PAREN_CLOSE)
+            argument_list();
+        assertType(TType.PAREN_CLOSE);
+        next();
+    }
+    else if (ct.type == TType.ARRAY_BEGIN) {
+        next();
+        expression();
         assertType(TType.ARRAY_END);
         next();
     }
-    if (ct.type == TType.ASSIGN_OP) {
-        next();
-        assignment_expression();
+    else {
+        throw new SyntaxError(ct.line,"new_declaration");
     }
-    assertType(TType.SEMICOLON);
+}
+
+void fn_arr_member()
+{
+    // fn_arr_member::= 
+    //        "(" [ argument_list ] ")" 
+    //      | "[" expression "]" ;
+
+    if (ct.type == TType.PAREN_OPEN) {
+        next();
+        if (ct.type != TType.PAREN_CLOSE)
+            argument_list();
+        assertType(TType.PAREN_CLOSE);
+        next();
+    }
+    else {
+        assertType(TType.ARRAY_BEGIN);
+        next();
+        expression();
+        assertType(TType.ARRAY_END);
+        next();
+    }
+}
+
+void member_refz()
+{
+    // member_refz::= "." identifier [ fn_arr_member ] [ member_refz ] ;
+
+    assertType(TType.PERIOD);
     next();
+    assertType(TType.IDENTIFIER);
+    next();
+    if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
+        fn_arr_member();
+    if (ct.type == TType.PERIOD)
+        member_refz();
+}
+
+void argument_list()
+{
+    // argument_list::= expression { "," expression } ;
+
+    expression();
+    while (ct.type == TType.COMMA) {
+        next();
+        expression();
+    }
+}
+
+void character_literal()
+{
+    // character_literal::= "\’" character "\’" ;
+
+    string s;
+
+    assertType(TType.CHAR_DELIM);
+    next();
+    assertType(TType.CHAR_LITERAL);
+
+    if (ct.value == "\\") {
+        next();
+        assertType(TType.CHAR_LITERAL);
+        switch (ct.value) {
+        case "\\":
+            s = "\\";
+            break;
+        case "n":
+            s = "\n";
+            break;
+        case "t":
+            s = "\t";
+            break;
+        case "\'":
+            s = "\'";
+            break;
+        default:        
+            throw new SyntaxError(ct.line,"Invalid character escape sequence \'\\",ct.value,"\'");
+        }
+    }
+    else {
+        s = ct.value;
+    }
+
+    next();
+    assertType(TType.CHAR_DELIM);
+    next();
+
+    if (firstPass)
+        SymbolTable.add(new GlobalSymbol(s,"char"));
+}
+
+void numeric_literal()
+{
+    // numeric_literal::= ["+" | "-"]number ;
+    
+    assertType(TType.INT_LITERAL);
+    auto s = ct.value;
+    next();
+
+    if (firstPass)
+        SymbolTable.add(new GlobalSymbol(s,"int"));
 }
