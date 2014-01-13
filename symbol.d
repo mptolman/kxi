@@ -2,14 +2,14 @@ import std.conv;
 
 Symbol[string] symbolTable;
 
-enum SymbolType : byte
-{
-    CLASS,
-    IVAR,
-    LVAR,
-    METHOD,
-    PARAM
-}
+//enum SymbolType : byte
+//{
+//    CLASS,
+//    IVAR,
+//    LVAR,
+//    METHOD,
+//    PARAM
+//}
 
 //struct Symbol
 //{
@@ -22,34 +22,49 @@ enum SymbolType : byte
 abstract class Symbol
 {
     static size_t counter = 0;
-    size_t id;
+    string id;
     string value;
-    string _scope;
+    string scop;
     string accessMod;
 
-    this()
+    this(string prefix)
     {
-        this.id = ++counter;
+        this.id = text(prefix,++counter);
     }
 }
 
-abstract class SymVar : Symbol
+class ClassSymbol : Symbol
 {
-    string type;
+    this() { super("C"); }
 }
 
-class LVar : SymVar {}
-class Param : SymVar {}
-class IVar : SymVar {}
-
-class SymMethod : Symbol
+class MethodSymbol : Symbol
 {
     string returnType;
     string[] params;
+
+    this() { super("M"); }
 }
 
-auto generateSymId(T)(T prefix)
+
+abstract class VarSymbol : Symbol
 {
-    static auto counter = 0;
-    return text(prefix,++counter);
+    string type;
+
+    this(string prefix) { super(prefix); }
 }
+
+class LVarSymbol : VarSymbol
+{
+    this() { super("L"); }
+}
+class ParamSymbol : VarSymbol
+{
+    this() { super("P"); }
+}
+class IVarSymbol : VarSymbol
+{
+    this() { super("V"); }
+}
+
+

@@ -6,8 +6,12 @@ void parse(File src)
 {
     tokens = new Lexer(src);
 
+    firstPass = true;
     compilation_unit(); // first pass
+
     tokens.rewind();
+
+    firstPass = false;
     compilation_unit(); // second pass
 }
 
@@ -23,6 +27,7 @@ class SyntaxError : Exception
  * Module-level data
  ***************************/
 private:
+bool firstPass;
 Lexer tokens;
 Token ct;
 
@@ -105,6 +110,13 @@ void class_declaration()
     next();
     assertType(TType.IDENTIFIER);     
     auto className = ct.value;
+
+    if (firstPass) {
+        auto s = new ClassSymbol();
+        s.value = ct.value;
+        symbol.symbolTable[s.id] = s;
+    }
+
     next();
     assertType(TType.BLOCK_BEGIN); 
     next();
@@ -122,8 +134,9 @@ void class_member_declaration(string className)
     // ;
 
     if (ct.type == TType.MODIFIER) {
+        auto modifier = ct.value;
         next();
-        assertType(TType.TYPE); 
+        assertType(TType.TYPE);
         next();
         assertType(TType.IDENTIFIER); 
         next();
@@ -147,9 +160,21 @@ void compilation_unit()
     next();
     while (ct.type == TType.CLASS)
         class_declaration();
-    assertType(TType.VOID); 
+
+    assertType(TType.VOID);
+    auto returnType = ct.value;
+    
     next();
-    assertType(TType.MAIN); 
+    assertType(TType.MAIN);
+    auto methodName = ct.value;
+
+    if (firstPass) {
+        auto s = new MethodSymbol();
+        s.value = methodName;
+        s.returnType = returnType;
+        symbol.symbolTable[s.id] = s;
+    }
+
     next();
     assertType(TType.PAREN_OPEN); 
     next();
