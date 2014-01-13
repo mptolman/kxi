@@ -113,10 +113,10 @@ void compilation_unit()
     next();
     assertType(TType.PAREN_OPEN); 
     next();
-    assertType(TType.PAREN_CLOSE); 
+    assertType(TType.PAREN_CLOSE);     
     next();
-    method_body();
 
+    method_body();
     Scope.pop();
 
     if (firstPass)
@@ -132,7 +132,7 @@ void class_declaration()
 
     assertType(TType.CLASS);
     next();
-    assertType(TType.IDENTIFIER);  
+    assertType(TType.IDENTIFIER);    
     auto className = ct.value;
 
     Scope.push(className);    
@@ -199,7 +199,6 @@ void constructor_declaration()
     next();    
 
     method_body();
-
     Scope.pop();
 
     if (firstPass)
@@ -637,7 +636,7 @@ void character_literal()
 void numeric_literal()
 {
     // numeric_literal::= ["+" | "-"]number ;
-    
+
     assertType(TType.INT_LITERAL);
     auto s = ct.value;
     next();
