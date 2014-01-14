@@ -1,13 +1,19 @@
-class Foo
+class Tree
+{
+    private Node left;
+    private Node right;
+}
+
+class Node
 {
     private int _x;
     private int _y;
-    Foo(int x, int y) 
+    
+    Node(int x, int y) 
     {
         char c = '\'';
         _x = x;
         _y = y;
-        
     }
 
     public int add()
@@ -20,6 +26,15 @@ class Foo
 
 void main()
 {
-    int x = +12;
+    Tree tree = new Tree();
+    int x = 12;
     cout << x;
+    if (x == y)
+        cout << y;
+    else
+        cout << x;
+
+    while (true) {
+    
+    }
 }

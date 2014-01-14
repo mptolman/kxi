@@ -14,8 +14,6 @@ void parse(File src)
 
     firstPass = false;
     compilation_unit(); // second pass
-
-    SymbolTable.print();
 }
 
 class SyntaxError : Exception
@@ -78,10 +76,22 @@ Token peek()
     return tokens.peek();
 }
 
-void assertType(TType type)
+void assertType(TType types[] ...)
 {
-    if (ct.type != type)
-        throw new SyntaxError(ct.line,"Expected ",type,"; found ",ct.type," \"",ct.value,"\"");
+    foreach (t; types)
+        if (ct.type == t)
+            return;
+
+    throw new SyntaxError(ct.line,"Expected ",types,". Found ",ct.type," \"",ct.value,"\"");
+}
+
+void assertValue(string values[] ...)
+{
+    foreach (v; values)
+        if (ct.value == v)
+            return;
+
+    throw new SyntaxError(ct.line,"Expected ",values,". Found \"",ct.value,"\"");
 }
 
 /****************************
@@ -101,7 +111,7 @@ void compilation_unit()
     while (ct.type == TType.CLASS)
         class_declaration();
 
-    assertType(TType.VOID);
+    assertValue("void");
     auto returnType = ct.value;
     
     next();
@@ -115,8 +125,8 @@ void compilation_unit()
     next();
     assertType(TType.PAREN_CLOSE);     
     next();
-
     method_body();
+
     Scope.pop();
 
     if (firstPass)
@@ -130,9 +140,9 @@ void class_declaration()
     //    {class_member_declaration} "}" 
     // ;
 
-    assertType(TType.CLASS);
-    next();
-    assertType(TType.IDENTIFIER);    
+    assertType(TType.CLASS);    
+    next();    
+    assertType(TType.IDENTIFIER);
     auto className = ct.value;
 
     Scope.push(className);    
@@ -162,7 +172,7 @@ void class_member_declaration(string className)
         auto modifier = ct.value;
 
         next();
-        assertType(TType.TYPE);
+        assertType(TType.TYPE,TType.IDENTIFIER);
         auto type = ct.value;
 
         next();        
@@ -170,42 +180,17 @@ void class_member_declaration(string className)
         auto identifier = ct.value;
 
         next();
-        field_declaration(identifier,type,modifier);
+        field_declaration(modifier,type,identifier);
     }
     else if (ct.value == className) {
         constructor_declaration();
     }
     else {
-        throw new SyntaxError(ct.line,"Expected modifier or constructor; found ",ct.type," \"",ct.value,"\"");
+        throw new SyntaxError(ct.line,"Expected modifier or constructor. Found ",ct.type," \"",ct.value,"\"");
     }
 }
 
-void constructor_declaration()
-{
-    // constructor_declaration::=
-    //    class_name "(" [parameter_list] ")" method_body ;
-
-    auto className = ct.value;
-    auto methodSymbol = new MethodSymbol(className,"this",PUBLIC_MODIFIER);
-
-    Scope.push(className);
-
-    next();
-    assertType(TType.PAREN_OPEN);
-    next();
-    if (ct.type != TType.PAREN_CLOSE)
-        parameter_list(methodSymbol);
-    assertType(TType.PAREN_CLOSE); 
-    next();    
-
-    method_body();
-    Scope.pop();
-
-    if (firstPass)
-        SymbolTable.add(methodSymbol);
-}
-
-void field_declaration(string identifier, string type, string modifier)
+void field_declaration(string modifier, string type, string identifier)
 {
     // field_declaration::=
     //     ["[" "]"] ["=" assignment_expression ] ";"  
@@ -248,6 +233,32 @@ void field_declaration(string identifier, string type, string modifier)
         SymbolTable.add(s);
 }
 
+void constructor_declaration()
+{
+    // constructor_declaration::=
+    //    class_name "(" [parameter_list] ")" method_body ;
+
+    assertType(TType.IDENTIFIER);
+    auto className = ct.value;
+    auto methodSymbol = new MethodSymbol(className,"this",PUBLIC_MODIFIER);
+
+    Scope.push(className);
+
+    next();
+    assertType(TType.PAREN_OPEN);
+    next();
+    if (ct.type != TType.PAREN_CLOSE)
+        parameter_list(methodSymbol);
+    assertType(TType.PAREN_CLOSE); 
+    next();
+
+    method_body();
+    Scope.pop();
+
+    if (firstPass)
+        SymbolTable.add(methodSymbol);
+}
+
 void parameter_list(MethodSymbol methodSymbol)
 {
     // parameter_list::= parameter { "," parameter } ;
@@ -263,7 +274,7 @@ void parameter(MethodSymbol methodSymbol)
 {
     // parameter::= type identifier ["[" "]"] ;
 
-    assertType(TType.TYPE);
+    assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = ct.value;
 
     next();    
@@ -292,8 +303,11 @@ void method_body()
     assertType(TType.BLOCK_BEGIN);
     next();
 
-    while (ct.type == TType.TYPE)
+    while (ct.type == TType.TYPE || ct.type == TType.IDENTIFIER) {
+        if (ct.type == TType.IDENTIFIER && peek().type == TType.ASSIGN_OP)
+            break;
         variable_declaration();
+    }
 
     while (ct.type != TType.BLOCK_END)
         statement();
@@ -307,7 +321,7 @@ void variable_declaration()
     // variable_declaration::= 
     //    type identifier ["[" "]"] ["=" assignment_expression ] ";" ;
 
-    assertType(TType.TYPE);
+    assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = ct.value;
 
     next();
@@ -349,7 +363,7 @@ void assignment_expression()
         break;
     case TType.NEW:
         next();
-        assertType(TType.TYPE);
+        assertType(TType.TYPE,TType.IDENTIFIER);
         next();
         new_declaration();
         break;
@@ -396,8 +410,10 @@ void statement()
         assertType(TType.PAREN_CLOSE);
         next();
         statement();
-        if (ct.type == TType.ELSE)
+        if (ct.type == TType.ELSE) {
+            next();
             statement();
+        }
         break;
     case TType.WHILE:
         next();
@@ -469,8 +485,11 @@ void expression()
     else {
         switch (ct.type) {
         case TType.TRUE:
-        case TType.FALSE:
+        case TType.FALSE:        
         case TType.NULL:
+            next();
+            expressionz();
+            break;
         case TType.INT_LITERAL:
             numeric_literal();
             expressionz();
@@ -540,7 +559,7 @@ void new_declaration()
         next();
     }
     else {
-        throw new SyntaxError(ct.line,"new_declaration");
+        throw new SyntaxError(ct.line,"Expected ( or [. Found ",ct.type," \"",ct.value,"\"");
     }
 }
 

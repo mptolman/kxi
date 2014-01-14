@@ -23,7 +23,7 @@ public:
     static void print()
     {
         foreach (s;  _table)
-            writeln(s.id,": ",s.value," [",s.modifier,"]");
+            writeln(s);
     }
 }
 
@@ -80,7 +80,6 @@ class MethodSymbol : Symbol
     }
 }
 
-
 abstract class VarSymbol : Symbol
 {
     string type;
@@ -107,6 +106,7 @@ class LVarSymbol : VarSymbol
         super("L",identifier,type,PRIVATE_MODIFIER);
     }
 }
+
 class ParamSymbol : VarSymbol
 {
     this(string identifier, string type)
@@ -114,6 +114,7 @@ class ParamSymbol : VarSymbol
         super("P",identifier,type,PRIVATE_MODIFIER);
     }
 }
+
 class IVarSymbol : VarSymbol
 {
     this(string identifier, string type, string modifier)
@@ -121,5 +122,3 @@ class IVarSymbol : VarSymbol
         super("V",identifier,type,modifier);
     }
 }
-
-
