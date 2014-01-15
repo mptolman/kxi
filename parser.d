@@ -28,11 +28,9 @@ class SyntaxError : Exception
  * Module-level data
  ***************************/
 private:
-
 bool firstPass;
 Lexer tokens;
 Token ct;
-Scope cs;
 
 struct Scope
 {
@@ -40,9 +38,9 @@ private:
     static string _scope;
 
 public:    
-    static void push(T)(T t)
+    static void push(string s)
     {
-        _scope ~= _scope.length ? '.' ~ to!string(t) : to!string(t);
+        _scope ~= _scope.length ? '.' ~ s : s;
     }
 
     static void pop()
@@ -71,7 +69,7 @@ void next()
     ct = tokens.next();
 }
 
-Token peek()
+auto peek()
 {
     return tokens.peek();
 }
@@ -105,7 +103,7 @@ void compilation_unit()
     // ;
 
     Scope.reset();
-    Scope.push('g');
+    Scope.push("g");
 
     next();
     while (ct.type == TType.CLASS)
@@ -118,6 +116,9 @@ void compilation_unit()
     assertType(TType.MAIN);
     auto methodName = ct.value;
 
+    if (firstPass)
+        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,Scope.toString,ct.line));
+
     Scope.push(methodName);
 
     next();
@@ -128,9 +129,6 @@ void compilation_unit()
     method_body();
 
     Scope.pop();
-
-    if (firstPass)
-        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER));
 }
 
 void class_declaration()
@@ -141,9 +139,12 @@ void class_declaration()
     // ;
 
     assertType(TType.CLASS);    
-    next();    
+    next();
     assertType(TType.IDENTIFIER);
     auto className = ct.value;
+
+    if (firstPass)
+        SymbolTable.add(new ClassSymbol(className,Scope.toString,ct.line));
 
     Scope.push(className);    
 
@@ -156,9 +157,6 @@ void class_declaration()
     next();
 
     Scope.pop();
-
-    if (firstPass)
-        SymbolTable.add(new ClassSymbol(className));
 }
 
 void class_member_declaration(string className)
@@ -200,8 +198,8 @@ void field_declaration(string modifier, string type, string identifier)
     Symbol s;
 
     if (ct.type == TType.PAREN_OPEN) {
+        s = new MethodSymbol(identifier,type,modifier,Scope.toString,ct.line);        
         Scope.push(identifier);
-        s = new MethodSymbol(identifier,type,modifier);
 
         next();
         if (ct.type != TType.PAREN_CLOSE)
@@ -213,7 +211,7 @@ void field_declaration(string modifier, string type, string identifier)
         Scope.pop();
     }
     else {
-        s = new IVarSymbol(identifier,type,modifier);
+        s = new IVarSymbol(identifier,type,modifier,Scope.toString,ct.line);
 
         if (ct.type == TType.ARRAY_BEGIN) {
             next();
@@ -240,7 +238,7 @@ void constructor_declaration()
 
     assertType(TType.IDENTIFIER);
     auto className = ct.value;
-    auto methodSymbol = new MethodSymbol(className,"this",PUBLIC_MODIFIER);
+    auto methodSymbol = new MethodSymbol(className,"this",PUBLIC_MODIFIER,Scope.toString,ct.line);
 
     Scope.push(className);
 
@@ -289,8 +287,8 @@ void parameter(MethodSymbol methodSymbol)
     }
 
     if (firstPass) {
-        auto p = new ParamSymbol(identifier,type);
-        methodSymbol.params ~= p.id;
+        auto p = new ParamSymbol(identifier,type,Scope.toString,ct.line);
+        methodSymbol.addParam(p);
         SymbolTable.add(p);
     }
 }
@@ -328,6 +326,9 @@ void variable_declaration()
     assertType(TType.IDENTIFIER);
     auto identifier = ct.value;
 
+    if (firstPass)
+        SymbolTable.add(new LVarSymbol(identifier,type,Scope.toString,ct.line));
+
     next();
     if (ct.type == TType.ARRAY_BEGIN) {
         next();
@@ -342,9 +343,6 @@ void variable_declaration()
 
     assertType(TType.SEMICOLON);
     next();
-
-    if (firstPass)
-        SymbolTable.add(new LVarSymbol(identifier,type));
 }
 
 void assignment_expression()
@@ -646,10 +644,11 @@ void character_literal()
 
     next();
     assertType(TType.CHAR_DELIM);
-    next();
 
     if (firstPass)
-        SymbolTable.add(new GlobalSymbol(s,"char"));
+        SymbolTable.add(new GlobalSymbol(s,"char",ct.line));
+
+    next();
 }
 
 void numeric_literal()
@@ -658,8 +657,9 @@ void numeric_literal()
 
     assertType(TType.INT_LITERAL);
     auto s = ct.value;
-    next();
 
     if (firstPass)
-        SymbolTable.add(new GlobalSymbol(s,"int"));
+        SymbolTable.add(new GlobalSymbol(s,"int",ct.line));
+
+    next();
 }

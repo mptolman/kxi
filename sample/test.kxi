@@ -35,6 +35,6 @@ void main()
         cout << x;
 
     while (true) {
-    
+        // loop forever
     }
 }
