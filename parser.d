@@ -14,18 +14,6 @@ void parse(File src)
 
     firstPass = false;
     compilation_unit(); // second pass
-
-
-    tokens.rewind();
-    File outfile = File(r"C:\tokens.txt","w");    
-    Token t;
-    do {
-        t = tokens.next();
-        outfile.writeln(t);
-    } while (t.type != TType.EOF);
-    
-    outfile = File(r"C:\symbols.txt","w");
-    outfile.write(SymbolTable.toString);
 }
 
 class SyntaxError : Exception
@@ -225,7 +213,7 @@ void field_declaration(string modifier, string type, string identifier)
     else {        
         if (ct.type == TType.ARRAY_BEGIN) {
             type ~= "[]";
-
+            
             next();
             assertType(TType.ARRAY_END); 
             next();            
@@ -339,7 +327,6 @@ void variable_declaration()
     next();
     assertType(TType.IDENTIFIER);
     auto identifier = ct.value;
-    
 
     next();
     if (ct.type == TType.ARRAY_BEGIN) {
@@ -494,7 +481,7 @@ void expression()
         if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
             fn_arr_member();
         if (ct.type == TType.PERIOD)
-            member_refz();
+            member_refz();        
         expressionz();
     }
     else {
@@ -547,6 +534,12 @@ void expressionz()
     case TType.MATH_OP:
         next();
         expression();
+        break;
+    case TType.INT_LITERAL:
+        if (ct.value[0] == '-' || ct.value[0] == '+') {
+            // push operation
+            expression();
+        }
         break;
     default:
         break;
@@ -673,10 +666,9 @@ void numeric_literal()
     // numeric_literal::= ["+" | "-"]number ;
 
     assertType(TType.INT_LITERAL);
-    auto s = ct.value;
 
     if (firstPass)
-        SymbolTable.add(new GlobalSymbol(s,"int",ct.line));
+        SymbolTable.add(new GlobalSymbol(ct.value,"int",ct.line));
 
     next();
 }
