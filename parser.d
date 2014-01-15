@@ -46,8 +46,7 @@ public:
     static void pop()
     {
         auto pos = lastIndexOf(_scope,'.');
-        if (pos >= 0)
-            _scope = _scope[0..pos];
+        _scope = pos ? _scope[0..pos] : null;
     }
 
     static void reset()
@@ -198,7 +197,8 @@ void field_declaration(string modifier, string type, string identifier)
     Symbol s;
 
     if (ct.type == TType.PAREN_OPEN) {
-        s = new MethodSymbol(identifier,type,modifier,Scope.toString,ct.line);        
+        s = new MethodSymbol(identifier,type,modifier,Scope.toString,ct.line);
+
         Scope.push(identifier);
 
         next();
@@ -206,8 +206,8 @@ void field_declaration(string modifier, string type, string identifier)
             parameter_list(cast(MethodSymbol)s);
         assertType(TType.PAREN_CLOSE);
         next();
-
         method_body();
+
         Scope.pop();
     }
     else {
@@ -249,8 +249,8 @@ void constructor_declaration()
         parameter_list(methodSymbol);
     assertType(TType.PAREN_CLOSE); 
     next();
-
     method_body();
+
     Scope.pop();
 
     if (firstPass)

@@ -17,7 +17,7 @@ public:
 
     static auto get(string id)
     {
-        return _table[id];
+        return id in _table ? _table[id] : null;
     }
 
     static void print()
@@ -89,6 +89,7 @@ abstract class VarSymbol : Symbol
 {
 private:
     string type;
+    bool isArray;
 
 public:
     this(string prefix, string identifier, string type, string modifier, string scop, size_t line)

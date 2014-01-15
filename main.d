@@ -1,5 +1,5 @@
 import std.stdio;
-import compiler, symbol;
+import compiler;
 
 int main(string[] args)
 {
