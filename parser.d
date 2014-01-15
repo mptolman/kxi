@@ -301,11 +301,8 @@ void method_body()
     assertType(TType.BLOCK_BEGIN);
     next();
 
-    while (ct.type == TType.TYPE || ct.type == TType.IDENTIFIER) {
-        if (ct.type == TType.IDENTIFIER && peek().type == TType.ASSIGN_OP)
-            break;
+    while ((ct.type == TType.TYPE || ct.type == TType.IDENTIFIER) && peek().type == TType.IDENTIFIER)
         variable_declaration();
-    }
 
     while (ct.type != TType.BLOCK_END)
         statement();
