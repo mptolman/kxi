@@ -20,10 +20,12 @@ public:
         return id in _table ? _table[id] : null;
     }
 
-    static void print()
+    static string toString()
     {
-        foreach (s;  _table)
-            writeln(s);
+        string s;
+        foreach (i,j; _table)
+            s ~= j.toString() ~ "\n";            
+        return s;
     }
 }
 
@@ -47,9 +49,9 @@ public:
         this.line = line;
     }
 
-    override string toString() const
+    override string toString()
     {
-        return text(id,": ",value,' ',scop);
+        return text("\nid: ",id,"\nvalue: ",value,"\nscope: ",scop,"\nmodifier: ",modifier,"\n");
     }
 
     auto getId() const
@@ -63,6 +65,11 @@ class ClassSymbol : Symbol
     this(string className, string scop, size_t line)
     {
         super("C",className,PUBLIC_MODIFIER,scop,line);
+    }
+
+    override string toString()
+    {
+        return to!string(typeid(typeof(this))) ~ Symbol.toString;
     }
 }
 
@@ -83,19 +90,29 @@ public:
     {
         params ~= s.id;
     }
+
+    override string toString()
+    {
+        return to!string(typeid(typeof(this))) ~ Symbol.toString() ~ text("returnType: ",returnType,"\nparams: ",params,"\n");
+    }
 }
 
 abstract class VarSymbol : Symbol
 {
 private:
     string type;
-    bool isArray;
+    //bool isArray;
 
 public:
     this(string prefix, string identifier, string type, string modifier, string scop, size_t line)
     {
         super(prefix,identifier,modifier,scop,line);
         this.type = type;
+    }
+
+    override string toString()
+    {
+        return Symbol.toString() ~ text("type: ",type,"\n");
     }
 }
 
@@ -105,6 +122,11 @@ class GlobalSymbol : VarSymbol
     {
         super("G",value,type,PUBLIC_MODIFIER,"g",line);
     }
+
+    override string toString()
+    {
+        return to!string(typeid(typeof(this))) ~ VarSymbol.toString;
+    }
 }
 
 class LVarSymbol : VarSymbol
@@ -112,6 +134,11 @@ class LVarSymbol : VarSymbol
     this(string identifier, string type, string scop, size_t line)
     {
         super("L",identifier,type,PRIVATE_MODIFIER,scop,line);
+    }
+
+    override string toString()
+    {
+        return to!string(typeid(typeof(this))) ~ VarSymbol.toString;
     }
 }
 
@@ -121,6 +148,11 @@ class ParamSymbol : VarSymbol
     {
         super("P",identifier,type,PRIVATE_MODIFIER,scop,line);
     }
+
+    override string toString()
+    {
+        return to!string(typeid(typeof(this))) ~ VarSymbol.toString;
+    }
 }
 
 class IVarSymbol : VarSymbol
@@ -128,5 +160,10 @@ class IVarSymbol : VarSymbol
     this(string identifier, string type, string modifier, string scop, size_t line)
     {
         super("V",identifier,type,modifier,scop,line);
+    }
+
+    override string toString()
+    {
+        return to!string(typeid(typeof(this))) ~ VarSymbol.toString;
     }
 }

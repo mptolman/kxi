@@ -14,6 +14,18 @@ void parse(File src)
 
     firstPass = false;
     compilation_unit(); // second pass
+
+
+    tokens.rewind();
+    File outfile = File(r"C:\tokens.txt","w");    
+    Token t;
+    do {
+        t = tokens.next();
+        outfile.writeln(t);
+    } while (t.type != TType.EOF);
+    
+    outfile = File(r"C:\symbols.txt","w");
+    outfile.write(SymbolTable.toString);
 }
 
 class SyntaxError : Exception
@@ -210,14 +222,17 @@ void field_declaration(string modifier, string type, string identifier)
 
         Scope.pop();
     }
-    else {
-        s = new IVarSymbol(identifier,type,modifier,Scope.toString,ct.line);
-
+    else {        
         if (ct.type == TType.ARRAY_BEGIN) {
+            type ~= "[]";
+
             next();
             assertType(TType.ARRAY_END); 
-            next();
+            next();            
         }
+
+        s = new IVarSymbol(identifier,type,modifier,Scope.toString,ct.line);
+
         if (ct.type == TType.ASSIGN_OP) {
             next();
             assignment_expression();
@@ -281,6 +296,8 @@ void parameter(MethodSymbol methodSymbol)
 
     next();
     if (ct.type == TType.ARRAY_BEGIN) {
+        type ~= "[]";
+
         next();
         assertType(TType.ARRAY_END); 
         next();
@@ -322,16 +339,19 @@ void variable_declaration()
     next();
     assertType(TType.IDENTIFIER);
     auto identifier = ct.value;
-
-    if (firstPass)
-        SymbolTable.add(new LVarSymbol(identifier,type,Scope.toString,ct.line));
+    
 
     next();
     if (ct.type == TType.ARRAY_BEGIN) {
+        type ~= "[]";
+
         next();
         assertType(TType.ARRAY_END);
         next();
     }
+
+    if (firstPass)
+        SymbolTable.add(new LVarSymbol(identifier,type,Scope.toString,ct.line));
 
     if (ct.type == TType.ASSIGN_OP) {
         next();
