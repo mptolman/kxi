@@ -1,18 +1,17 @@
 import std.conv;
 import std.stdio;
-import std.string;
-import lexer, symbol;
+import lexer, symbol, semantic;
 
 void parse(File src)
 {
-    tokens = new Lexer(src);
+    _tokens = new Lexer(src);
 
-    firstPass = true;
+    _firstPass = true;
     compilation_unit(); // first pass
 
-    tokens.rewind();
+    _tokens.rewind();
 
-    firstPass = false;
+    _firstPass = false;
     compilation_unit(); // second pass
 }
 
@@ -28,67 +27,40 @@ class SyntaxError : Exception
  * Module-level data
  ***************************/
 private:
-bool firstPass;
-Lexer tokens;
-Token ct;
-
-struct Scope
-{
-private:
-    static string _scope;
-
-public:    
-    static void push(string s)
-    {
-        _scope ~= _scope.length ? '.' ~ s : s;
-    }
-
-    static void pop()
-    {
-        auto pos = lastIndexOf(_scope,'.');
-        _scope = pos ? _scope[0..pos] : null;
-    }
-
-    static void reset()
-    {
-        _scope = null;
-    }
-
-    static auto toString()
-    {
-        return _scope;
-    }
-}
+bool _firstPass;
+Lexer _tokens;
+Scope _scope;
+Token _ct;
 
 /****************************
 * Helper functions
 /***************************/
 void next()
 {
-    ct = tokens.next();
+    _ct = _tokens.next();
 }
 
 auto peek()
 {
-    return tokens.peek();
+    return _tokens.peek();
 }
 
 void assertType(TType types[] ...)
 {
     foreach (t; types)
-        if (ct.type == t)
+        if (_ct.type == t)
             return;
 
-    throw new SyntaxError(ct.line,"Expected ",types,". Found ",ct.type," \"",ct.value,"\"");
+    throw new SyntaxError(_ct.line,"Expected ",types,". Found ",_ct.type," \"",_ct.value,"\"");
 }
 
 void assertValue(string values[] ...)
 {
     foreach (v; values)
-        if (ct.value == v)
+        if (_ct.value == v)
             return;
 
-    throw new SyntaxError(ct.line,"Expected ",values,". Found \"",ct.value,"\"");
+    throw new SyntaxError(_ct.line,"Expected ",values,". Found \"",_ct.value,"\"");
 }
 
 /****************************
@@ -101,24 +73,24 @@ void compilation_unit()
     //    "void" "main" "(" ")" method_body
     // ;
 
-    Scope.reset();
-    Scope.push("g");
+    _scope = Scope.init;
+    _scope.push("g");
 
     next();
-    while (ct.type == TType.CLASS)
+    while (_ct.type == TType.CLASS)
         class_declaration();
 
     assertValue("void");
-    auto returnType = ct.value;
+    auto returnType = _ct.value;
     
     next();
     assertType(TType.MAIN);
-    auto methodName = ct.value;
+    auto methodName = _ct.value;
 
-    if (firstPass)
-        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,Scope.toString,ct.line));
+    if (_firstPass)
+        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
 
-    Scope.push(methodName);
+    _scope.push(methodName);
 
     next();
     assertType(TType.PAREN_OPEN); 
@@ -127,7 +99,7 @@ void compilation_unit()
     next();
     method_body();
 
-    Scope.pop();
+    _scope.pop();
 }
 
 void class_declaration()
@@ -140,22 +112,22 @@ void class_declaration()
     assertType(TType.CLASS);    
     next();
     assertType(TType.IDENTIFIER);
-    auto className = ct.value;
+    auto className = _ct.value;
 
-    if (firstPass)
-        SymbolTable.add(new ClassSymbol(className,Scope.toString,ct.line));
+    if (_firstPass)
+        SymbolTable.add(new ClassSymbol(className,_scope,_ct.line));
 
-    Scope.push(className);    
+    _scope.push(className);    
 
     next();
     assertType(TType.BLOCK_BEGIN);     
     next();
-    while (ct.type != TType.BLOCK_END)
+    while (_ct.type != TType.BLOCK_END)
         class_member_declaration(className);
     assertType(TType.BLOCK_END); 
     next();
 
-    Scope.pop();
+    _scope.pop();
 }
 
 void class_member_declaration(string className)
@@ -165,25 +137,30 @@ void class_member_declaration(string className)
     //    | constructor_declaration  
     // ;
 
-    if (ct.type == TType.MODIFIER) {
-        auto modifier = ct.value;
+    if (_ct.type == TType.MODIFIER) {
+        auto modifier = _ct.value;
 
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
-        auto type = ct.value;
+        auto type = _ct.value;
+
+        if (!_firstPass) {
+            tPush(type);
+            tExist();
+        }
 
         next();        
         assertType(TType.IDENTIFIER);
-        auto identifier = ct.value;
+        auto identifier = _ct.value;
 
         next();
         field_declaration(modifier,type,identifier);
     }
-    else if (ct.value == className) {
+    else if (_ct.type == TType.IDENTIFIER) {
         constructor_declaration();
     }
     else {
-        throw new SyntaxError(ct.line,"Expected modifier or constructor. Found ",ct.type," \"",ct.value,"\"");
+        throw new SyntaxError(_ct.line,"Expected modifier or constructor. Found ",_ct.type," \"",_ct.value,"\"");
     }
 }
 
@@ -196,22 +173,22 @@ void field_declaration(string modifier, string type, string identifier)
 
     Symbol s;
 
-    if (ct.type == TType.PAREN_OPEN) {
-        s = new MethodSymbol(identifier,type,modifier,Scope.toString,ct.line);
+    if (_ct.type == TType.PAREN_OPEN) {
+        s = new MethodSymbol(identifier,type,modifier,_scope,_ct.line);
 
-        Scope.push(identifier);
+        _scope.push(identifier);
 
         next();
-        if (ct.type != TType.PAREN_CLOSE)
+        if (_ct.type != TType.PAREN_CLOSE)
             parameter_list(cast(MethodSymbol)s);
         assertType(TType.PAREN_CLOSE);
         next();
         method_body();
 
-        Scope.pop();
+        _scope.pop();
     }
     else {        
-        if (ct.type == TType.ARRAY_BEGIN) {
+        if (_ct.type == TType.ARRAY_BEGIN) {
             type = "@:" ~ type;
             
             next();
@@ -219,18 +196,26 @@ void field_declaration(string modifier, string type, string identifier)
             next();            
         }
 
-        s = new IVarSymbol(identifier,type,modifier,Scope.toString,ct.line);
+        if (!_firstPass)
+            vPush(identifier);          
 
-        if (ct.type == TType.ASSIGN_OP) {
+        s = new IVarSymbol(identifier,type,modifier,_scope,_ct.line);
+
+        if (_ct.type == TType.ASSIGN_OP) {
+            if (!_firstPass)
+                oPush(_ct.value);            
             next();
             assignment_expression();
         }
 
-        assertType(TType.SEMICOLON); 
+        assertType(TType.SEMICOLON);
         next();
+
+        if (!_firstPass)
+            EOE();
     }
 
-    if (firstPass)
+    if (_firstPass)
         SymbolTable.add(s);
 }
 
@@ -240,23 +225,26 @@ void constructor_declaration()
     //    class_name "(" [parameter_list] ")" method_body ;
 
     assertType(TType.IDENTIFIER);
-    auto className = ct.value;
-    auto methodSymbol = new MethodSymbol(className,"void",PUBLIC_MODIFIER,Scope.toString,ct.line);
+    auto className = _ct.value;
+    auto methodSymbol = new MethodSymbol(className,"void",PUBLIC_MODIFIER,_scope,_ct.line);
 
-    Scope.push(className);
+    if (!_firstPass)
+        CD(className);
+
+    _scope.push(className);
 
     next();
     assertType(TType.PAREN_OPEN);
     next();
-    if (ct.type != TType.PAREN_CLOSE)
+    if (_ct.type != TType.PAREN_CLOSE)
         parameter_list(methodSymbol);
     assertType(TType.PAREN_CLOSE); 
     next();
     method_body();
 
-    Scope.pop();
+    _scope.pop();
 
-    if (firstPass)
+    if (_firstPass)
         SymbolTable.add(methodSymbol);
 }
 
@@ -265,7 +253,7 @@ void parameter_list(MethodSymbol methodSymbol)
     // parameter_list::= parameter { "," parameter } ;
 
     parameter(methodSymbol);
-    while (ct.type == TType.COMMA) {
+    while (_ct.type == TType.COMMA) {
         next();
         parameter(methodSymbol); 
     }
@@ -276,14 +264,19 @@ void parameter(MethodSymbol methodSymbol)
     // parameter::= type identifier ["[" "]"] ;
 
     assertType(TType.TYPE,TType.IDENTIFIER);
-    auto type = ct.value;
+    auto type = _ct.value;
+
+    if (!_firstPass) {
+        tPush(type);
+        tExist();
+    }
 
     next();    
     assertType(TType.IDENTIFIER); 
-    auto identifier = ct.value;
+    auto identifier = _ct.value;
 
     next();
-    if (ct.type == TType.ARRAY_BEGIN) {
+    if (_ct.type == TType.ARRAY_BEGIN) {
         type = "@:" ~ type;;
 
         next();
@@ -291,8 +284,8 @@ void parameter(MethodSymbol methodSymbol)
         next();
     }
 
-    if (firstPass) {
-        auto p = new ParamSymbol(identifier,type,Scope.toString,ct.line);
+    if (_firstPass) {
+        auto p = new ParamSymbol(identifier,type,_scope,_ct.line);
         methodSymbol.addParam(p);
         SymbolTable.add(p);
     }
@@ -306,10 +299,10 @@ void method_body()
     assertType(TType.BLOCK_BEGIN);
     next();
 
-    while ((ct.type == TType.TYPE || ct.type == TType.IDENTIFIER) && peek().type == TType.IDENTIFIER)
+    while ((_ct.type == TType.TYPE || _ct.type == TType.IDENTIFIER) && peek().type == TType.IDENTIFIER)
         variable_declaration();
 
-    while (ct.type != TType.BLOCK_END)
+    while (_ct.type != TType.BLOCK_END)
         statement();
 
     assertType(TType.BLOCK_END);
@@ -322,14 +315,19 @@ void variable_declaration()
     //    type identifier ["[" "]"] ["=" assignment_expression ] ";" ;
 
     assertType(TType.TYPE,TType.IDENTIFIER);
-    auto type = ct.value;
+    auto type = _ct.value;
+
+    if (!_firstPass) {
+        tPush(type);
+        tExist();
+    }
 
     next();
     assertType(TType.IDENTIFIER);
-    auto identifier = ct.value;
+    auto identifier = _ct.value;
 
     next();
-    if (ct.type == TType.ARRAY_BEGIN) {
+    if (_ct.type == TType.ARRAY_BEGIN) {
         type = "@:" ~ type;
 
         next();
@@ -337,16 +335,24 @@ void variable_declaration()
         next();
     }
 
-    if (firstPass)
-        SymbolTable.add(new LVarSymbol(identifier,type,Scope.toString,ct.line));
+    if (!_firstPass)
+        vPush(identifier);
 
-    if (ct.type == TType.ASSIGN_OP) {
+    if (_firstPass)
+        SymbolTable.add(new LVarSymbol(identifier,type,_scope,_ct.line));
+
+    if (_ct.type == TType.ASSIGN_OP) {
+        if (!_firstPass)
+            oPush(_ct.value);
         next();
         assignment_expression();
     }
 
-    assertType(TType.SEMICOLON);
+    assertType(TType.SEMICOLON);    
     next();
+
+    if (!_firstPass)
+        EOE();
 }
 
 void assignment_expression()
@@ -359,7 +365,7 @@ void assignment_expression()
     //      | "itoa" "(" expression ")"
     // ;
 
-    switch (ct.type) {
+    switch (_ct.type) {
     case TType.THIS:
         next();
         break;
@@ -373,9 +379,18 @@ void assignment_expression()
     case TType.ITOA:
         next();
         assertType(TType.PAREN_OPEN);
+        if (!_firstPass)
+            oPush(_ct.value);
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
+        if (!_firstPass) {
+            cparen_sa();
+            if (_ct.type == TType.ATOI)
+                atoi_sa();
+            else
+                itoa_sa();
+        }        
         next();
         break;
     default:
@@ -396,10 +411,10 @@ void statement()
     //    | "cin" ">>" expression ";"
     // ;
 
-    switch (ct.type) {
+    switch (_ct.type) {
     case TType.BLOCK_BEGIN:
         next();
-        while (ct.type != TType.BLOCK_END)
+        while (_ct.type != TType.BLOCK_END)
             statement();
         assertType(TType.BLOCK_END);
         next();
@@ -407,12 +422,22 @@ void statement()
     case TType.IF:
         next();
         assertType(TType.PAREN_OPEN);
+
+        if (!_firstPass)
+            oPush(_ct.value);
+
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
         next();
+
+        if (!_firstPass) {
+            cparen_sa();
+            if_sa();
+        }
+
         statement();
-        if (ct.type == TType.ELSE) {
+        if (_ct.type == TType.ELSE) {
             next();
             statement();
         }
@@ -420,18 +445,31 @@ void statement()
     case TType.WHILE:
         next();
         assertType(TType.PAREN_OPEN);
+
+        if (!_firstPass)
+            oPush(_ct.value);
+
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
         next();
+
+        if (!_firstPass) {
+            cparen_sa();
+            while_sa();
+        }
+
         statement();
         break;
     case TType.RETURN:
         next();
-        if (ct.type != TType.SEMICOLON)
+        if (_ct.type != TType.SEMICOLON)
             expression();
         assertType(TType.SEMICOLON);
         next();
+
+        if (!_firstPass)
+            return_sa();
         break;
     case TType.COUT:
         next();
@@ -440,6 +478,9 @@ void statement()
         expression();
         assertType(TType.SEMICOLON);
         next();
+
+        if(!_firstPass)
+            cout_sa();
         break;
     case TType.CIN:
         next();
@@ -448,11 +489,17 @@ void statement()
         expression();
         assertType(TType.SEMICOLON);
         next();
+
+        if (!_firstPass)
+            cin_sa();
         break;
     default:
         expression();
         assertType(TType.SEMICOLON);
         next();
+
+        if (!_firstPass)
+            EOE();
         break;
     }
 }
@@ -469,26 +516,42 @@ void expression()
     //    | identifier [ fn_arr_member ] [ member_refz ] [ expressionz ]
     // ;
 
-    if (ct.type == TType.PAREN_OPEN) {
+    if (_ct.type == TType.PAREN_OPEN) {
+        if (!_firstPass)
+            oPush(_ct.value);
+
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
         next();
+
+        if (!_firstPass)
+            cparen_sa();
+
         expressionz();
     }
-    else if (ct.type == TType.IDENTIFIER) {
+    else if (_ct.type == TType.IDENTIFIER) {
+        if (!_firstPass)
+            iPush(_ct.value);
+
         next();
-        if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
+        if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
             fn_arr_member();
-        if (ct.type == TType.PERIOD)
+
+        if (!_firstPass)
+            iExist();
+        
+        if (_ct.type == TType.PERIOD)
             member_refz();        
         expressionz();
     }
     else {
-        switch (ct.type) {
+        switch (_ct.type) {
         case TType.TRUE:
         case TType.FALSE:        
         case TType.NULL:
+            if (!_firstPass)
+                lPush(_ct.value);            
             next();
             expressionz();
             break;
@@ -501,7 +564,7 @@ void expression()
             expressionz();
             break;
         default:
-            throw new SyntaxError(ct.line,"Expected expression; found ",ct.type," \"",ct.value,"\"");
+            throw new SyntaxError(_ct.line,"Expected expression; found ",_ct.type," \"",_ct.value,"\"");
         }
     }
 }
@@ -524,7 +587,7 @@ void expressionz()
     //      | "/" expression        /* mathematical expression */
     // ;
 
-    switch (ct.type) {
+    switch (_ct.type) {
     case TType.ASSIGN_OP:
         next();
         assignment_expression();
@@ -536,7 +599,7 @@ void expressionz()
         expression();
         break;
     case TType.INT_LITERAL:
-        if (ct.value[0] == '-' || ct.value[0] == '+') {
+        if (_ct.value[0] == '-' || _ct.value[0] == '+') {
             // push operation
             expression();
         }
@@ -553,21 +616,21 @@ void new_declaration()
     //    | "[" expression "]"
     // ;
 
-    if (ct.type == TType.PAREN_OPEN) {
+    if (_ct.type == TType.PAREN_OPEN) {
         next();
-        if (ct.type != TType.PAREN_CLOSE)
+        if (_ct.type != TType.PAREN_CLOSE)
             argument_list();
         assertType(TType.PAREN_CLOSE);
         next();
     }
-    else if (ct.type == TType.ARRAY_BEGIN) {
+    else if (_ct.type == TType.ARRAY_BEGIN) {
         next();
         expression();
         assertType(TType.ARRAY_END);
         next();
     }
     else {
-        throw new SyntaxError(ct.line,"Expected ( or [. Found ",ct.type," \"",ct.value,"\"");
+        throw new SyntaxError(_ct.line,"Expected ( or [. Found ",_ct.type," \"",_ct.value,"\"");
     }
 }
 
@@ -577,9 +640,9 @@ void fn_arr_member()
     //        "(" [ argument_list ] ")" 
     //      | "[" expression "]" ;
 
-    if (ct.type == TType.PAREN_OPEN) {
+    if (_ct.type == TType.PAREN_OPEN) {
         next();
-        if (ct.type != TType.PAREN_CLOSE)
+        if (_ct.type != TType.PAREN_CLOSE)
             argument_list();
         assertType(TType.PAREN_CLOSE);
         next();
@@ -601,9 +664,9 @@ void member_refz()
     next();
     assertType(TType.IDENTIFIER);
     next();
-    if (ct.type == TType.PAREN_OPEN || ct.type == TType.ARRAY_BEGIN)
+    if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
         fn_arr_member();
-    if (ct.type == TType.PERIOD)
+    if (_ct.type == TType.PERIOD)
         member_refz();
 }
 
@@ -612,7 +675,7 @@ void argument_list()
     // argument_list::= expression { "," expression } ;
 
     expression();
-    while (ct.type == TType.COMMA) {
+    while (_ct.type == TType.COMMA) {
         next();
         expression();
     }
@@ -628,10 +691,10 @@ void character_literal()
     next();
     assertType(TType.CHAR_LITERAL);
 
-    if (ct.value == "\\") {
+    if (_ct.value == "\\") {
         next();
         assertType(TType.CHAR_LITERAL);
-        switch (ct.value) {
+        switch (_ct.value) {
         case "\\":
             s = "\\";
             break;
@@ -645,18 +708,18 @@ void character_literal()
             s = "\'";
             break;
         default:        
-            throw new SyntaxError(ct.line,"Invalid character escape sequence \'\\",ct.value,"\'");
+            throw new SyntaxError(_ct.line,"Invalid character escape sequence \'\\",_ct.value,"\'");
         }
     }
     else {
-        s = ct.value;
+        s = _ct.value;
     }
 
     next();
     assertType(TType.CHAR_DELIM);
 
-    if (firstPass)
-        SymbolTable.add(new GlobalSymbol(s,"char",ct.line));
+    if (_firstPass)
+        SymbolTable.add(new GlobalSymbol(s,"char",_ct.line));
 
     next();
 }
@@ -667,8 +730,8 @@ void numeric_literal()
 
     assertType(TType.INT_LITERAL);
 
-    if (firstPass)
-        SymbolTable.add(new GlobalSymbol(ct.value,"int",ct.line));
+    if (_firstPass)
+        SymbolTable.add(new GlobalSymbol(_ct.value,"int",_ct.line));
 
     next();
 }
