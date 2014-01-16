@@ -212,7 +212,7 @@ void field_declaration(string modifier, string type, string identifier)
     }
     else {        
         if (ct.type == TType.ARRAY_BEGIN) {
-            type ~= "[]";
+            type = "@:" ~ type;
             
             next();
             assertType(TType.ARRAY_END); 
@@ -241,7 +241,7 @@ void constructor_declaration()
 
     assertType(TType.IDENTIFIER);
     auto className = ct.value;
-    auto methodSymbol = new MethodSymbol(className,"this",PUBLIC_MODIFIER,Scope.toString,ct.line);
+    auto methodSymbol = new MethodSymbol(className,"void",PUBLIC_MODIFIER,Scope.toString,ct.line);
 
     Scope.push(className);
 
@@ -284,7 +284,7 @@ void parameter(MethodSymbol methodSymbol)
 
     next();
     if (ct.type == TType.ARRAY_BEGIN) {
-        type ~= "[]";
+        type = "@:" ~ type;;
 
         next();
         assertType(TType.ARRAY_END); 
@@ -330,7 +330,7 @@ void variable_declaration()
 
     next();
     if (ct.type == TType.ARRAY_BEGIN) {
-        type ~= "[]";
+        type = "@:" ~ type;
 
         next();
         assertType(TType.ARRAY_END);

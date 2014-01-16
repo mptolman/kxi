@@ -69,7 +69,7 @@ class ClassSymbol : Symbol
 
     override string toString()
     {
-        return to!string(typeid(typeof(this))) ~ Symbol.toString;
+        return text(typeid(typeof(this)),Symbol.toString);
     }
 }
 
@@ -93,7 +93,7 @@ public:
 
     override string toString()
     {
-        return to!string(typeid(typeof(this))) ~ Symbol.toString() ~ text("returnType: ",returnType,"\nparams: ",params,"\n");
+        return text(typeid(typeof(this)),Symbol.toString(),"returnType: ",returnType,"\nparams: ",params,"\n");
     }
 }
 
@@ -112,7 +112,7 @@ public:
 
     override string toString()
     {
-        return Symbol.toString() ~ text("type: ",type,"\n");
+        return text(Symbol.toString(),"type: ",type,"\n");
     }
 }
 
@@ -125,7 +125,7 @@ class GlobalSymbol : VarSymbol
 
     override string toString()
     {
-        return to!string(typeid(typeof(this))) ~ VarSymbol.toString;
+        return text(typeid(typeof(this)),VarSymbol.toString);
     }
 }
 
@@ -138,7 +138,7 @@ class LVarSymbol : VarSymbol
 
     override string toString()
     {
-        return to!string(typeid(typeof(this))) ~ VarSymbol.toString;
+        return text(typeid(typeof(this)),VarSymbol.toString);
     }
 }
 
@@ -151,7 +151,7 @@ class ParamSymbol : VarSymbol
 
     override string toString()
     {
-        return to!string(typeid(typeof(this))) ~ VarSymbol.toString;
+        return text(typeid(typeof(this)),VarSymbol.toString);
     }
 }
 
@@ -164,6 +164,6 @@ class IVarSymbol : VarSymbol
 
     override string toString()
     {
-        return to!string(typeid(typeof(this))) ~ VarSymbol.toString;
+        return text(typeid(typeof(this)),VarSymbol.toString);
     }
 }
