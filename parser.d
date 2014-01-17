@@ -175,7 +175,6 @@ void field_declaration(string modifier, string type, string identifier)
 
     if (_ct.type == TType.PAREN_OPEN) {
         s = new MethodSymbol(identifier,type,modifier,_scope,_ct.line);
-
         _scope.push(identifier);
 
         next();
@@ -277,7 +276,7 @@ void parameter(MethodSymbol methodSymbol)
 
     next();
     if (_ct.type == TType.ARRAY_BEGIN) {
-        type = "@:" ~ type;;
+        type = "@:" ~ type;
 
         next();
         assertType(TType.ARRAY_END); 
@@ -539,7 +538,7 @@ void expression()
             fn_arr_member();
 
         if (!_firstPass)
-            iExist();
+            iExist(_scope);
         
         if (_ct.type == TType.PERIOD)
             member_refz();        

@@ -21,6 +21,11 @@ public:
         return id in _table ? _table[id] : null;
     }
 
+    static auto find(string name, Scope scp)
+    {
+        
+    }
+
     static string toString()
     {
         string s;

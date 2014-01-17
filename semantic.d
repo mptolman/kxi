@@ -13,12 +13,13 @@ struct SAR
 
 void iPush(string name)
 {
-
+    _sas.push(SAR(SARType.ID,name));
 }
 
 void iExist(Scope scp)
 {
-
+    auto sar = _sas.top();
+    _sas.pop();
 }
 
 void tPush(string type)
@@ -98,3 +99,4 @@ void cin_sa()
 
 private:
 Stack!SAR _sas;
+Stack!string _os;
