@@ -11,15 +11,15 @@ struct SAR
     string name;
 }
 
-void iPush(string name)
+void iPush(string name, Scope scp)
 {
-    _sas.push(SAR(SARType.ID,name));
+   // _sas.push(SAR(SARType.ID,name));
 }
 
-void iExist(Scope scp)
+void iExist()
 {
-    auto sar = _sas.top();
-    _sas.pop();
+    //auto sar = _sas.top();
+    //_sas.pop();
 }
 
 void tPush(string type)

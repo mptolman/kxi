@@ -1,9 +1,26 @@
+import std.algorithm;
+import std.array;
 import std.conv;
 import std.stdio;
 import std.string;
 
 immutable PUBLIC_MODIFIER = "public";
 immutable PRIVATE_MODIFIER = "private";
+
+auto byScope(Symbol[] set, Scope scp)
+{
+    return filter!(a => a._scope == scp)(set).array;
+}
+
+auto byName(Symbol[] set, string name)
+{
+    return filter!(a => a._name == name)(set).array;
+}
+
+auto byType(T)(Symbol[] set)
+{
+    return filter!(a => cast(T) a !is null)(set).array;
+}
 
 struct SymbolTable
 {
@@ -13,7 +30,7 @@ private:
 public:
     static void add(Symbol s)
     {
-        _table[s.id] = s;
+        _table[s._id] = s;
     }
 
     static auto get(string id)
@@ -21,9 +38,9 @@ public:
         return id in _table ? _table[id] : null;
     }
 
-    static auto find(string name, Scope scp)
+    static auto values()
     {
-        
+        return _table.values.dup;
     }
 
     static string toString()
@@ -49,7 +66,7 @@ public:
     void pop()
     {
         auto pos = lastIndexOf(_scope,'.');
-        _scope = pos ? _scope[0..pos] : null;
+        _scope = pos >= 0 ? _scope[0..pos] : null;
     }
 
     void reset()
@@ -66,31 +83,31 @@ public:
 abstract class Symbol
 {
 private:
-    static size_t counter = 0;
-    string id;
-    string value;
-    string scop;
-    string modifier;
-    size_t line;
+    static size_t _counter = 0;
+    string _id;
+    string _name;
+    Scope _scope;
+    string _modifier;
+    size_t _line;
 
 public:
-    this(string prefix, string value, string modifier, Scope scop, size_t line)
+    this(string prefix, string name, string modifier, Scope scop, size_t line)
     {
-        this.id = text(prefix,++counter);
-        this.value = value;
-        this.modifier = modifier;
-        this.scop = scop._scope;
-        this.line = line;
+        _id = text(prefix,++_counter);
+        _name = name;
+        _modifier = modifier;
+        _scope = scop;
+        _line = line;
     }
 
     override string toString()
     {
-        return text("\nid: ",id,"\nvalue: ",value,"\nscope: ",scop,"\nmodifier: ",modifier,"\n");
+        return text("\nid: ",_id,"\nvalue: ",_name,"\nscope: ",_scope,"\nmodifier: ",_modifier,"\n");
     }
 
     auto getId() const
     {
-        return id;
+        return _id;
     }
 }
 
@@ -110,51 +127,51 @@ class ClassSymbol : Symbol
 class MethodSymbol : Symbol
 {
 private:
-    string returnType;
-    string[] params;
+    string _returnType;
+    string[] _params;
 
 public:
     this(string methodName, string returnType, string modifier, Scope scop, size_t line)
     {
         super("M",methodName,modifier,scop,line);
-        this.returnType = returnType;
+        _returnType = returnType;
     }
 
     void addParam(Symbol s)
     {
-        params ~= s.id;
+        _params ~= s._id;
     }
 
     override string toString()
     {
-        return text(typeid(typeof(this)),Symbol.toString(),"returnType: ",returnType,"\nparams: ",params,"\n");
+        return text(typeid(typeof(this)),Symbol.toString(),"returnType: ",_returnType,"\nparams: ",_params,"\n");
     }
 }
 
 abstract class VarSymbol : Symbol
 {
 private:
-    string type;
+    string _type;
     //bool isArray;
 
 public:
-    this(string prefix, string identifier, string type, string modifier, Scope scop, size_t line)
+    this(string prefix, string name, string type, string modifier, Scope scop, size_t line)
     {
-        super(prefix,identifier,modifier,scop,line);
-        this.type = type;
+        super(prefix,name,modifier,scop,line);
+        _type = type;
     }
 
     override string toString()
     {
-        return text(Symbol.toString(),"type: ",type,"\n");
+        return text(Symbol.toString(),"type: ",_type,"\n");
     }
 }
 
 class GlobalSymbol : VarSymbol
 {
-    this(string value, string type, size_t line)
+    this(string name, string type, size_t line)
     {
-        super("G",value,type,PUBLIC_MODIFIER,Scope("g"),line);
+        super("G",name,type,PUBLIC_MODIFIER,Scope("g"),line);
     }
 
     override string toString()
@@ -165,9 +182,9 @@ class GlobalSymbol : VarSymbol
 
 class LVarSymbol : VarSymbol
 {
-    this(string identifier, string type, Scope scop, size_t line)
+    this(string name, string type, Scope scop, size_t line)
     {
-        super("L",identifier,type,PRIVATE_MODIFIER,scop,line);
+        super("L",name,type,PRIVATE_MODIFIER,scop,line);
     }
 
     override string toString()
@@ -178,9 +195,9 @@ class LVarSymbol : VarSymbol
 
 class ParamSymbol : VarSymbol
 {
-    this(string identifier, string type, Scope scop, size_t line)
+    this(string name, string type, Scope scop, size_t line)
     {
-        super("P",identifier,type,PRIVATE_MODIFIER,scop,line);
+        super("P",name,type,PRIVATE_MODIFIER,scop,line);
     }
 
     override string toString()
@@ -191,9 +208,9 @@ class ParamSymbol : VarSymbol
 
 class IVarSymbol : VarSymbol
 {
-    this(string identifier, string type, string modifier, Scope scop, size_t line)
+    this(string name, string type, string modifier, Scope scop, size_t line)
     {
-        super("V",identifier,type,modifier,scop,line);
+        super("V",name,type,modifier,scop,line);
     }
 
     override string toString()

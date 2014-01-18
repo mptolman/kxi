@@ -531,14 +531,14 @@ void expression()
     }
     else if (_ct.type == TType.IDENTIFIER) {
         if (!_firstPass)
-            iPush(_ct.value);
+            iPush(_ct.value,_scope);
 
         next();
         if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
             fn_arr_member();
 
         if (!_firstPass)
-            iExist(_scope);
+            iExist();
         
         if (_ct.type == TType.PERIOD)
             member_refz();        
