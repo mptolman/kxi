@@ -28,6 +28,7 @@ void main()
 {
     Tree tree = new Tree();
     int x = 12;
+    char y = '5';
     int whileif;
 
     cout << x;

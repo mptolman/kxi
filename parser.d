@@ -74,7 +74,7 @@ void compilation_unit()
     // ;
 
     _scope = Scope.init;
-    _scope.push("g");
+    _scope.push(GLOBAL_SCOPE);
 
     next();
     while (_ct.type == TType.CLASS)
@@ -144,8 +144,8 @@ void class_member_declaration(string className)
         assertType(TType.TYPE,TType.IDENTIFIER);
         auto type = _ct.value;
 
-        if (!_firstPass) {
-            tPush(type);
+        if (!_firstPass && _ct.type == TType.IDENTIFIER) {
+            tPush(type,_ct.line);
             tExist();
         }
 
@@ -180,10 +180,10 @@ void field_declaration(string modifier, string type, string identifier)
         next();
         if (_ct.type != TType.PAREN_CLOSE)
             parameter_list(cast(MethodSymbol)s);
-        assertType(TType.PAREN_CLOSE);
+        assertType(TType.PAREN_CLOSE);        
         next();
-        method_body();
 
+        method_body();
         _scope.pop();
     }
     else {        
@@ -195,10 +195,9 @@ void field_declaration(string modifier, string type, string identifier)
             next();            
         }
 
-        if (!_firstPass)
-            vPush(identifier);          
-
         s = new IVarSymbol(identifier,type,modifier,_scope,_ct.line);
+        if (!_firstPass)
+            vPush(identifier,_scope,_ct.line);
 
         if (_ct.type == TType.ASSIGN_OP) {
             if (!_firstPass)
@@ -265,8 +264,8 @@ void parameter(MethodSymbol methodSymbol)
     assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = _ct.value;
 
-    if (!_firstPass) {
-        tPush(type);
+    if (!_firstPass && _ct.type == TType.IDENTIFIER) {
+        tPush(type,_ct.line);
         tExist();
     }
 
@@ -316,8 +315,8 @@ void variable_declaration()
     assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = _ct.value;
 
-    if (!_firstPass) {
-        tPush(type);
+    if (!_firstPass && _ct.type == TType.IDENTIFIER) {
+        tPush(type,_ct.line);
         tExist();
     }
 
@@ -334,11 +333,10 @@ void variable_declaration()
         next();
     }
 
-    if (!_firstPass)
-        vPush(identifier);
-
     if (_firstPass)
         SymbolTable.add(new LVarSymbol(identifier,type,_scope,_ct.line));
+    else
+        vPush(identifier,_scope,_ct.line);
 
     if (_ct.type == TType.ASSIGN_OP) {
         if (!_firstPass)
@@ -531,7 +529,7 @@ void expression()
     }
     else if (_ct.type == TType.IDENTIFIER) {
         if (!_firstPass)
-            iPush(_ct.value,_scope);
+            iPush(_ct.value,_scope,_ct.line);
 
         next();
         if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
@@ -549,8 +547,10 @@ void expression()
         case TType.TRUE:
         case TType.FALSE:        
         case TType.NULL:
-            if (!_firstPass)
-                lPush(_ct.value);            
+            if (_firstPass)
+                SymbolTable.add(new GlobalSymbol(_ct.value,"bool",_ct.line));
+            else
+                lPush(_ct.value);
             next();
             expressionz();
             break;
@@ -719,6 +719,8 @@ void character_literal()
 
     if (_firstPass)
         SymbolTable.add(new GlobalSymbol(s,"char",_ct.line));
+    else
+        lPush(s);
 
     next();
 }
@@ -731,6 +733,8 @@ void numeric_literal()
 
     if (_firstPass)
         SymbolTable.add(new GlobalSymbol(_ct.value,"int",_ct.line));
+    else
+        lPush(_ct.value);
 
     next();
 }
