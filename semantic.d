@@ -6,16 +6,24 @@ enum SARType : byte
     ID_SAR,
     VAR_SAR,
     TYPE_SAR,
-    LIT_SAR
+    LIT_SAR,
+    BAL_SAR,
+    AL_SAR
 }
 
 struct SAR
 {
     SARType sarType;
     string name;
-    Scope scpe;
-    size_t line;
+    string type;
     string symbolId;
+    Scope scpe;
+    size_t line;    
+
+    this(SARType sarType)
+    {
+        this.sarType = sarType;
+    }
 
     this(SARType sarType, string name, Scope scpe, size_t line)
     {
@@ -25,10 +33,11 @@ struct SAR
         this.line = line;
     }
 
-    this(SARType sarType, string symbolId)
+    this(SARType sarType, string symbolIdm, string type)
     {
         this.sarType = sarType;
         this.symbolId = symbolId;
+        this.type = type;
     }
 }
 
@@ -84,12 +93,12 @@ void iExist()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto matches = SymbolTable.findIdentifier(sar.name, sar.scpe);
-    if (!matches)
-        throw new SemanticError("Identifier not found");
+    auto match = SymbolTable.findVariable(sar.name, sar.scpe);
+    if (!match)
+        throw new Exception(text("(",sar.line,"): Identifier '",sar.name,"' does not exist in this scope"));
 
-    auto symbol = matches[0];
-    _sas.push(SAR(SARType.VAR_SAR,symbol.id));
+    auto symbol = cast(VarSymbol) match[0];
+    _sas.push(SAR(SARType.VAR_SAR,symbol.id,symbol.type));
 }
 
 void tPush(string type, size_t line)
@@ -102,48 +111,88 @@ void tExist()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto matches = SymbolTable.findClass(sar.name,sar.scpe);
-    if (!matches)
-        throw new SemanticError(text("(",sar.line,"): Type ",sar.name," does not exist."));
+    auto match = SymbolTable.findClass(sar.name,sar.scpe);
+    if (!match)
+        throw new Exception(text("(",sar.line,"): Invalid type '",sar.name,"'"));
 }
 
 void lPush(string value)
 {
     auto match = SymbolTable.findGlobal(value);
     if (!match)
-        throw new SemanticError(text("Could not find global literal \"",value,"\""));
-    _sas.push(SAR(SARType.LIT_SAR,match[0].id));
+        throw new Exception(text("Could not find global literal \"",value,"\""));
+
+    auto symbol = cast(VarSymbol) match[0];
+    _sas.push(SAR(SARType.LIT_SAR,symbol.id,symbol.type));
 }
 
 void vPush(string name, Scope scpe, size_t line)
 {
-    auto match = SymbolTable.findIdentifier(name,scpe);
+    auto match = SymbolTable.findVariable(name,scpe);
     if (!match)
         throw new SemanticError("Could not find symbol");
-    _sas.push(SAR(SARType.VAR_SAR,match[0].id));
+
+    auto symbol = cast(VarSymbol) match[0];
+    _sas.push(SAR(SARType.VAR_SAR,symbol.id,symbol.type));
 }
 
-void oPush(string op)
+void oPush(string op, size_t line)
 {
     auto weight = _opWeights[op];
     if (!_os.empty) {
-        auto top = _os.top();
-        auto topWeight = _opWeights[top];
+        auto opr = _os.top();
+        auto topWeight = _opWeights[opr];
         if (topWeight >= weight) {
+            assert(_sas.size >= 2);
             auto rval = _sas.top(); _sas.pop();
             auto lval = _sas.top(); _sas.pop();
-            
+
+            switch (opr)
+            {
+            case "+":
+                
+                break;
+            default:
+                break;
+            }
         }
     }
     _os.push(op);
 }
 
-void EOE()
+void eoe_sa()
 {
 
 }
 
-void CD(string cname)
+void cd_sa(string cname, Scope scpe, size_t line)
+{
+    auto topScope = scpe.top();
+    if (cname != topScope.toString())
+        throw new Exception(text("(",line,"): Constructor name \"",cname,"\" does not match class name \"",topScope.toString(),"\""));
+}
+
+void bal_sa()
+{
+    _sas.push(SAR(SARType.BAL_SAR));
+}
+
+void eal_sa()
+{
+    auto al_sar = SAR(SARType.AL_SAR);
+
+    auto top = _sas.top();
+    while (top.sarType != SARType.BAL_SAR) {
+        _sas.pop(); 
+        top = _sas.top();
+        // TODO: Add arguments to al_sar     
+    }
+
+    _sas.pop();
+    _sas.push(al_sar);
+}
+
+void func_sa()
 {
 
 }
@@ -204,7 +253,7 @@ Stack!string _os;
 static this()
 {
     _sas = new Stack!SAR;
-    _os = new Stack!Operator;
+    _os = new Stack!string;
     _opWeights = [
         "="  : 1,
         "||" : 3,

@@ -45,22 +45,33 @@ auto peek()
     return _tokens.peek();
 }
 
-void assertType(TType types[] ...)
+void assertType(TType[] types ...)
 {
     foreach (t; types)
         if (_ct.type == t)
             return;
 
-    throw new SyntaxError(_ct.line,"Expected ",types,". Found ",_ct.type," \"",_ct.value,"\"");
+    error(types);
 }
 
-void assertValue(string values[] ...)
+void assertValue(string[] values ...)
 {
     foreach (v; values)
         if (_ct.value == v)
             return;
 
-    throw new SyntaxError(_ct.line,"Expected ",values,". Found \"",_ct.value,"\"");
+    error(values);
+}
+
+void error(T)(T[] types ...)
+{
+    string s = text("Expected ",types[0]);
+    if (types.length > 1) {
+        foreach (t; types[1..$])
+            s ~= text(" or ",t);
+    }
+    s ~= text(", not ",_ct.type," \"",_ct.value,"\"");
+    throw new SyntaxError(_ct.line,s);
 }
 
 /****************************
@@ -160,7 +171,7 @@ void class_member_declaration(string className)
         constructor_declaration();
     }
     else {
-        throw new SyntaxError(_ct.line,"Expected modifier or constructor. Found ",_ct.type," \"",_ct.value,"\"");
+        error("modifier","constructor");
     }
 }
 
@@ -201,7 +212,7 @@ void field_declaration(string modifier, string type, string identifier)
 
         if (_ct.type == TType.ASSIGN_OP) {
             if (!_firstPass)
-                oPush(_ct.value);            
+                oPush(_ct.value,_ct.line);            
             next();
             assignment_expression();
         }
@@ -210,7 +221,7 @@ void field_declaration(string modifier, string type, string identifier)
         next();
 
         if (!_firstPass)
-            EOE();
+            eoe_sa();
     }
 
     if (_firstPass)
@@ -227,7 +238,7 @@ void constructor_declaration()
     auto methodSymbol = new MethodSymbol(className,"void",PUBLIC_MODIFIER,_scope,_ct.line);
 
     if (!_firstPass)
-        CD(className);
+        cd_sa(className,_scope,_ct.line);
 
     _scope.push(className);
 
@@ -340,7 +351,7 @@ void variable_declaration()
 
     if (_ct.type == TType.ASSIGN_OP) {
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.value,_ct.line);
         next();
         assignment_expression();
     }
@@ -349,7 +360,7 @@ void variable_declaration()
     next();
 
     if (!_firstPass)
-        EOE();
+        eoe_sa();
 }
 
 void assignment_expression()
@@ -377,7 +388,7 @@ void assignment_expression()
         next();
         assertType(TType.PAREN_OPEN);
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.value,_ct.line);
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
@@ -421,7 +432,7 @@ void statement()
         assertType(TType.PAREN_OPEN);
 
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.value,_ct.line);
 
         next();
         expression();
@@ -444,7 +455,7 @@ void statement()
         assertType(TType.PAREN_OPEN);
 
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.value,_ct.line);
 
         next();
         expression();
@@ -496,7 +507,7 @@ void statement()
         next();
 
         if (!_firstPass)
-            EOE();
+            eoe_sa();
         break;
     }
 }
@@ -515,7 +526,7 @@ void expression()
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.value,_ct.line);
 
         next();
         expression();
@@ -563,7 +574,7 @@ void expression()
             expressionz();
             break;
         default:
-            throw new SyntaxError(_ct.line,"Expected expression; found ",_ct.type," \"",_ct.value,"\"");
+            error("expression");
         }
     }
 }
@@ -599,7 +610,7 @@ void expressionz()
         break;
     case TType.INT_LITERAL:
         if (_ct.value[0] == '-' || _ct.value[0] == '+') {
-            // push operation
+            // TODO: push operation
             expression();
         }
         break;
@@ -615,6 +626,8 @@ void new_declaration()
     //    | "[" expression "]"
     // ;
 
+    assertType(TType.PAREN_OPEN,TType.ARRAY_BEGIN);
+
     if (_ct.type == TType.PAREN_OPEN) {
         next();
         if (_ct.type != TType.PAREN_CLOSE)
@@ -628,9 +641,6 @@ void new_declaration()
         assertType(TType.ARRAY_END);
         next();
     }
-    else {
-        throw new SyntaxError(_ct.line,"Expected ( or [. Found ",_ct.type," \"",_ct.value,"\"");
-    }
 }
 
 void fn_arr_member()
@@ -640,10 +650,22 @@ void fn_arr_member()
     //      | "[" expression "]" ;
 
     if (_ct.type == TType.PAREN_OPEN) {
+        if (!_firstPass) {
+            oPush(_ct.value,_ct.line);
+            bal_sa();
+        }
+
         next();
         if (_ct.type != TType.PAREN_CLOSE)
             argument_list();
         assertType(TType.PAREN_CLOSE);
+
+        if (!_firstPass) {
+            cparen_sa();
+            eal_sa();
+            func_sa();
+        }
+        
         next();
     }
     else {

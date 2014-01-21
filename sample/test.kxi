@@ -35,7 +35,7 @@ void main()
     if (x == y) {}        
     else if (x < y) {}
     else if (x > y) {}     
-    else {}        
+    else {}
 
     while (true) {
         // loop forever

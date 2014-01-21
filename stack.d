@@ -21,6 +21,11 @@ public:
         return _data[$-1];
     }
 
+    auto size()
+    {
+        return _data.length;
+    }
+
     auto empty()
     {
         return _data.length == 0;

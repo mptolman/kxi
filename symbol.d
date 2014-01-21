@@ -36,7 +36,7 @@ public:
         return id in table ? table[id] : null;
     }
 
-    static auto findIdentifier(string name, Scope scpe, bool recurse=true)
+    static auto findVariable(string name, Scope scpe, bool recurse=true)
     {
         return find!VarSymbol(name, scpe, recurse);
     }
@@ -97,6 +97,12 @@ public:
         scpe = pos >= 0 ? scpe[0..pos] : null;
     }
 
+    auto top()
+    {
+        auto pos = lastIndexOf(scpe,'.');
+        return pos >= 0 ? Scope(scpe[pos+1..$]) : Scope(scpe);
+    }
+
     void reset()
     {
         scpe = null;
@@ -121,8 +127,8 @@ private:
 public:
     string id;
     string name;
-    Scope scpe;
     string modifier;
+    Scope scpe;
     size_t line;
 
     this(string prefix, string name, string modifier, Scope scpe, size_t line)
@@ -155,11 +161,9 @@ class ClassSymbol : Symbol
 
 class MethodSymbol : Symbol
 {
-private:
     string returnType;
     string[] params;
 
-public:
     this(string methodName, string returnType, string modifier, Scope scpe, size_t line)
     {
         super("M",methodName,modifier,scpe,line);
@@ -179,11 +183,8 @@ public:
 
 abstract class VarSymbol : Symbol
 {
-private:
     string type;
-    //bool isArray;
 
-public:
     this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
     {
         super(prefix,name,modifier,scpe,line);
