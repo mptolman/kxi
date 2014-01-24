@@ -128,14 +128,14 @@ void class_declaration()
     if (_firstPass)
         SymbolTable.add(new ClassSymbol(className,_scope,_ct.line));
 
-    _scope.push(className);    
+    _scope.push(className);
 
     next();
     assertType(TType.BLOCK_BEGIN);     
     next();
     while (_ct.type != TType.BLOCK_END)
         class_member_declaration(className);
-    assertType(TType.BLOCK_END); 
+    assertType(TType.BLOCK_END);
     next();
 
     _scope.pop();
@@ -155,10 +155,8 @@ void class_member_declaration(string className)
         assertType(TType.TYPE,TType.IDENTIFIER);
         auto type = _ct.value;
 
-        if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-            tPush(type,_ct.line);
-            tExist();
-        }
+        if (!_firstPass && _ct.type == TType.IDENTIFIER)
+            tExist(type,_ct.line);
 
         next();        
         assertType(TType.IDENTIFIER);
@@ -185,7 +183,9 @@ void field_declaration(string modifier, string type, string identifier)
     Symbol s;
 
     if (_ct.type == TType.PAREN_OPEN) {
-        s = new MethodSymbol(identifier,type,modifier,_scope,_ct.line);
+        if (_firstPass)
+            s = new MethodSymbol(identifier,type,modifier,_scope,_ct.line);
+
         _scope.push(identifier);
 
         next();
@@ -200,14 +200,14 @@ void field_declaration(string modifier, string type, string identifier)
     else {        
         if (_ct.type == TType.ARRAY_BEGIN) {
             type = "@:" ~ type;
-            
             next();
             assertType(TType.ARRAY_END); 
             next();            
         }
 
-        s = new IVarSymbol(identifier,type,modifier,_scope,_ct.line);
-        if (!_firstPass)
+        if (_firstPass)
+            s = new IVarSymbol(identifier,type,modifier,_scope,_ct.line);
+        else
             vPush(identifier,_scope,_ct.line);
 
         if (_ct.type == TType.ASSIGN_OP) {
@@ -218,13 +218,12 @@ void field_declaration(string modifier, string type, string identifier)
         }
 
         assertType(TType.SEMICOLON);
-        next();
-
         if (!_firstPass)
-            eoe_sa();
+            eoe_sa(_ct.line);
+        next();
     }
 
-    if (_firstPass)
+    if (s !is null)
         SymbolTable.add(s);
 }
 
@@ -235,9 +234,12 @@ void constructor_declaration()
 
     assertType(TType.IDENTIFIER);
     auto className = _ct.value;
-    auto methodSymbol = new MethodSymbol(className,"void",PUBLIC_MODIFIER,_scope,_ct.line);
 
-    if (!_firstPass)
+    MethodSymbol methodSymbol;
+
+    if (_firstPass)
+        methodSymbol = new MethodSymbol(className,"void",PUBLIC_MODIFIER,_scope,_ct.line);
+    else
         cd_sa(className,_scope,_ct.line);
 
     _scope.push(className);
@@ -253,7 +255,7 @@ void constructor_declaration()
 
     _scope.pop();
 
-    if (_firstPass)
+    if (methodSymbol !is null)
         SymbolTable.add(methodSymbol);
 }
 
@@ -275,10 +277,8 @@ void parameter(MethodSymbol methodSymbol)
     assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = _ct.value;
 
-    if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-        tPush(type,_ct.line);
-        tExist();
-    }
+    if (!_firstPass && _ct.type == TType.IDENTIFIER)
+        tExist(type,_ct.line);
 
     next();    
     assertType(TType.IDENTIFIER); 
@@ -287,13 +287,12 @@ void parameter(MethodSymbol methodSymbol)
     next();
     if (_ct.type == TType.ARRAY_BEGIN) {
         type = "@:" ~ type;
-
         next();
         assertType(TType.ARRAY_END); 
         next();
     }
 
-    if (_firstPass) {
+    if (methodSymbol !is null) {
         auto p = new ParamSymbol(identifier,type,_scope,_ct.line);
         methodSymbol.addParam(p);
         SymbolTable.add(p);
@@ -308,7 +307,7 @@ void method_body()
     assertType(TType.BLOCK_BEGIN);
     next();
 
-    while ((_ct.type == TType.TYPE || _ct.type == TType.IDENTIFIER) && peek().type == TType.IDENTIFIER)
+    while (_ct.type == TType.TYPE || (_ct.type == TType.IDENTIFIER && peek().type == TType.IDENTIFIER))
         variable_declaration();
 
     while (_ct.type != TType.BLOCK_END)
@@ -326,10 +325,8 @@ void variable_declaration()
     assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = _ct.value;
 
-    if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-        tPush(type,_ct.line);
-        tExist();
-    }
+    if (!_firstPass && _ct.type == TType.IDENTIFIER)
+        tExist(type,_ct.line);
 
     next();
     assertType(TType.IDENTIFIER);
@@ -338,7 +335,6 @@ void variable_declaration()
     next();
     if (_ct.type == TType.ARRAY_BEGIN) {
         type = "@:" ~ type;
-
         next();
         assertType(TType.ARRAY_END);
         next();
@@ -356,11 +352,11 @@ void variable_declaration()
         assignment_expression();
     }
 
-    assertType(TType.SEMICOLON);    
-    next();
-
+    assertType(TType.SEMICOLON);
     if (!_firstPass)
-        eoe_sa();
+        eoe_sa(_ct.line);
+
+    next();
 }
 
 void assignment_expression()
@@ -393,7 +389,7 @@ void assignment_expression()
         expression();
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
-            cparen_sa();
+            cparen_sa(_ct.line);
             if (_ct.type == TType.ATOI)
                 atoi_sa();
             else
@@ -430,20 +426,18 @@ void statement()
     case TType.IF:
         next();
         assertType(TType.PAREN_OPEN);
-
         if (!_firstPass)
             oPush(_ct.value,_ct.line);
 
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
-        next();
-
         if (!_firstPass) {
-            cparen_sa();
+            cparen_sa(_ct.line);
             if_sa();
         }
 
+        next();
         statement();
         if (_ct.type == TType.ELSE) {
             next();
@@ -453,20 +447,18 @@ void statement()
     case TType.WHILE:
         next();
         assertType(TType.PAREN_OPEN);
-
         if (!_firstPass)
             oPush(_ct.value,_ct.line);
 
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
-        next();
-
         if (!_firstPass) {
-            cparen_sa();
+            cparen_sa(_ct.line);
             while_sa();
         }
 
+        next();
         statement();
         break;
     case TType.RETURN:
@@ -475,7 +467,6 @@ void statement()
             expression();
         assertType(TType.SEMICOLON);
         next();
-
         if (!_firstPass)
             return_sa();
         break;
@@ -486,7 +477,6 @@ void statement()
         expression();
         assertType(TType.SEMICOLON);
         next();
-
         if(!_firstPass)
             cout_sa();
         break;
@@ -497,17 +487,15 @@ void statement()
         expression();
         assertType(TType.SEMICOLON);
         next();
-
         if (!_firstPass)
             cin_sa();
         break;
     default:
         expression();
         assertType(TType.SEMICOLON);
-        next();
-
         if (!_firstPass)
-            eoe_sa();
+            eoe_sa(_ct.line);
+        next();
         break;
     }
 }
@@ -531,11 +519,10 @@ void expression()
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
-        next();
-
         if (!_firstPass)
-            cparen_sa();
+            cparen_sa(_ct.line);
 
+        next();
         expressionz();
     }
     else if (_ct.type == TType.IDENTIFIER) {
@@ -599,24 +586,29 @@ void expressionz()
 
     switch (_ct.type) {
     case TType.ASSIGN_OP:
+        if (!_firstPass)
+            oPush(_ct.value,_ct.line);
         next();
         assignment_expression();
         break;
     case TType.LOGIC_OP:
     case TType.REL_OP:
     case TType.MATH_OP:
+        if (!_firstPass)
+            oPush(_ct.value,_ct.line);
         next();
         expression();
         break;
     case TType.INT_LITERAL:
         if (_ct.value[0] == '-' || _ct.value[0] == '+') {
-            // TODO: push operation
+            if (!_firstPass)
+                oPush(to!string(_ct.value[0]),_ct.line);
             expression();
         }
         break;
     default:
         break;
-    } 
+    }
 }
 
 void new_declaration()
@@ -629,16 +621,33 @@ void new_declaration()
     assertType(TType.PAREN_OPEN,TType.ARRAY_BEGIN);
 
     if (_ct.type == TType.PAREN_OPEN) {
+        if (!_firstPass) {
+            oPush(_ct.value,_ct.line);
+            bal_sa();
+        }
+
         next();
         if (_ct.type != TType.PAREN_CLOSE)
             argument_list();
         assertType(TType.PAREN_CLOSE);
+
+        if (!_firstPass) {
+            cparen_sa(_ct.line);
+            eal_sa();
+            newobj_sa();
+        }
         next();
     }
     else if (_ct.type == TType.ARRAY_BEGIN) {
+        if (!_firstPass)
+            oPush(_ct.value,_ct.line);
         next();
         expression();
         assertType(TType.ARRAY_END);
+        if (!_firstPass) {
+            cbracket_sa();
+            newarr_sa();
+        }
         next();
     }
 }
@@ -658,10 +667,10 @@ void fn_arr_member()
         next();
         if (_ct.type != TType.PAREN_CLOSE)
             argument_list();
-        assertType(TType.PAREN_CLOSE);
 
+        assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
-            cparen_sa();
+            cparen_sa(_ct.line);
             eal_sa();
             func_sa();
         }
@@ -670,9 +679,17 @@ void fn_arr_member()
     }
     else {
         assertType(TType.ARRAY_BEGIN);
+        if (!_firstPass)
+            oPush(_ct.value,_ct.line);
+
         next();
         expression();
+
         assertType(TType.ARRAY_END);
+        if (!_firstPass) {
+            cbracket_sa();
+            arr_sa();
+        }
         next();
     }
 }
@@ -684,9 +701,13 @@ void member_refz()
     assertType(TType.PERIOD);
     next();
     assertType(TType.IDENTIFIER);
+    if (!_firstPass)
+        iPush(_ct.value,_scope,_ct.line);
     next();
     if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
         fn_arr_member();
+    if (!_firstPass)
+        rExist();
     if (_ct.type == TType.PERIOD)
         member_refz();
 }
@@ -697,6 +718,8 @@ void argument_list()
 
     expression();
     while (_ct.type == TType.COMMA) {
+        if (!_firstPass)
+            comma_sa();
         next();
         expression();
     }

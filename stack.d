@@ -1,3 +1,5 @@
+import std.conv;
+
 class Stack(T)
 {
 private:
@@ -30,4 +32,30 @@ public:
     {
         return _data.length == 0;
     }
+
+    override string toString()
+    {
+        return text(_data);
+    }
+}
+
+unittest {
+    Stack!string s = new Stack!string();
+    assert(s.size() == 0);
+    assert(s.empty());
+    s.push("one");
+    assert(s.size() == 1);
+    assert(s.top() == "one");
+    assert(!s.empty());
+    s.push("two");
+    assert(s.size() == 2);
+    assert(s.top() == "two");
+    assert(!s.empty());
+    s.pop();
+    assert(s.size() == 1);
+    assert(s.top() == "one");
+    assert(!s.empty());
+    s.pop();
+    assert(s.empty());
+    assert(s.size() == 0);
 }

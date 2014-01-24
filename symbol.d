@@ -38,17 +38,17 @@ public:
 
     static auto findVariable(string name, Scope scpe, bool recurse=true)
     {
-        return find!VarSymbol(name, scpe, recurse);
+        return find!VarSymbol(name,scpe,recurse);
     }
 
-    static auto findClass(string name, Scope scpe, bool recurse=true)
+    static auto findClass(string name)
     {
-        return find!ClassSymbol(name, scpe, recurse);
+        return find!ClassSymbol(name,Scope(GLOBAL_SCOPE),false);
     }
 
     static auto findMethod(string name, Scope scpe, bool recurse=true)
     {
-        return find!MethodSymbol(name, scpe, recurse);
+        return find!MethodSymbol(name,scpe,recurse);
     }
 
     static auto findGlobal(string name)
@@ -58,17 +58,23 @@ public:
 
     static auto find(T)(string name, Scope scpe, bool recurse=true)
     {
-        Symbol[] result;
-        while (!result.length && scpe.length) {
-            result = table.values
-                        .filter!(a => a.scpe == scpe)
-                        .filter!(a => a.name == name)
-                        .filter!(a => cast(T) a !is null)
-                        .array;
+        Symbol match;
+
+        while (scpe.length) {
+            auto symbols = table.values
+                            .filter!(a => a.scpe == scpe)
+                            .filter!(a => a.name == name)
+                            .filter!(a => cast(T) a !is null)
+                            .array;
+            if (symbols) {
+                match = symbols[0];
+                break;
+            }
             if (!recurse) break;
-            scpe.pop();            
+            scpe.pop();
         }
-        return result;
+
+        return match;
     }
 
     static string toString()
@@ -127,14 +133,16 @@ private:
 public:
     string id;
     string name;
+    string type;
     string modifier;
     Scope scpe;
     size_t line;
 
-    this(string prefix, string name, string modifier, Scope scpe, size_t line)
+    this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
     {
         this.id = text(prefix,++counter);
         this.name = name;
+        this.type = type;
         this.modifier = modifier;
         this.scpe = scpe;
         this.line = line;
@@ -142,7 +150,7 @@ public:
 
     override string toString()
     {
-        return text("\nid: ",id,"\nvalue: ",name,"\nscope: ",scpe,"\nmodifier: ",modifier,"\n");
+        return text("\nid: ",id,"\nvalue: ",name,"\ntype: ",type,"\nscope: ",scpe,"\nmodifier: ",modifier,"\n");
     }
 }
 
@@ -150,7 +158,7 @@ class ClassSymbol : Symbol
 {
     this(string className, Scope scpe, size_t line)
     {
-        super("C",className,PUBLIC_MODIFIER,scpe,line);
+        super("C",className,className,PUBLIC_MODIFIER,scpe,line);
     }
 
     override string toString()
@@ -161,13 +169,11 @@ class ClassSymbol : Symbol
 
 class MethodSymbol : Symbol
 {
-    string returnType;
     string[] params;
 
     this(string methodName, string returnType, string modifier, Scope scpe, size_t line)
     {
-        super("M",methodName,modifier,scpe,line);
-        this.returnType = returnType;
+        super("M",methodName,returnType,modifier,scpe,line);
     }
 
     void addParam(Symbol s)
@@ -177,23 +183,15 @@ class MethodSymbol : Symbol
 
     override string toString()
     {
-        return text(typeid(typeof(this)),Symbol.toString(),"returnType: ",returnType,"\nparams: ",params,"\n");
+        return text(typeid(typeof(this)),Symbol.toString(),"\nparams: ",params,"\n");
     }
 }
 
 abstract class VarSymbol : Symbol
 {
-    string type;
-
     this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
     {
-        super(prefix,name,modifier,scpe,line);
-        this.type = type;
-    }
-
-    override string toString()
-    {
-        return text(Symbol.toString(),"type: ",type,"\n");
+        super(prefix,name,type,modifier,scpe,line);
     }
 }
 
@@ -241,6 +239,19 @@ class IVarSymbol : VarSymbol
     this(string name, string type, string modifier, Scope scpe, size_t line)
     {
         super("V",name,type,modifier,scpe,line);
+    }
+
+    override string toString()
+    {
+        return text(typeid(typeof(this)),VarSymbol.toString);
+    }
+}
+
+class TempSymbol : VarSymbol
+{
+    this(string name, string type)
+    {
+        super("T",name,type,PRIVATE_MODIFIER,Scope(GLOBAL_SCOPE),0);
     }
 
     override string toString()

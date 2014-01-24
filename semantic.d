@@ -1,4 +1,5 @@
 import std.conv;
+import std.stdio;
 import stack, symbol;
 
 enum SARType : byte
@@ -8,83 +9,44 @@ enum SARType : byte
     TYPE_SAR,
     LIT_SAR,
     BAL_SAR,
-    AL_SAR
+    AL_SAR,
+    TEMP_SAR,
+    REF_SAR,
+    FUNC_SAR
 }
 
 struct SAR
 {
-    SARType sarType;
+    SARType type;
     string name;
-    string type;
-    string symbolId;
+    string id;
     Scope scpe;
-    size_t line;    
+    size_t line;
+    string[] parameters;  
 
-    this(SARType sarType)
+    this(SARType type)
     {
-        this.sarType = sarType;
+        this.type = type;
     }
 
-    this(SARType sarType, string name, Scope scpe, size_t line)
+    this(SARType type, string name, Scope scpe, size_t line)
     {
-        this.sarType = sarType;
+        this.type = type;
         this.name = name;
         this.scpe = scpe;
         this.line = line;
     }
 
-    this(SARType sarType, string symbolIdm, string type)
+    this(SARType type, string id)
     {
-        this.sarType = sarType;
-        this.symbolId = symbolId;
         this.type = type;
+        this.id = id;
     }
-}
-
-//abstract class SAR
-//{    
-//    string name;
-//    Scope scpe;
-//    size_t line;
-
-//    this(string name, Scope, scpe, size_t line)
-//    {
-//        this.name = name;
-//        this.scpe = scpe;
-//        this.line = line;
-//    }
-//}
-
-//class ID_SAR : SAR
-//{
-//    string type;
-
-//    this(string name, Scope scpe, size_t line, string type)
-//    {
-//        super(name,scpe,line);
-//        this.type = type;
-//    }
-//}
-
-//class VAR_SAR : ID_SAR
-//{
-//    string symbolId;
-
-//    this(string name, string type, Scope scpe, size_t line)
-//    {
-//        super(name,scpe,line);
-//        this.type = type;
-//    }
-//}
-
-struct Operator
-{
-    string op;
-    size_t weight;
 }
 
 void iPush(string name, Scope scpe, size_t line)
 {
+    writefln("(%s) iPush: %s",line,name);
     _sas.push(SAR(SARType.ID_SAR,name,scpe,line));
 }
 
@@ -93,83 +55,112 @@ void iExist()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto match = SymbolTable.findVariable(sar.name, sar.scpe);
-    if (!match)
-        throw new Exception(text("(",sar.line,"): Identifier '",sar.name,"' does not exist in this scope"));
+    switch (sar.type) {
+    case SARType.ID_SAR:
+        auto symbol = SymbolTable.findVariable(sar.name, sar.scpe);
+        if (!symbol)
+            throw new Exception(text("(",sar.line,"): Identifier '",sar.name,"' does not exist in this scope"));
+        _sas.push(SAR(SARType.VAR_SAR,symbol.id));
+        break;
+    default:
+        throw new Exception("Incompatible type for iExist");
+        break;
+    }
 
-    auto symbol = cast(VarSymbol) match[0];
-    _sas.push(SAR(SARType.VAR_SAR,symbol.id,symbol.type));
+    writefln("iExist: %s",sar.name);
 }
 
-void tPush(string type, size_t line)
+void tExist(string type, size_t line)
 {
-    _sas.push(SAR(SARType.TYPE_SAR,type,Scope(GLOBAL_SCOPE),line));
-}
-
-void tExist()
-{
-    auto sar = _sas.top();
-    _sas.pop();
-
-    auto match = SymbolTable.findClass(sar.name,sar.scpe);
+    auto match = SymbolTable.findClass(type);
     if (!match)
-        throw new Exception(text("(",sar.line,"): Invalid type '",sar.name,"'"));
+        throw new Exception(text("(",line,"): Invalid type '",type,"'"));
+    writefln("tExist: %s",type);
 }
 
 void lPush(string value)
 {
-    auto match = SymbolTable.findGlobal(value);
-    if (!match)
+    auto symbol = SymbolTable.findGlobal(value);
+    if (!symbol)
         throw new Exception(text("Could not find global literal \"",value,"\""));
 
-    auto symbol = cast(VarSymbol) match[0];
-    _sas.push(SAR(SARType.LIT_SAR,symbol.id,symbol.type));
+    writefln("lPush: %s",value);
+    _sas.push(SAR(SARType.LIT_SAR,symbol.id));
 }
 
 void vPush(string name, Scope scpe, size_t line)
 {
-    auto match = SymbolTable.findVariable(name,scpe);
-    if (!match)
+    auto symbol = SymbolTable.findVariable(name,scpe);
+    if (!symbol)
         throw new SemanticError("Could not find symbol");
 
-    auto symbol = cast(VarSymbol) match[0];
-    _sas.push(SAR(SARType.VAR_SAR,symbol.id,symbol.type));
+    writefln("(%s) vPush: %s",line,name);
+    _sas.push(SAR(SARType.VAR_SAR,symbol.id));
 }
 
 void oPush(string op, size_t line)
-{
-    auto weight = _opWeights[op];
-    if (!_os.empty) {
-        auto opr = _os.top();
-        auto topWeight = _opWeights[opr];
-        if (topWeight >= weight) {
-            assert(_sas.size >= 2);
-            auto rval = _sas.top(); _sas.pop();
-            auto lval = _sas.top(); _sas.pop();
-
-            switch (opr)
-            {
-            case "+":
-                
-                break;
-            default:
-                break;
-            }
-        }
+{    
+    writefln("(%s) oPush: %s",line,op);
+    while (!_os.empty && _opWeights[_os.top] >= _opWeights[op]) {
+        if (op == "=" && _os.top == "=")
+            throw new Exception("Nested assignment not supported");
+        doStackOp(line);
     }
     _os.push(op);
 }
 
-void eoe_sa()
+void rExist()
 {
+    auto member_sar = _sas.top(); _sas.pop();
+    auto obj_sar = _sas.top(); _sas.pop();
 
+    auto obj_symbol = SymbolTable.get(obj_sar.id);
+    auto class_symbol = SymbolTable.findClass(obj_symbol.type);
+    if (class_symbol is null)
+        throw new Exception("Not class type");
+
+    Scope scpe = class_symbol.scpe;
+    scpe.push(class_symbol.name);
+
+    Symbol symbol;
+
+    switch (member_sar.type) {
+    case SARType.ID_SAR:
+        symbol = SymbolTable.findVariable(member_sar.name,scpe,false);
+        if (!symbol)
+            throw new Exception(text("Class ",class_symbol.name," has no member ",member_sar.name));
+        else if (symbol.modifier != PUBLIC_MODIFIER)
+            throw new Exception("Member is private");
+        break;
+    case SARType.FUNC_SAR:
+        symbol = SymbolTable.findMethod(member_sar.name,scpe,false);
+        if (!symbol)
+            throw new Exception(text("Class ",class_symbol.name," has no method ",member_sar.name));
+        else if (symbol.modifier != PUBLIC_MODIFIER)
+            throw new Exception("Method is private");    
+        break;
+    default:
+        break;
+    }
+
+    if (symbol !is null) {
+        auto refSymbol = new TempSymbol(text(obj_sar.name,'.',member_sar.name),symbol.type);
+        _sas.push(SAR(SARType.REF_SAR,refSymbol.id));
+        SymbolTable.add(refSymbol);
+    }
+}
+
+void eoe_sa(size_t line)
+{
+    while (!_os.empty)
+        doStackOp(line);
 }
 
 void cd_sa(string cname, Scope scpe, size_t line)
 {
-    auto topScope = scpe.top();
-    if (cname != topScope.toString())
-        throw new Exception(text("(",line,"): Constructor name \"",cname,"\" does not match class name \"",topScope.toString(),"\""));
+    //auto topScope = scpe.top();
+    //if (cname != topScope.toString())
+    //    throw new Exception(text("(",line,"): Constructor name \"",cname,"\" does not match class name \"",topScope.toString(),"\""));
 }
 
 void bal_sa()
@@ -181,11 +172,9 @@ void eal_sa()
 {
     auto al_sar = SAR(SARType.AL_SAR);
 
-    auto top = _sas.top();
-    while (top.sarType != SARType.BAL_SAR) {
+    while (_sas.top.type != SARType.BAL_SAR) {
+        al_sar.parameters ~= _sas.top.id;
         _sas.pop(); 
-        top = _sas.top();
-        // TODO: Add arguments to al_sar     
     }
 
     _sas.pop();
@@ -194,10 +183,32 @@ void eal_sa()
 
 void func_sa()
 {
+    auto al_sar = _sas.top; _sas.pop();
+    auto id_sar = _sas.top; _sas.pop();
+
+    auto f_sar = SAR(SARType.FUNC_SAR,id_sar.name,id_sar.scpe,id_sar.line);
+    f_sar.parameters = al_sar.parameters;
+    _sas.push(f_sar);
+}
+
+void arr_sa()
+{
 
 }
 
-void cparen_sa()
+void cparen_sa(size_t line)
+{
+    while (_os.top != "(")
+        doStackOp(line);
+    _os.pop();
+}
+
+void cbracket_sa()
+{
+
+}
+
+void comma_sa()
 {
 
 }
@@ -237,6 +248,16 @@ void cin_sa()
 
 }
 
+void newobj_sa()
+{
+
+}
+
+void newarr_sa()
+{
+
+}
+
 class SemanticError : Exception
 {
     this(string err)
@@ -246,14 +267,49 @@ class SemanticError : Exception
 }
 
 private:
-size_t[string] _opWeights;
 Stack!SAR _sas;
 Stack!string _os;
+size_t[string] _opWeights;
+
+void doStackOp(size_t line)
+{
+    auto op = _os.top;
+    _os.pop();
+
+    writefln("Doing '%s' op",op);
+
+    auto rval = SymbolTable.get(_sas.top.id);
+    _sas.pop();
+
+    auto lval = SymbolTable.get(_sas.top.id);
+    _sas.pop();
+
+    switch(op) {
+    case "=":
+        if (lval.type != rval.type)
+            throw new Exception("Incompatible assignment");
+        break;
+    case "+":
+    case "-":
+    case "*":
+    case "/":
+    case "%":
+        if (lval.type != rval.type)
+            throw new Exception("Incompatible types");
+        auto symbol = new TempSymbol(text(lval.name,op,rval.name),lval.type);
+        SymbolTable.add(symbol);
+        _sas.push(SAR(SARType.TEMP_SAR,symbol.id));
+        break;
+    default:
+        break;
+    }
+}
 
 static this()
 {
     _sas = new Stack!SAR;
     _os = new Stack!string;
+
     _opWeights = [
         "="  : 1,
         "||" : 3,
