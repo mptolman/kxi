@@ -12,7 +12,8 @@ enum SARType : byte
     AL_SAR,
     TEMP_SAR,
     REF_SAR,
-    FUNC_SAR
+    FUNC_SAR,
+    NEW_SAR
 }
 
 struct SAR
@@ -22,11 +23,24 @@ struct SAR
     string id;
     Scope scpe;
     size_t line;
-    string[] parameters;  
+    string[] params;  
 
     this(SARType type)
     {
         this.type = type;
+    }
+
+    this(SARType type, string id)
+    {
+        this.type = type;
+        this.id = id;
+    }
+
+    this(SARType type, string name, size_t line)
+    {
+        this.type = type;
+        this.name = name;
+        this.line = line;
     }
 
     this(SARType type, string name, Scope scpe, size_t line)
@@ -35,12 +49,6 @@ struct SAR
         this.name = name;
         this.scpe = scpe;
         this.line = line;
-    }
-
-    this(SARType type, string id)
-    {
-        this.type = type;
-        this.id = id;
     }
 }
 
@@ -52,31 +60,31 @@ void iPush(string name, Scope scpe, size_t line)
 
 void iExist()
 {
-    auto sar = _sas.top();
-    _sas.pop();
+    auto id_sar = _sas.top(); _sas.pop();    
 
-    writefln("iExist: %s",sar.name);
+    writefln("iExist: %s",id_sar.name);
 
-    switch (sar.type) {
-    case SARType.ID_SAR:
-        auto symbol = SymbolTable.findVariable(sar.name, sar.scpe);
-        if (!symbol)
-            throw new Exception(text("(",sar.line,"): Identifier '",sar.name,"' does not exist in this scope"));
-        _sas.push(SAR(SARType.VAR_SAR,symbol.id));
-        break;
-    default:
-        throw new Exception("Incompatible type for iExist");
-        break;
-    }
+    auto symbol = SymbolTable.findVariable(id_sar.name, id_sar.scpe);
+    if (!symbol)
+        throw new Exception(text("(",id_sar.line,"): Identifier '",id_sar.name,"' does not exist in this scope"));
+    id_sar.id = symbol.id;
+    _sas.push(id_sar);
 }
 
-void tExist(string type, size_t line)
+void tPush(string type, size_t line)
 {
-    writefln("tExist: %s",type);
+    _sas.push(SAR(SARType.TYPE_SAR,type,line));
+}
 
-    auto match = SymbolTable.findClass(type);
-    if (!match)
-        throw new Exception(text("(",line,"): Invalid type '",type,"'"));
+void tExist()
+{
+    auto t_sar = _sas.top(); _sas.pop();
+
+    writefln("tExist: %s",t_sar.name);
+
+    auto symbol = SymbolTable.findClass(t_sar.name);
+    if (!symbol)
+        throw new Exception(text("(",t_sar.line,"): Invalid type '",t_sar.name,"'"));
 }
 
 void lPush(string value)
@@ -188,7 +196,7 @@ void eal_sa()
     auto al_sar = SAR(SARType.AL_SAR);
 
     while (_sas.top.type != SARType.BAL_SAR) {
-        al_sar.parameters ~= _sas.top.id;
+        al_sar.params ~= _sas.top.id;
         _sas.pop(); 
     }
 
@@ -204,7 +212,7 @@ void func_sa()
     auto id_sar = _sas.top; _sas.pop();
 
     auto f_sar = SAR(SARType.FUNC_SAR,id_sar.name,id_sar.scpe,id_sar.line);
-    f_sar.parameters = al_sar.parameters;
+    f_sar.params = al_sar.params.dup;
     _sas.push(f_sar);
 }
 
@@ -294,6 +302,33 @@ void cin_sa()
 void newobj_sa()
 {
     writeln("newobj_sa");
+    auto al_sar = _sas.top(); _sas.pop();
+    auto type_sar = _sas.top(); _sas.pop();
+
+    // Make sure type exists
+    auto class_symbol = SymbolTable.findClass(type_sar.name);
+    if (!class_symbol)
+        throw new Exception(text("Invalid type ",type_sar.name));
+
+    // Make sure ctor exists
+    auto scpe = class_symbol.scpe;
+    scpe.push(class_symbol.name);
+    auto ctor_symbol = cast(MethodSymbol)SymbolTable.findMethod(class_symbol.name,scpe,false);
+    if (!ctor_symbol)
+        throw new Exception(text("Type ",class_symbol.name," has no constructor"));
+
+    // Check arguments vs parameters
+    if (al_sar.params.length != ctor_symbol.params.length)
+        throw new Exception("Ctor parameter count does not match");
+
+    foreach (i,p; al_sar.params.dup.reverse) {
+        auto arg = SymbolTable.get(p);
+        auto param = SymbolTable.get(ctor_symbol.params[i]);
+        if (arg.type != param.type)
+            throw new Exception("Parameter types don't match");
+    }
+
+
 }
 
 void newarr_sa()

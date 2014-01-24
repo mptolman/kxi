@@ -155,8 +155,10 @@ void class_member_declaration(string className)
         assertType(TType.TYPE,TType.IDENTIFIER);
         auto type = _ct.value;
 
-        if (!_firstPass && _ct.type == TType.IDENTIFIER)
-            tExist(type,_ct.line);
+        if (!_firstPass && _ct.type == TType.IDENTIFIER) {
+            tPush(type,_ct.line);
+            tExist();
+        }
 
         next();        
         assertType(TType.IDENTIFIER);
@@ -277,8 +279,10 @@ void parameter(MethodSymbol methodSymbol)
     assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = _ct.value;
 
-    if (!_firstPass && _ct.type == TType.IDENTIFIER)
-        tExist(type,_ct.line);
+    if (!_firstPass && _ct.type == TType.IDENTIFIER) {
+        tPush(type,_ct.line);
+        tExist();
+    }
 
     next();    
     assertType(TType.IDENTIFIER); 
@@ -325,8 +329,10 @@ void variable_declaration()
     assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = _ct.value;
 
-    if (!_firstPass && _ct.type == TType.IDENTIFIER)
-        tExist(type,_ct.line);
+    if (!_firstPass && _ct.type == TType.IDENTIFIER) {
+        tPush(type,_ct.line);
+        tExist();
+    }
 
     next();
     assertType(TType.IDENTIFIER);
@@ -376,6 +382,8 @@ void assignment_expression()
     case TType.NEW:
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
+        if (_ct.type == TType.IDENTIFIER)
+            tPush(_ct.value,_ct.line);
         next();
         new_declaration();
         break;
