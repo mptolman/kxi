@@ -219,7 +219,7 @@ void field_declaration(string modifier, string type, string identifier)
 
         assertType(TType.SEMICOLON);
         if (!_firstPass)
-            eoe_sa(_ct.line);
+            eoe_sa();
         next();
     }
 
@@ -233,16 +233,16 @@ void constructor_declaration()
     //    class_name "(" [parameter_list] ")" method_body ;
 
     assertType(TType.IDENTIFIER);
-    auto className = _ct.value;
+    auto ctorName = _ct.value;
 
     MethodSymbol methodSymbol;
 
     if (_firstPass)
-        methodSymbol = new MethodSymbol(className,"void",PUBLIC_MODIFIER,_scope,_ct.line);
+        methodSymbol = new MethodSymbol(ctorName,"void",PUBLIC_MODIFIER,_scope,_ct.line);
     else
-        cd_sa(className,_scope,_ct.line);
+        cd_sa(ctorName,_scope,_ct.line);
 
-    _scope.push(className);
+    _scope.push(ctorName);
 
     next();
     assertType(TType.PAREN_OPEN);
@@ -354,7 +354,7 @@ void variable_declaration()
 
     assertType(TType.SEMICOLON);
     if (!_firstPass)
-        eoe_sa(_ct.line);
+        eoe_sa();
 
     next();
 }
@@ -466,9 +466,9 @@ void statement()
         if (_ct.type != TType.SEMICOLON)
             expression();
         assertType(TType.SEMICOLON);
-        next();
         if (!_firstPass)
-            return_sa();
+            return_sa(_scope);
+        next();
         break;
     case TType.COUT:
         next();
@@ -476,9 +476,9 @@ void statement()
         next();
         expression();
         assertType(TType.SEMICOLON);
-        next();
         if(!_firstPass)
             cout_sa();
+        next();
         break;
     case TType.CIN:
         next();
@@ -486,15 +486,15 @@ void statement()
         next();
         expression();
         assertType(TType.SEMICOLON);
-        next();
         if (!_firstPass)
             cin_sa();
+        next();
         break;
     default:
         expression();
         assertType(TType.SEMICOLON);
         if (!_firstPass)
-            eoe_sa(_ct.line);
+            eoe_sa();
         next();
         break;
     }

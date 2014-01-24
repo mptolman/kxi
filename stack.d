@@ -33,6 +33,11 @@ public:
         return _data.length == 0;
     }
 
+    auto clear()
+    {
+        _data = null;
+    }
+
     override string toString()
     {
         return text(_data);

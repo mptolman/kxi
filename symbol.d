@@ -106,7 +106,7 @@ public:
     auto top()
     {
         auto pos = lastIndexOf(scpe,'.');
-        return pos >= 0 ? Scope(scpe[pos+1..$]) : Scope(scpe);
+        return pos >= 0 ? scpe[pos+1..$] : scpe;
     }
 
     void reset()
