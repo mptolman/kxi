@@ -545,7 +545,8 @@ void expression()
             iExist();
         
         if (_ct.type == TType.PERIOD)
-            member_refz();        
+            member_refz();
+
         expressionz();
     }
     else {
