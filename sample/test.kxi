@@ -4,6 +4,11 @@ class Foo
     public int y;
     public Bar bar;
 
+    Foo()
+    {
+
+    }
+
     public int add(int a, int b)
     {
         return x + y;
@@ -21,13 +26,6 @@ class Bar
 }
 
 void main()
-{
-    int x = 1;
-    int y = 2;
-    char c = 'a';
-
-    Foo foo;
-    Bar bar;
-
-    return;
+{    
+    int x[] = new int[1];
 }

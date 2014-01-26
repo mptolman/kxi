@@ -1,6 +1,6 @@
 import std.conv;
 import std.stdio;
-import stack, symbol;
+import icode, stack, symbol;
 
 enum SARType : byte
 {
@@ -13,7 +13,8 @@ enum SARType : byte
     TEMP_SAR,
     REF_SAR,
     FUNC_SAR,
-    NEW_SAR
+    NEW_SAR,
+    ARR_SAR
 }
 
 struct SAR
@@ -55,11 +56,37 @@ struct SAR
 void arr_sa()
 {
     writeln("arr_sa");
+
+    auto index_symbol = SymbolTable.get(_sas.top.id);
+    if (!index_symbol)
+        throw new Exception("Could not get index from symbol table");
+    if (index_symbol.type != "int")
+        throw new Exception("Index must be an integer");
+
+    auto id_sar = _sas.top;
+    _sas.pop();
+
+    // push arr_sar
 }
 
 void atoi_sa()
 {
     writeln("atoi_sa");
+
+    auto symbol = SymbolTable.get(_sas.top.id);
+    if (!symbol)
+        throw new Exception("Could not get atoi argument");
+    if (symbol.type != "char")
+        throw new Exception("Invalid type for atoi");
+    try {
+        auto i = to!int(symbol.name);
+        auto temp = new TempSymbol(symbol.name,"int");
+        _sas.push(SAR(SARType.LIT_SAR,temp.id));
+        SymbolTable.add(temp);
+    }
+    catch (Exception) {
+        throw new Exception("Argument cannot be converted to integer");
+    }
 }
 
 void bal_sa()
@@ -72,6 +99,10 @@ void bal_sa()
 void cbracket_sa()
 {
     writeln("cbracket_sa");
+    while (_os.top != "[")
+        doStackOp();
+    
+    _os.pop();
 }
 
 void cd_sa(string cname, Scope scpe, size_t line)
@@ -86,16 +117,45 @@ void cd_sa(string cname, Scope scpe, size_t line)
 void cin_sa()
 {
     writeln("cin_sa");
+
+    while (!_os.empty)
+        doStackOp();
+
+    auto symbol = SymbolTable.get(_sas.top.id);
+    _sas.pop();
+
+    if (symbol.type == "int" || symbol.type == "char") {
+        // gen icode
+    }
+    else {
+        throw new Exception("Invalid type for cin");
+    }
 }
 
 void comma_sa()
 {
     writeln("comma_sa");
+
+    while (_os.top != "(")
+        doStackOp();
 }
 
 void cout_sa()
 {
     writeln("cout_sa");
+
+    while (!_os.empty)
+        doStackOp();
+
+    auto symbol = SymbolTable.get(_sas.top.id);
+    _sas.pop();
+
+    if (symbol.type == "int" || symbol.type == "char") {
+        // gen icode
+    }
+    else {
+        throw new Exception("Invalid type for cout");
+    }
 }
 
 void cparen_sa(size_t line)
@@ -157,6 +217,12 @@ void iExist()
         id_sar.id = symbol.id;
         _sas.push(id_sar);
         break;
+    case SARType.FUNC_SAR:
+
+        break;
+    case SARType.ARR_SAR:
+
+        break;
     default:
         throw new Exception("Unsupported type for iExist");
     }
@@ -192,6 +258,32 @@ void lPush(string value)
 void newarr_sa()
 {
     writeln("newarr_sa");
+    auto index_sar = _sas.top;
+    _sas.pop();
+
+    auto type_sar = _sas.top;
+    _sas.pop();
+
+    auto index_symbol = SymbolTable.get(index_sar.id);
+    if (!index_symbol)
+        throw new Exception("Could not find arr index in symbol table");
+    if (index_symbol.type != "int")
+        throw new Exception("Arr index must be an integer");
+
+    switch(type_sar.name) {
+    case "int":
+    case "char":
+    case "bool":
+        // allow
+        break;
+    default:
+        if (!SymbolTable.findClass(type_sar.name))
+            throw new Exception("newarr_sa: Invalid type");
+    }
+
+    auto temp = new TempSymbol(index_symbol.name,text("@:",type_sar.name));
+    _sas.push(SAR(SARType.NEW_SAR,temp.id));
+    SymbolTable.add(temp);
 }
 
 void newobj_sa()
@@ -253,11 +345,13 @@ void return_sa(Scope scpe)
     while (!_os.empty)
         doStackOp();
 
-    auto methodName = scpe.top();
+    auto methodName = scpe.top;
     scpe.pop();
-    auto methodSymbol = SymbolTable.findMethod(methodName, scpe);
+
+    auto methodSymbol = SymbolTable.findMethod(methodName, scpe, false);
     if (!methodSymbol)
         throw new Exception(text("Could not find method ",methodName));
+
     auto returnType = methodSymbol.type;
 
     if (_sas.empty) {
@@ -363,6 +457,13 @@ private:
 Stack!SAR _sas;
 Stack!string _os;
 size_t[string] _opWeights;
+
+void processStack(lazy bool pred)
+{
+    while (pred) {
+        doStackOp();
+    }
+}
 
 void doStackOp()
 {

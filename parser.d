@@ -382,8 +382,7 @@ void assignment_expression()
     case TType.NEW:
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
-        if (_ct.type == TType.IDENTIFIER)
-            tPush(_ct.value,_ct.line);
+        tPush(_ct.value,_ct.line);
         next();
         new_declaration();
         break;
@@ -408,6 +407,47 @@ void assignment_expression()
     default:
         expression();
         break;
+    }
+}
+
+void new_declaration()
+{
+    // new_declaration::=
+    //      "(" [ argument_list ] ")"
+    //    | "[" expression "]"
+    // ;
+
+    assertType(TType.PAREN_OPEN,TType.ARRAY_BEGIN);
+
+    if (_ct.type == TType.PAREN_OPEN) {
+        if (!_firstPass) {
+            oPush(_ct.value,_ct.line);
+            bal_sa();
+        }
+
+        next();
+        if (_ct.type != TType.PAREN_CLOSE)
+            argument_list();
+        assertType(TType.PAREN_CLOSE);
+
+        if (!_firstPass) {
+            cparen_sa(_ct.line);
+            eal_sa();
+            newobj_sa();
+        }
+        next();
+    }
+    else if (_ct.type == TType.ARRAY_BEGIN) {
+        if (!_firstPass)
+            oPush(_ct.value,_ct.line);
+        next();
+        expression();
+        assertType(TType.ARRAY_END);
+        if (!_firstPass) {
+            cbracket_sa();
+            newarr_sa();
+        }
+        next();
     }
 }
 
@@ -617,47 +657,6 @@ void expressionz()
         break;
     default:
         break;
-    }
-}
-
-void new_declaration()
-{
-    // new_declaration::=
-    //      "(" [ argument_list ] ")"
-    //    | "[" expression "]"
-    // ;
-
-    assertType(TType.PAREN_OPEN,TType.ARRAY_BEGIN);
-
-    if (_ct.type == TType.PAREN_OPEN) {
-        if (!_firstPass) {
-            oPush(_ct.value,_ct.line);
-            bal_sa();
-        }
-
-        next();
-        if (_ct.type != TType.PAREN_CLOSE)
-            argument_list();
-        assertType(TType.PAREN_CLOSE);
-
-        if (!_firstPass) {
-            cparen_sa(_ct.line);
-            eal_sa();
-            newobj_sa();
-        }
-        next();
-    }
-    else if (_ct.type == TType.ARRAY_BEGIN) {
-        if (!_firstPass)
-            oPush(_ct.value,_ct.line);
-        next();
-        expression();
-        assertType(TType.ARRAY_END);
-        if (!_firstPass) {
-            cbracket_sa();
-            newarr_sa();
-        }
-        next();
     }
 }
 

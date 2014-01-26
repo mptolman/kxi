@@ -15,19 +15,25 @@ private:
 
 public:
     static void add(Symbol s)
-    {        
-        //if (cast(VarSymbol)s) {
-        //    if (findIdentifier(s.name, s.scpe, false))
-        //        throw new Exception(text("(",s.line,"): Duplicate definition for identifier ",s.name));
-        //}
-        //else if (cast(MethodSymbol)s) {
-        //    if (findMethod(s.name, s.scpe, false))
-        //        throw new Exception(text("(",s.line,"): Duplicate definition for method ",s.name));
-        //}
-        //else if (cast(ClassSymbol)s) {
-        //    if (findClass(s.name, s.scpe, false))
-        //        throw new Exception(text("(",s.line,"): Duplicate definition for class ",s.name));
-        //}
+    {
+        if (cast(TempSymbol)s) {
+            // allow duplicates
+        }
+        else if (cast(GlobalSymbol)s) {
+            // allow duplicates
+        }
+        else if (cast(VarSymbol)s) {
+            if (findVariable(s.name, s.scpe, false))
+                throw new Exception(text("(",s.line,"): Duplicate definition for identifier ",s.name));
+        }
+        else if (cast(MethodSymbol)s) {
+            if (findMethod(s.name, s.scpe, false))
+                throw new Exception(text("(",s.line,"): Duplicate definition for method ",s.name));
+        }
+        else if (cast(ClassSymbol)s) {
+            if (findClass(s.name))
+                throw new Exception(text("(",s.line,"): Duplicate definition for class ",s.name));
+        }
         table[s.id] = s;
     }
 
@@ -60,7 +66,7 @@ public:
     {
         Symbol match;
 
-        while (scpe.length) {
+        for ( ; scpe.length; scpe.pop()) {
             auto symbols = table.values
                             .filter!(a => a.scpe == scpe)
                             .filter!(a => a.name == name)
@@ -71,7 +77,6 @@ public:
                 break;
             }
             if (!recurse) break;
-            scpe.pop();
         }
 
         return match;
