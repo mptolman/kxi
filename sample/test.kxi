@@ -22,7 +22,7 @@ class Foo
 
 class Bar
 {
-    private int x;
+    public int x;
     private Bar bar;
 
     Bar()
@@ -32,11 +32,14 @@ class Bar
 
     public void f()
     {
-        bar.x = 1;
+
     }
 }
 
 void main()
 {    
     int x[] = new int[1];
+    Foo foo;
+    foo.bar.x = 'c';
+
 }

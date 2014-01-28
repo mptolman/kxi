@@ -2,6 +2,11 @@ import std.conv;
 import std.stdio;
 import lexer, symbol, semantic;
 
+immutable INT   = "int";
+immutable CHAR  = "char";
+immutable BOOL  = "bool";
+immutable VOID  = "void";
+
 void parse(File src)
 {
     _tokens = new Lexer(src);
@@ -91,7 +96,7 @@ void compilation_unit()
     while (_ct.type == TType.CLASS)
         class_declaration();
 
-    assertValue("void");
+    assertValue(VOID);
     auto returnType = _ct.value;
     
     next();
@@ -99,7 +104,7 @@ void compilation_unit()
     auto methodName = _ct.value;
 
     if (_firstPass)
-        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
+        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope));
 
     _scope.push(methodName);
 
@@ -126,7 +131,7 @@ void class_declaration()
     auto className = _ct.value;
 
     if (_firstPass)
-        SymbolTable.add(new ClassSymbol(className,_scope,_ct.line));
+        SymbolTable.add(new ClassSymbol(className,_scope));
 
     _scope.push(className);
 
@@ -186,7 +191,7 @@ void field_declaration(string modifier, string type, string identifier)
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (_firstPass)
-            s = new MethodSymbol(identifier,type,modifier,_scope,_ct.line);
+            s = new MethodSymbol(identifier,type,modifier,_scope);
 
         _scope.push(identifier);
 
@@ -208,7 +213,7 @@ void field_declaration(string modifier, string type, string identifier)
         }
 
         if (_firstPass)
-            s = new IVarSymbol(identifier,type,modifier,_scope,_ct.line);
+            s = new IVarSymbol(identifier,type,modifier,_scope);
         else
             vPush(identifier,_scope,_ct.line);
 
@@ -240,7 +245,7 @@ void constructor_declaration()
     MethodSymbol methodSymbol;
 
     if (_firstPass)
-        methodSymbol = new MethodSymbol(ctorName,"void",PUBLIC_MODIFIER,_scope,_ct.line);
+        methodSymbol = new MethodSymbol(ctorName,VOID,PUBLIC_MODIFIER,_scope);
     else
         cd_sa(ctorName,_scope,_ct.line);
 
@@ -297,7 +302,7 @@ void parameter(MethodSymbol methodSymbol)
     }
 
     if (methodSymbol !is null) {
-        auto p = new ParamSymbol(identifier,type,_scope,_ct.line);
+        auto p = new ParamSymbol(identifier,type,_scope);
         methodSymbol.addParam(p);
         SymbolTable.add(p);
     }
@@ -347,7 +352,7 @@ void variable_declaration()
     }
 
     if (_firstPass)
-        SymbolTable.add(new LVarSymbol(identifier,type,_scope,_ct.line));
+        SymbolTable.add(new LVarSymbol(identifier,type,_scope));
     else
         vPush(identifier,_scope,_ct.line);
 
@@ -595,7 +600,7 @@ void expression()
         case TType.FALSE:        
         case TType.NULL:
             if (_firstPass)
-                SymbolTable.add(new GlobalSymbol(_ct.value,"bool",_ct.line));
+                SymbolTable.add(new GlobalSymbol(_ct.value,BOOL));
             else
                 lPush(_ct.value);
             next();
@@ -771,7 +776,7 @@ void character_literal()
     assertType(TType.CHAR_DELIM);
 
     if (_firstPass)
-        SymbolTable.add(new GlobalSymbol(s,"char",_ct.line));
+        SymbolTable.add(new GlobalSymbol(s,CHAR));
     else
         lPush(s);
 
@@ -785,7 +790,7 @@ void numeric_literal()
     assertType(TType.INT_LITERAL);
 
     if (_firstPass)
-        SymbolTable.add(new GlobalSymbol(_ct.value,"int",_ct.line));
+        SymbolTable.add(new GlobalSymbol(_ct.value,INT));
     else
         lPush(_ct.value);
 
