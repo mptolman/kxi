@@ -22,7 +22,18 @@ class Foo
 
 class Bar
 {
-    public int bar;
+    private int x;
+    private Bar bar;
+
+    Bar()
+    {
+
+    }
+
+    public void f()
+    {
+        bar.x = 1;
+    }
 }
 
 void main()

@@ -128,6 +128,17 @@ public:
     {
         return scpe;
     }
+
+    auto belongsTo(Scope parent)
+    {
+        Scope child = Scope(scpe);
+        while (child.length) {
+            child.pop();
+            if (child == parent)
+                return true;
+        }
+        return false;
+    }
 }
 
 abstract class Symbol
@@ -151,6 +162,21 @@ public:
         this.modifier = modifier;
         this.scpe = scpe;
         this.line = line;
+    }
+
+    auto isAccessibleFrom(Scope scpe)
+    {
+        if (this.modifier == PUBLIC_MODIFIER)
+            return true;
+
+        Scope currScope = this.scpe;
+        while (currScope.length) {
+            if (currScope == scpe)
+                return true;
+            currScope.pop();
+        }
+        
+        return false;
     }
 
     override string toString()
@@ -257,6 +283,19 @@ class TempSymbol : VarSymbol
     this(string name, string type)
     {
         super("T",name,type,PRIVATE_MODIFIER,Scope(GLOBAL_SCOPE),0);
+    }
+
+    override string toString()
+    {
+        return text(typeid(typeof(this)),VarSymbol.toString);
+    }
+}
+
+class RefSymbol : VarSymbol
+{
+    this(string name, string type)
+    {
+        super("R",name,type,PRIVATE_MODIFIER,Scope(GLOBAL_SCOPE),0);
     }
 
     override string toString()

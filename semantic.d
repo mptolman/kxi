@@ -101,7 +101,7 @@ void cbracket_sa()
     writeln("cbracket_sa");
     while (_os.top != "[")
         doStackOp();
-    
+
     _os.pop();
 }
 
@@ -195,8 +195,8 @@ void func_sa()
 {
     writeln("func_sa");
 
-    auto al_sar = _sas.top; _sas.pop();
-    auto id_sar = _sas.top; _sas.pop();
+    auto al_sar = _sas.top(); _sas.pop();
+    auto id_sar = _sas.top(); _sas.pop();
 
     auto f_sar = SAR(SARType.FUNC_SAR,id_sar.name,id_sar.scpe,id_sar.line);
     f_sar.params = al_sar.params.dup;
@@ -211,14 +211,14 @@ void iExist()
 
     switch(id_sar.type) {
     case SARType.ID_SAR:
-        auto symbol = SymbolTable.findVariable(id_sar.name, id_sar.scpe);
+        auto symbol = SymbolTable.findVariable(id_sar.name,id_sar.scpe);
         if (!symbol)
             throw new Exception(text("(",id_sar.line,"): Identifier '",id_sar.name,"' does not exist in this scope"));
         id_sar.id = symbol.id;
         _sas.push(id_sar);
         break;
     case SARType.FUNC_SAR:
-
+        auto symbol = SymbolTable.findMethod(id_sar.name,id_sar.scpe);
         break;
     case SARType.ARR_SAR:
 
@@ -372,30 +372,28 @@ void rExist()
     auto member_sar = _sas.top();
     _sas.pop();
     
-    auto obj_sar = _sas.top();
+    auto obj_symbol = SymbolTable.get(_sas.top().id);
     _sas.pop();
 
-    writefln("rExist: %s.%s",obj_sar.name,member_sar.name);
+    writefln("rExist: %s.%s",obj_symbol.name,member_sar.name);
 
-    auto class_name = SymbolTable.get(obj_sar.id).type;
-    auto class_symbol = SymbolTable.findClass(class_name);
+    auto class_symbol = SymbolTable.findClass(obj_symbol.type);
     if (class_symbol is null)
         throw new Exception("Not class type");
 
-    auto scpe = class_symbol.scpe;
-    scpe.push(class_symbol.name);
+    auto class_scope = class_symbol.scpe;
+    class_scope.push(class_symbol.name);
 
     Symbol symbol;
     switch (member_sar.type) {
     case SARType.ID_SAR:
-        symbol = SymbolTable.findVariable(member_sar.name,scpe,false);
+        symbol = SymbolTable.findVariable(member_sar.name,class_scope,false);
         if (!symbol)
             throw new Exception(text("Class ",class_symbol.name," has no member ",member_sar.name));
-        else if (symbol.modifier != PUBLIC_MODIFIER)
-            throw new Exception("Member is private");
+        if (!class_symbol.contains())
         break;
     case SARType.FUNC_SAR:
-        symbol = SymbolTable.findMethod(member_sar.name,scpe,false);
+        symbol = SymbolTable.findMethod(member_sar.name,class_scope,false);
         if (!symbol)
             throw new Exception(text("Class ",class_symbol.name," has no method ",member_sar.name));
         else if (symbol.modifier != PUBLIC_MODIFIER)
@@ -403,12 +401,6 @@ void rExist()
         break;
     default:
         throw new Exception("Incompatible type for rExist");
-    }
-
-    if (symbol !is null) {
-        auto refSymbol = new TempSymbol(text(obj_sar.id,'.',member_sar.id),symbol.type);
-        _sas.push(SAR(SARType.REF_SAR,refSymbol.id));
-        SymbolTable.add(refSymbol);
     }
 }
 
