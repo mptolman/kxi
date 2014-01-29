@@ -36,19 +36,21 @@ struct SAR
         this.id = id;
     }
 
-    this(SARType type, string name, size_t line)
+    this(SARType type, string name, size_t line, string id=null)
     {
         this.type = type;
         this.name = name;
         this.line = line;
+        this.id = id;
     }
 
-    this(SARType type, string name, Scope scpe, size_t line)
+    this(SARType type, string name, Scope scpe, size_t line, string id=null)
     {
         this.type = type;
         this.name = name;
         this.scpe = scpe;
         this.line = line;
+        this.id = id;
     }
 }
 
@@ -56,14 +58,23 @@ void arr_sa()
 {
     writeln("arr_sa");
 
-    auto index_symbol = SymbolTable.get(_sas.top.id);
-    if (!index_symbol)
-        throw new Exception("Could not get index from symbol table");
-    if (index_symbol.type != "int")
-        throw new Exception("Index must be an integer");
-
-    auto id_sar = _sas.top;
+    auto index_sar = _sas.top();
     _sas.pop();
+
+    auto id_sar = _sas.top();
+    _sas.pop();
+
+    auto index_symbol = findSymbol(index_sar);
+    if (!index_symbol)
+        throw new SemanticError(id_sar.line,"arr_sa: Failed to load index symbol");
+
+    auto id_symbol = findSymbol(id_sar);
+    if (!id_symbol)
+        throw new SemanticError(id_sar.line,"arr_sa: Failed to load id symbol");
+
+    if (index_symbol.type != "int")
+        throw new SemanticError(id_sar.line,"Invalid array index. Expected int, not ", index_symbol.type);
+
 
     // push arr_sar
 }
@@ -72,19 +83,20 @@ void atoi_sa()
 {
     writeln("atoi_sa");
 
-    auto symbol = SymbolTable.get(_sas.top.id);
+    auto sar = _sas.top();
+    _sas.pop();
+
+    auto symbol = findSymbol(sar);    
     if (!symbol)
-        throw new Exception("Could not get atoi argument");
+        throw new SemanticError(sar.line,"atoi: Failed to load symbol");    
     if (symbol.type != "char")
-        throw new Exception("Invalid type for atoi");
+        throw new SemanticError(sar.line,"Invalid argument type for atoi. Expected char, not ",symbol.type);
+
     try {
-        auto i = to!int(symbol.name);
-        auto temp = new TempSymbol(symbol.name,"int");
-        _sas.push(SAR(SARType.LIT_SAR,temp.id));
-        SymbolTable.add(temp);
+
     }
     catch (Exception) {
-        throw new Exception("Argument cannot be converted to integer");
+        throw new SemanticError(sar.line,"atoi argument cannot be converted to integer");
     }
 }
 
@@ -101,17 +113,16 @@ void cbracket_sa()
 
     while (_os.top() != "[")
         doStackOp();
-
     _os.pop();
 }
 
-void cd_sa(string cname, Scope scpe, size_t line)
+void cd_sa(string ctorName, Scope scpe, size_t line)
 {
     writeln("cd_sa");
 
     auto className = scpe.top();
-    if (cname != className)
-        throw new Exception(text("(",line,"): Constructor name \"",cname,"\" does not match class name \"",className,"\""));
+    if (ctorName != className)
+        throw new SemanticError(line,"Constructor '",ctorName,"' does not match class name ",className);
 }
 
 void cin_sa()
@@ -124,7 +135,7 @@ void cin_sa()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto symbol = SymbolTable.get(sar.id);
+    auto symbol = findSymbol(sar);
     if (!symbol)
         throw new SemanticError(sar.line,"cin_sa: Failed to load symbol");
 
@@ -154,7 +165,7 @@ void cout_sa()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto symbol = SymbolTable.get(sar.id);
+    auto symbol = findSymbol(sar);
     if (!symbol)
         throw new SemanticError(sar.line,"cout_sa: Could not load symbol");
 
@@ -181,7 +192,7 @@ void eal_sa()
 
     auto al_sar = SAR(SARType.AL_SAR);
 
-    while (_sas.top.type != SARType.BAL_SAR) {
+    while (_sas.top().type != SARType.BAL_SAR) {
         al_sar.params ~= _sas.top().id;
         _sas.pop(); 
     }
@@ -332,11 +343,12 @@ void oPush(string op, size_t line)
 {    
     writefln("(%s) oPush: %s",line,op);
 
-    while (!_os.empty() && _opWeights[_os.top()] >= _opWeights[op] && _opWeights[_os.top()] != _opWeights["("]) {
-        if (op == "=" && _os.top() == "=")
+    while (!_os.empty && _opWeights[_os.top] >= _opWeights[op] && _opWeights[_os.top] != _opWeights["("]) {
+        if (op == "=" && _os.top == "=")
             throw new SemanticError(line,"Nested assignment not supported");
         doStackOp();
     }
+
     _os.push(op);
 }
 
@@ -352,19 +364,22 @@ void return_sa(Scope scpe, size_t line)
 
     auto methodSymbol = SymbolTable.findMethod(methodName,scpe,false);
     if (!methodSymbol)
-        throw new SemanticError(line,"return_sa: Could not find method symbol");
+        throw new SemanticError(line,"return_sa: Failed to load method symbol");
 
     auto returnType = methodSymbol.type;
 
     if (_sas.empty()) {
         if (returnType != "void")
-            throw new SemanticError(line,"Method '",methodName,"' does not return value of type ",returnType);
+            throw new SemanticError(line,"Method '",methodName,"' must return value of type ",returnType);
     }
     else {
         auto ret_sar = _sas.top();
         _sas.pop();
-        if (returnType != SymbolTable.get(ret_sar.id).type)
-            throw new SemanticError(line,"Return type for method '",methodName,"' must be of type ",returnType);
+        auto ret_symbol = findSymbol(ret_sar);
+        if (!ret_symbol)
+            throw new SemanticError(ret_sar.line,"return_sa: Failed to load return symbol");
+        if (ret_symbol.type != returnType)
+            throw new SemanticError(line,"Return statement for method '",methodName,"' must be of type ",returnType,", not ",ret_symbol.type);
     }
 }
 
@@ -378,7 +393,7 @@ void rExist()
 
     writefln("rExist: %s.%s",obj_sar.name,member_sar.name);
 
-    auto obj_symbol = SymbolTable.get(obj_sar.id);
+    auto obj_symbol = findSymbol(obj_sar);
     if (!obj_symbol)
         throw new SemanticError(obj_sar.line,"rExist: Failed to load object symbol ",obj_sar.id);
 
@@ -400,11 +415,10 @@ void rExist()
         checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
 
     auto ref_symbol = new RefSymbol(text(obj_symbol.name,'.',member_symbol.name),member_symbol.type);
-    SymbolTable.add(ref_symbol);
-
     auto ref_sar = SAR(SARType.REF_SAR,ref_symbol.name,obj_sar.scpe,obj_sar.line);
     ref_sar.id = ref_symbol.id;
     _sas.push(ref_sar);
+    SymbolTable.add(ref_symbol);
 }
 
 void tExist()
@@ -414,7 +428,7 @@ void tExist()
 
     writefln("tExist: %s",type_sar.name);
 
-    if (!findSymbol(type_sar))
+    if (!SymbolTable.findClass(type_sar.name))
         throw new SemanticError(type_sar.line,"Invalid type ",type_sar.name);
 }
 
@@ -427,13 +441,11 @@ void vPush(string name, Scope scpe, size_t line)
 {
     writefln("(%s) vPush: %s",line,name);
 
-    auto id_sar = SAR(SARType.ID_SAR,name,scpe,line);
-    auto symbol = findSymbol(id_sar);
+    auto symbol = SymbolTable.findVariable(name,scpe,false);
     if (!symbol)
         throw new SemanticError(line,"Could not find variable declaration for ",name);
 
-    id_sar.id = symbol.id;
-    _sas.push(id_sar);
+    _sas.push(SAR(SARType.ID_SAR,name,scpe,line,symbol.id));
 }
 
 void while_sa()
@@ -452,45 +464,42 @@ class SemanticError : Exception
 private:
 Stack!SAR _sas;
 Stack!string _os;
-size_t[string] _opWeights;
-
-void processStack(lazy bool pred)
-{
-    while (pred) {
-        doStackOp();
-    }
-}
+immutable size_t[string] _opWeights;
 
 void doStackOp()
 {
-    auto op = _os.top;
+    auto op = _os.top();
     _os.pop();
     writefln("Doing '%s' op",op);
 
-    auto rval = SymbolTable.get(_sas.top.id);
+    auto r_sar = _sas.top();
     _sas.pop();
 
-    auto lval = SymbolTable.get(_sas.top.id);
+    auto l_sar = _sas.top();
     _sas.pop();
+
+    auto r_symbol = findSymbol(r_sar);
+    auto l_symbol = findSymbol(l_sar);
 
     switch(op) {
     case "=":
-        if (lval.type != rval.type)
-            throw new Exception("Invalid assignment");
+        if (l_symbol.type != r_symbol.type)
+            throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
         break;
     case "+":
     case "-":
     case "*":
     case "/":
     case "%":
-        if (lval.type != rval.type)
-            throw new Exception("Incompatible types");
-        auto symbol = new TempSymbol(text(lval.id,op,rval.id),lval.type);
-        SymbolTable.add(symbol);
-        _sas.push(SAR(SARType.TEMP_SAR,symbol.id));
+        if (l_symbol.type != r_symbol.type)
+            throw new SemanticError(l_sar.line,"Invalid operands for '",op,"' operator. Types do not match");
+        auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),l_symbol.type);
+        auto temp_sar = SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.scpe,l_sar.line,temp_symbol.id);
+        _sas.push(temp_sar);
+        SymbolTable.add(temp_symbol);
         break;
     default:
-        break;
+        throw new SemanticError(l_sar.line,"doStackOp: Invalid operation ",op);
     }
 }
 
@@ -498,21 +507,26 @@ auto findSymbol(SAR sar, bool recurse=true)
 {
     Symbol symbol;
 
-    switch (sar.type) {
-    case SARType.ID_SAR:
-        symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
-        break;
-    case SARType.FUNC_SAR:
-        symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
-        break;
-    case SARType.TYPE_SAR:
-        symbol = SymbolTable.findClass(sar.name);
-        break;
-    case SARType.LIT_SAR:
-        symbol = SymbolTable.findGlobal(sar.name);
-        break;
-    default:
-        throw new Exception("Invalid SARType for findSymbol");
+    if (sar.id) {
+        symbol = SymbolTable.get(sar.id);
+    }
+    else {
+        switch (sar.type) {
+        case SARType.ID_SAR:
+            symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
+            break;
+        case SARType.FUNC_SAR:
+            symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
+            break;
+        case SARType.TYPE_SAR:
+            symbol = SymbolTable.findClass(sar.name);
+            break;
+        case SARType.LIT_SAR:
+            symbol = SymbolTable.findGlobal(sar.name);
+            break;
+        default:
+            throw new SemanticError(sar.line,"findSymbol: Invalid SARType ",sar.type);
+        }
     }
 
     return symbol;

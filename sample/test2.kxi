@@ -1,0 +1,24 @@
+class Foo
+{
+    public int x;
+    private int y;
+
+    Foo()
+    {
+        x = 10;
+        y = 20;
+    }
+
+    public int add(int x, int y)
+    {
+        return x+y;
+    }
+}
+
+void main()
+{
+    int x = 1;
+    int y = 2;
+    Foo foo = new Foo();
+    int z = foo.add(x,y) * x + y;
+}
