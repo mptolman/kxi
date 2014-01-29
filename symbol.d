@@ -224,19 +224,6 @@ abstract class VarSymbol : Symbol
     }
 }
 
-class GlobalSymbol : VarSymbol
-{
-    this(string name, string type)
-    {
-        super("G",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
-    }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),VarSymbol.toString);
-    }
-}
-
 class LVarSymbol : VarSymbol
 {
     this(string name, string type, Scope scpe)
@@ -276,28 +263,41 @@ class IVarSymbol : VarSymbol
     }
 }
 
-class TempSymbol : VarSymbol
+class GlobalSymbol : Symbol
 {
     this(string name, string type)
     {
-        super("T",name,type,PRIVATE_MODIFIER,Scope(GLOBAL_SCOPE));
+        super("G",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
     }
 
     override string toString()
     {
-        return text(typeid(typeof(this)),VarSymbol.toString);
+        return text(typeid(typeof(this)),Symbol.toString);
     }
 }
 
-class RefSymbol : VarSymbol
+class TempSymbol : Symbol
 {
     this(string name, string type)
     {
-        super("R",name,type,PRIVATE_MODIFIER,Scope(GLOBAL_SCOPE));
+        super("T",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
     }
 
     override string toString()
     {
-        return text(typeid(typeof(this)),VarSymbol.toString);
+        return text(typeid(typeof(this)),Symbol.toString);
+    }
+}
+
+class RefSymbol : Symbol
+{
+    this(string name, string type)
+    {
+        super("R",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
+    }
+
+    override string toString()
+    {
+        return text(typeid(typeof(this)),Symbol.toString);
     }
 }

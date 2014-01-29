@@ -5,7 +5,6 @@ import icode, stack, symbol;
 enum SARType : byte
 {
     ID_SAR,
-    VAR_SAR,
     TYPE_SAR,
     LIT_SAR,
     BAL_SAR,
@@ -99,7 +98,8 @@ void bal_sa()
 void cbracket_sa()
 {
     writeln("cbracket_sa");
-    while (_os.top != "[")
+
+    while (_os.top() != "[")
         doStackOp();
 
     _os.pop();
@@ -118,17 +118,21 @@ void cin_sa()
 {
     writeln("cin_sa");
 
-    while (!_os.empty)
+    while (!_os.empty())
         doStackOp();
 
-    auto symbol = SymbolTable.get(_sas.top.id);
+    auto sar = _sas.top();
     _sas.pop();
+
+    auto symbol = SymbolTable.get(sar.id);
+    if (!symbol)
+        throw new SemanticError(sar.line,"cin_sa: Failed to load symbol");
 
     if (symbol.type == "int" || symbol.type == "char") {
         // gen icode
     }
     else {
-        throw new Exception("Invalid type for cin");
+        throw new SemanticError(sar.line,"Invalid type for cin. Expected char or int, found ",symbol.type);
     }
 }
 
@@ -136,7 +140,7 @@ void comma_sa()
 {
     writeln("comma_sa");
 
-    while (_os.top != "(")
+    while (_os.top() != "(")
         doStackOp();
 }
 
@@ -144,17 +148,21 @@ void cout_sa()
 {
     writeln("cout_sa");
 
-    while (!_os.empty)
+    while (!_os.empty())
         doStackOp();
 
-    auto symbol = SymbolTable.get(_sas.top.id);
+    auto sar = _sas.top();
     _sas.pop();
+
+    auto symbol = SymbolTable.get(sar.id);
+    if (!symbol)
+        throw new SemanticError(sar.line,"cout_sa: Could not load symbol");
 
     if (symbol.type == "int" || symbol.type == "char") {
         // gen icode
     }
     else {
-        throw new Exception("Invalid type for cout");
+        throw new SemanticError(sar.line,"Invalid type for cout. Expected int or char, found ",symbol.type);
     }
 }
 
@@ -174,7 +182,7 @@ void eal_sa()
     auto al_sar = SAR(SARType.AL_SAR);
 
     while (_sas.top.type != SARType.BAL_SAR) {
-        al_sar.params ~= _sas.top.id;
+        al_sar.params ~= _sas.top().id;
         _sas.pop(); 
     }
 
@@ -195,12 +203,15 @@ void func_sa()
 {
     writeln("func_sa");
 
-    auto al_sar = _sas.top(); _sas.pop();
-    auto id_sar = _sas.top(); _sas.pop();
+    auto al_sar = _sas.top(); 
+    _sas.pop();
+    
+    auto id_sar = _sas.top(); 
+    _sas.pop();
 
-    auto f_sar = SAR(SARType.FUNC_SAR,id_sar.name,id_sar.scpe,id_sar.line);
-    f_sar.params = al_sar.params.dup;
-    _sas.push(f_sar);
+    auto func_sar = SAR(SARType.FUNC_SAR,id_sar.name,id_sar.scpe,id_sar.line);
+    func_sar.params = al_sar.params.dup;
+    _sas.push(func_sar);
 }
 
 void iExist()
@@ -212,30 +223,13 @@ void iExist()
 
     auto symbol = findSymbol(id_sar);
     if (!symbol)
-        throw new SemanticError(id_sar.line,"Identifier ",id_sar.name," does not exist in this scope");
+        throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' does not exist in this scope");
 
+    if (id_sar.type == SARType.FUNC_SAR)
+        checkFuncArgs(id_sar,cast(MethodSymbol)symbol);
+    
     id_sar.id = symbol.id;
     _sas.push(id_sar);
-    //switch(id_sar.type) {
-    //case SARType.ID_SAR:
-    //    auto symbol = SymbolTable.findVariable(id_sar.name,id_sar.scpe);
-    //    if (!symbol)
-    //        throw new SemanticError(id_sar.line,"Identifier ",id_sar.name," does not exist in this scope");
-    //    id_sar.id = symbol.id;
-    //    _sas.push(id_sar);
-    //    break;
-    //case SARType.FUNC_SAR:
-    //    auto symbol = cast(MethodSymbol)SymbolTable.findMethod(id_sar.name,id_sar.scpe);
-    //    if (!symbol)
-    //        throw new SemanticError(id_sar.line,"Method ",id_sar.name," does not exist in this scope");
-
-    //    break;
-    //case SARType.ARR_SAR:
-
-    //    break;
-    //default:
-    //    throw new Exception("Unsupported type for iExist");
-    //}
 }
 
 void if_sa()
@@ -254,20 +248,23 @@ void itoa_sa()
     writeln("itoa_sa");
 }
 
-void lPush(string value)
+void lPush(string value, size_t line)
 {
     writefln("lPush: %s",value);
 
-    //auto symbol = SymbolTable.findGlobal(value);
-    //if (!symbol)
-    //    throw new Exception(text("Could not find global literal \"",value,"\""));
+    auto lit_sar = SAR(SARType.LIT_SAR,value,line);
+    auto symbol = findSymbol(lit_sar);
+    if (!symbol)
+        throw new SemanticError(line,"lPush: Failed to locate global symbol '",value,"'");
 
-    //_sas.push(SAR(SARType.LIT_SAR,symbol.id));
+    lit_sar.id = symbol.id;
+    _sas.push(lit_sar);
 }
 
 void newarr_sa()
 {
     writeln("newarr_sa");
+
     auto index_sar = _sas.top;
     _sas.pop();
 
@@ -306,75 +303,69 @@ void newobj_sa()
     _sas.pop();
 
     // Make sure type exists
-    //auto class_symbol = SymbolTable.findClass(type_sar.name);
-    //if (!class_symbol)
-    //    throw new Exception(text("Invalid type ",type_sar.name));
+    auto class_symbol = findSymbol(type_sar);
+    if (!class_symbol)
+        throw new SemanticError(type_sar.line,"Invalid type ",type_sar.name);
 
-    //// Make sure ctor exists
-    //auto scpe = class_symbol.scpe;
-    //scpe.push(class_symbol.name);
+    // Make sure ctor exists
+    auto scpe = class_symbol.scpe;
+    scpe.push(class_symbol.name);
+    auto ctor_symbol = cast(MethodSymbol)SymbolTable.findMethod(class_symbol.name,scpe,false);
+    if (!ctor_symbol)
+        throw new SemanticError(type_sar.line,"Type ",class_symbol.name," has no constructor");
 
-    //auto ctor_symbol = cast(MethodSymbol)SymbolTable.findMethod(class_symbol.name,scpe,false);
-    //if (!ctor_symbol)
-    //    throw new Exception(text("Type ",class_symbol.name," has no constructor"));
+    // Check arguments
+    al_sar.name = type_sar.name;
+    al_sar.line = type_sar.line;
+    checkFuncArgs(al_sar,ctor_symbol);
 
-    //// Check arguments vs parameters
-    //if (al_sar.params.length != ctor_symbol.params.length)
-    //    throw new Exception("Ctor parameter count does not match");
+    auto temp_symbol = new TempSymbol(type_sar.name,type_sar.name);
+    auto new_sar = SAR(SARType.NEW_SAR,type_sar.name,type_sar.line);
+    new_sar.id = temp_symbol.id;
+    new_sar.params = al_sar.params.dup;
 
-    //foreach (i,p; al_sar.params.dup.reverse) {
-    //    auto arg = SymbolTable.get(p);
-    //    auto param = SymbolTable.get(ctor_symbol.params[i]);
-    //    if (arg.type != param.type)
-    //        throw new Exception("Parameter types don't match");
-    //}
-
-    //auto temp = new TempSymbol(type_sar.name,type_sar.name);
-    //auto new_sar = SAR(SARType.NEW_SAR,temp.id);
-    //new_sar.params = al_sar.params.dup;
-    //_sas.push(new_sar);
-    //SymbolTable.add(temp);
+    _sas.push(new_sar);
+    SymbolTable.add(temp_symbol);
 }
 
 void oPush(string op, size_t line)
 {    
     writefln("(%s) oPush: %s",line,op);
 
-    while (!_os.empty && _opWeights[_os.top] >= _opWeights[op]) {
-        if (op == "=" && _os.top == "=")
+    while (!_os.empty() && _opWeights[_os.top()] >= _opWeights[op] && _opWeights[_os.top()] != _opWeights["("]) {
+        if (op == "=" && _os.top() == "=")
             throw new SemanticError(line,"Nested assignment not supported");
         doStackOp();
     }
     _os.push(op);
 }
 
-void return_sa(Scope scpe)
+void return_sa(Scope scpe, size_t line)
 {
     writeln("return_sa");
 
-    //while (!_os.empty)
-    //    doStackOp();
+    while (!_os.empty())
+        doStackOp();
 
-    //auto methodName = scpe.top;
-    //scpe.pop();
+    auto methodName = scpe.top();
+    scpe.pop();
 
-    //auto methodSymbol = SymbolTable.findMethod(methodName, scpe, false);
-    //if (!methodSymbol)
-    //    throw new Exception(text("Could not find method ",methodName));
+    auto methodSymbol = SymbolTable.findMethod(methodName,scpe,false);
+    if (!methodSymbol)
+        throw new SemanticError(line,"return_sa: Could not find method symbol");
 
-    //auto returnType = methodSymbol.type;
+    auto returnType = methodSymbol.type;
 
-    //if (_sas.empty) {
-    //    if (returnType != "void") {
-    //        throw new Exception("Missing return type");
-    //    }
-    //}
-    //else {
-    //    auto ret_sar = _sas.top();
-    //    _sas.pop();
-    //    if (returnType != SymbolTable.get(ret_sar.id).type)
-    //        throw new Exception("Return type mismatch");
-    //}
+    if (_sas.empty()) {
+        if (returnType != "void")
+            throw new SemanticError(line,"Method '",methodName,"' does not return value of type ",returnType);
+    }
+    else {
+        auto ret_sar = _sas.top();
+        _sas.pop();
+        if (returnType != SymbolTable.get(ret_sar.id).type)
+            throw new SemanticError(line,"Return type for method '",methodName,"' must be of type ",returnType);
+    }
 }
 
 void rExist()
@@ -385,57 +376,46 @@ void rExist()
     auto obj_sar = _sas.top();
     _sas.pop();
 
-    //auto obj_symbol = SymbolTable.get(obj_sar.id);
-    //writefln("rExist: %s.%s",obj_symbol.name,member_sar.name);
+    writefln("rExist: %s.%s",obj_sar.name,member_sar.name);
 
-    //auto class_symbol = SymbolTable.findClass(obj_symbol.type);
-    //if (!class_symbol)
-    //    throw new SemanticError(obj_sar.line,"Identifier ",obj_symbol.name," is not a class type");
+    auto obj_symbol = SymbolTable.get(obj_sar.id);
+    if (!obj_symbol)
+        throw new SemanticError(obj_sar.line,"rExist: Failed to load object symbol ",obj_sar.id);
 
-    //auto class_scope = class_symbol.scpe;
-    //class_scope.push(class_symbol.name);
+    auto class_symbol = SymbolTable.findClass(obj_symbol.type);
+    if (!class_symbol)
+        throw new SemanticError(obj_sar.line,"Identifier ",obj_symbol.name," is not a class type");
 
-    //Symbol member_symbol;
-    //switch (member_sar.type) {
-    //case SARType.ID_SAR:
-    //    // Does the instance variable exist in this class?
-    //    member_symbol = SymbolTable.findVariable(member_sar.name,class_scope,false);
-    //    if (!member_symbol)
-    //        throw new SemanticError(obj_sar.line,"Class ",class_symbol.name," has no member ",member_sar.name);
-    //    // Is it accessible from the current scope?
-    //    if (member_symbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_symbol.scpe))
-    //        throw new SemanticError(obj_sar.line,"Instance variable ",member_sar.name," of type ",class_symbol.name," is private");
-    //    break;
-    //case SARType.FUNC_SAR:
-    //    // Does the method exist in this class?
-    //    member_symbol = SymbolTable.findMethod(member_sar.name,class_scope,false);
-    //    if (!member_symbol)
-    //        throw new SemanticError(obj_sar.line,"Class ",class_symbol.name," has no method ",member_sar.name);
-    //    // Is it accessible from the current scope?
-    //    if (member_symbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_symbol.scpe))
-    //        throw new SemanticError(obj_sar.line,"Method ",member_sar.name," of type ",class_symbol.name," is private");
-    //    break;
-    //default:
-    //    throw new Exception("Incompatible type for rExist");
-    //}
+    auto class_scope = class_symbol.scpe;
+    class_scope.push(class_symbol.name);
 
-    //auto ref_symbol = new RefSymbol(text(obj_symbol.name,'.',member_symbol.name),member_symbol.type);
-    //SymbolTable.add(ref_symbol);
+    member_sar.scpe = class_scope;
+    auto member_symbol = findSymbol(member_sar,false);
+    if (!member_symbol)
+        throw new SemanticError(member_sar.line,"Member '",member_sar.name,"' does not exist in class '",class_symbol.name,"'");
+    if (member_symbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
+        throw new SemanticError(member_sar.line,"Member ",class_symbol.name,".",member_sar.name," is private");
 
-    //auto ref_sar = member_sar;    
-    //ref_sar.id = ref_symbol.id;
-    //_sas.push(ref_sar);
+    if (member_sar.type == SARType.FUNC_SAR)
+        checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
+
+    auto ref_symbol = new RefSymbol(text(obj_symbol.name,'.',member_symbol.name),member_symbol.type);
+    SymbolTable.add(ref_symbol);
+
+    auto ref_sar = SAR(SARType.REF_SAR,ref_symbol.name,obj_sar.scpe,obj_sar.line);
+    ref_sar.id = ref_symbol.id;
+    _sas.push(ref_sar);
 }
 
 void tExist()
 {
-    auto t_sar = _sas.top();
+    auto type_sar = _sas.top();
     _sas.pop();
 
-    writefln("tExist: %s",t_sar.name);
+    writefln("tExist: %s",type_sar.name);
 
-    if (!findSymbol(t_sar))
-        throw new SemanticError(t_sar.line,"Invalid type ",t_sar.name);
+    if (!findSymbol(type_sar))
+        throw new SemanticError(type_sar.line,"Invalid type ",type_sar.name);
 }
 
 void tPush(string type, size_t line)
@@ -447,12 +427,13 @@ void vPush(string name, Scope scpe, size_t line)
 {
     writefln("(%s) vPush: %s",line,name);
 
-    //auto symbol = SymbolTable.findVariable(name,scpe,false);
-    //if (!symbol)
-    //    throw new SemanticError(line,"Could not find variable declaration for ",name);
-    //auto id_sar = SAR(SARType.ID_SAR,name,scpe,line);
-    //id_sar.id = symbol.id;
-    //_sas.push(id_sar);
+    auto id_sar = SAR(SARType.ID_SAR,name,scpe,line);
+    auto symbol = findSymbol(id_sar);
+    if (!symbol)
+        throw new SemanticError(line,"Could not find variable declaration for ",name);
+
+    id_sar.id = symbol.id;
+    _sas.push(id_sar);
 }
 
 void while_sa()
@@ -527,11 +508,27 @@ auto findSymbol(SAR sar, bool recurse=true)
     case SARType.TYPE_SAR:
         symbol = SymbolTable.findClass(sar.name);
         break;
+    case SARType.LIT_SAR:
+        symbol = SymbolTable.findGlobal(sar.name);
+        break;
     default:
         throw new Exception("Invalid SARType for findSymbol");
     }
 
     return symbol;
+}
+
+auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
+{
+    if (sar.params.length != methodSymbol.params.length)
+        throw new SemanticError(sar.line,"Wrong number of arguments for method ",sar.name);
+
+    foreach (i,a; sar.params.dup.reverse) {
+        auto arg = SymbolTable.get(a);
+        auto param = SymbolTable.get(methodSymbol.params[i]);
+        if (arg.type != param.type)
+            throw new SemanticError(sar.line,"Wrong parameter type. Found ",arg.type, "; expected ",param.type);        
+    }
 }
 
 static this()

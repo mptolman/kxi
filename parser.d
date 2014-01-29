@@ -520,7 +520,7 @@ void statement()
             expression();
         assertType(TType.SEMICOLON);
         if (!_firstPass)
-            return_sa(_scope);
+            return_sa(_scope,_ct.line);
         next();
         break;
     case TType.COUT:
@@ -602,7 +602,7 @@ void expression()
             if (_firstPass)
                 SymbolTable.add(new GlobalSymbol(_ct.value,BOOL));
             else
-                lPush(_ct.value);
+                lPush(_ct.value,_ct.line);
             next();
             expressionz();
             break;
@@ -778,7 +778,7 @@ void character_literal()
     if (_firstPass)
         SymbolTable.add(new GlobalSymbol(s,CHAR));
     else
-        lPush(s);
+        lPush(s,_ct.line);
 
     next();
 }
@@ -792,7 +792,7 @@ void numeric_literal()
     if (_firstPass)
         SymbolTable.add(new GlobalSymbol(_ct.value,INT));
     else
-        lPush(_ct.value);
+        lPush(_ct.value,_ct.line);
 
     next();
 }
