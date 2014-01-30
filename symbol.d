@@ -16,29 +16,21 @@ private:
 public:
     static void add(Symbol s)
     {
-        //if (cast(TempSymbol)s) {
-        //    // allow duplicates
-        //}
-        //else if (cast(RefSymbol)s) {
-        //    // allow duplicates
-        //}
-        //else if (cast(GlobalSymbol)s) {
-        //    if (findGlobal(s.name)) {}
-        //        // don't error--just keep one copy
-        //}
-        //else if (cast(VarSymbol)s) {
-        //    if (findVariable(s.name, s.scpe, false))
-        //        throw new Exception(text("(",s.line,"): Variable '",s.name,"' has already been declared"));
-        //}
-        //else if (cast(MethodSymbol)s) {
-        //    if (findMethod(s.name, s.scpe, false))
-        //        throw new Exception(text("(",s.line,"): Method '",s.name,"' has already been declared"));
-        //}
-        //else if (cast(ClassSymbol)s) {
-        //    if (findClass(s.name))
-        //        throw new Exception(text("(",s.line,"): Class '",s.name,"' has already been declared"));
-        //}
-        table[s.id] = s;
+        if (cast(GlobalSymbol)s && findGlobal(s.name)) {
+            // don't error--just keep one copy
+        }
+        else if (cast(VarSymbol)s && findVariable(s.name,s.scpe,false)) {
+            //throw new Exception(text("(",s.line,"): Variable '",s.name,"' has already been declared"));
+        }
+        else if (cast(MethodSymbol)s && findMethod(s.name,s.scpe,false)) {
+            //throw new Exception(text("(",s.line,"): Method '",s.name,"' has already been declared"));
+        }
+        else if (cast(ClassSymbol)s && findClass(s.name)) {
+            //throw new Exception(text("(",s.line,"): Class '",s.name,"' has already been declared"));
+        }
+        else {
+            table[s.id] = s;
+        }
     }
 
     static auto get(string id)

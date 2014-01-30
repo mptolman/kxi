@@ -387,7 +387,8 @@ void assignment_expression()
     case TType.NEW:
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
-        tPush(_ct.value,_ct.line);
+        if (_ct.type == TType.IDENTIFIER)
+            tPush(_ct.value,_ct.line);
         next();
         new_declaration();
         break;

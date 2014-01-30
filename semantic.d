@@ -331,8 +331,7 @@ void newobj_sa()
     checkFuncArgs(al_sar,ctor_symbol);
 
     auto temp_symbol = new TempSymbol(type_sar.name,type_sar.name);
-    auto new_sar = SAR(SARType.NEW_SAR,type_sar.name,type_sar.line);
-    new_sar.id = temp_symbol.id;
+    auto new_sar = SAR(SARType.NEW_SAR,type_sar.name,type_sar.line,temp_symbol.id);
     new_sar.params = al_sar.params.dup;
 
     _sas.push(new_sar);
@@ -415,10 +414,8 @@ void rExist()
         checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
 
     auto ref_symbol = new RefSymbol(text(obj_symbol.name,'.',member_symbol.name),member_symbol.type);
-    auto ref_sar = SAR(SARType.REF_SAR,ref_symbol.name,obj_sar.scpe,obj_sar.line);
-    ref_sar.id = ref_symbol.id;
-    _sas.push(ref_sar);
     SymbolTable.add(ref_symbol);
+    _sas.push(SAR(SARType.REF_SAR,ref_symbol.name,obj_sar.scpe,obj_sar.line,ref_symbol.id));
 }
 
 void tExist()
