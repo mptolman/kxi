@@ -1,22 +1,45 @@
 class Foo
 {
-    public int x;
-    private int y;
+    private Bar bar;
 
     Foo()
+    {}
+
+    public Bar bar()
     {
-        x = 10;
-        y = 20;
+        return bar;
     }
+}
+
+class Bar
+{
+    private A a;
+
+    Bar()
+    {}
+
+    public A a()
+    {
+        return a;
+    }
+}
+
+class A
+{
+    public int x;
+    public int y;
 
     public int add(int x, int y)
     {
-        return x+y;
+        return x + y;
     }
 }
 
 void main()
 {
-    int x[];
-    cout << x[1];
+    int x;
+    int y;
+    if (x = y) {
+        x = y;
+    }
 }

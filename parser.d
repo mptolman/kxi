@@ -487,7 +487,7 @@ void statement()
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
             cparen_sa(_ct.line);
-            if_sa();
+            if_sa(_ct.line);
         }
 
         next();

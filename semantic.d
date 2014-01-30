@@ -140,7 +140,7 @@ void cin_sa()
         // gen icode
     }
     else {
-        throw new SemanticError(sar.line,"Invalid type for cin. Expected char or int, found ",symbol.type);
+        throw new SemanticError(sar.line,"Invalid type for cin. Expected char or int, not ",symbol.type);
     }
 }
 
@@ -164,13 +164,13 @@ void cout_sa()
 
     auto symbol = findSymbol(sar);
     if (!symbol)
-        throw new SemanticError(sar.line,"cout_sa: Could not load symbol");
+        throw new SemanticError(sar.line,"cout_sa: Failed to load symbol");
 
     if (symbol.type == "int" || symbol.type == "char") {
         // gen icode
     }
     else {
-        throw new SemanticError(sar.line,"Invalid type for cout. Expected int or char, found ",symbol.type);
+        throw new SemanticError(sar.line,"Invalid type for cout. Expected char or int, not ",symbol.type);
     }
 }
 
@@ -247,9 +247,23 @@ void iExist()
     _sas.push(id_sar);
 }
 
-void if_sa()
+void if_sa(size_t line)
 {
     writeln("if_sa");
+    
+    if (_sas.empty())
+        throw new SemanticError(line,"Expected boolean expression");
+
+    auto sar = _sas.top();
+    _sas.pop();
+
+    auto symbol = findSymbol(sar);
+    if (!symbol)
+        throw new SemanticError(line,"if_sa: Failed to load symbol");
+    if (symbol.type != "bool")
+        throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
+
+    writeln("(",sar.line,") if_sa: type is ",symbol.type);
 }
 
 void iPush(string name, Scope scpe, size_t line)
@@ -280,17 +294,17 @@ void newarr_sa()
 {
     writeln("newarr_sa");
 
-    auto index_sar = _sas.top;
+    auto index_sar = _sas.top();
     _sas.pop();
 
-    auto type_sar = _sas.top;
+    auto type_sar = _sas.top();
     _sas.pop();
 
-    auto index_symbol = SymbolTable.get(index_sar.id);
+    auto index_symbol = SymbolTable.getById(index_sar.id);
     if (!index_symbol)
-        throw new Exception("Could not find arr index in symbol table");
+        throw new SemanticError(index_sar.line,"newarr_sa: Failed to load index symbol");
     if (index_symbol.type != "int")
-        throw new Exception("Arr index must be an integer");
+        throw new SemanticError(index_sar.line,"Invalid array index. Expected int, not ",index_symbol.type);
 
     switch(type_sar.name) {
     case "int":
@@ -300,12 +314,12 @@ void newarr_sa()
         break;
     default:
         if (!SymbolTable.findClass(type_sar.name))
-            throw new Exception("newarr_sa: Invalid type");
+            throw new SemanticError(type_sar.line,"Invalid array type ",type_sar.name);
     }
 
     auto temp = new TempSymbol(index_symbol.name,text("@:",type_sar.name));
-    _sas.push(SAR(SARType.NEW_SAR,temp.id));
     SymbolTable.add(temp);
+    _sas.push(SAR(SARType.NEW_SAR,temp.name,type_sar.line,temp.id));
 }
 
 void newobj_sa()
@@ -496,9 +510,20 @@ void doStackOp()
         if (l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid operands for '",op,"' operator. Types do not match");
         auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),l_symbol.type);
-        auto temp_sar = SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.scpe,l_sar.line,temp_symbol.id);
-        _sas.push(temp_sar);
+        _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
         SymbolTable.add(temp_symbol);
+        break;
+    case "<":
+    case ">":
+    case "<=":
+    case ">=":
+    case "==":
+    case "!=":
+        if (l_symbol.type != r_symbol.type)
+            throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type, " and ",r_symbol.type);
+        auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),"bool");
+        _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
+        SymbolTable.add(temp_symbol);        
         break;
     default:
         throw new SemanticError(l_sar.line,"doStackOp: Invalid operation ",op);
@@ -510,7 +535,7 @@ auto findSymbol(SAR sar, bool recurse=true)
     Symbol symbol;
 
     if (sar.id) {
-        symbol = SymbolTable.get(sar.id);
+        symbol = SymbolTable.getById(sar.id);
     }
     else {
         switch (sar.type) {
@@ -541,8 +566,8 @@ auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
         throw new SemanticError(sar.line,"Wrong number of arguments for method ",sar.name);
 
     foreach (i,a; sar.params.dup.reverse) {
-        auto arg = SymbolTable.get(a);
-        auto param = SymbolTable.get(methodSymbol.params[i]);
+        auto arg = SymbolTable.getById(a);
+        auto param = SymbolTable.getById(methodSymbol.params[i]);
         if (arg.type != param.type)
             throw new SemanticError(sar.line,"Wrong parameter type. Found ",arg.type, "; expected ",param.type);        
     }

@@ -1,5 +1,3 @@
-import std.algorithm;
-import std.array;
 import std.conv;
 import std.string;
 
@@ -38,7 +36,7 @@ public:
         }
     }
 
-    static auto get(string id)
+    static auto getById(string id)
     {
         return id in byId ? byId[id] : null;
     }
@@ -65,8 +63,6 @@ public:
 
     static auto find(T)(string name, Scope scpe, bool recurse=true)
     {
-        Symbol match;
-
         for (; scpe.length; scpe.pop()) {
             if (scpe !in byScope) {
                 if (!recurse)
@@ -75,20 +71,15 @@ public:
                     continue;
             }
 
-            auto matches = byScope[scpe]
-                            .filter!(a => a.name == name)
-                            .filter!(a => cast(T)a !is null)
-                            .array;
+            foreach (symbol; byScope[scpe])
+                if (symbol.name == name && cast(T)symbol !is null)
+                    return symbol;
 
-            if (matches.length) {
-                match = matches[0];
-                break;
-            }
             if (!recurse)
                 break;
         }
 
-        return match;
+        return null;
     }
 
     static string toString()
