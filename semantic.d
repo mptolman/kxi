@@ -1,3 +1,4 @@
+import std.array; // split
 import std.conv;
 import std.stdio;
 import icode, stack, symbol;
@@ -68,15 +69,11 @@ void arr_sa()
     if (!index_symbol)
         throw new SemanticError(id_sar.line,"arr_sa: Failed to load index symbol");
 
-    auto id_symbol = findSymbol(id_sar);
-    if (!id_symbol)
-        throw new SemanticError(id_sar.line,"arr_sa: Failed to load id symbol");
-
     if (index_symbol.type != "int")
         throw new SemanticError(id_sar.line,"Invalid array index. Expected int, not ", index_symbol.type);
 
-
-    // push arr_sar
+    id_sar.type = SARType.ARR_SAR;
+    _sas.push(id_sar);
 }
 
 void atoi_sa()
@@ -236,8 +233,15 @@ void iExist()
     if (!symbol)
         throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' does not exist in this scope");
 
-    if (id_sar.type == SARType.FUNC_SAR)
+    if (id_sar.type == SARType.FUNC_SAR) {
         checkFuncArgs(id_sar,cast(MethodSymbol)symbol);
+    }
+    else if (id_sar.type == SARType.ARR_SAR) {
+        auto splitType = symbol.type.split(":");
+        if (splitType[0] != "@")
+            throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array");
+        symbol.type = splitType[1];
+    }
     
     id_sar.id = symbol.id;
     _sas.push(id_sar);
@@ -307,6 +311,7 @@ void newarr_sa()
 void newobj_sa()
 {
     writeln("newobj_sa");
+
     auto al_sar = _sas.top();
     _sas.pop();
     
@@ -314,7 +319,7 @@ void newobj_sa()
     _sas.pop();
 
     // Make sure type exists
-    auto class_symbol = findSymbol(type_sar);
+    auto class_symbol = SymbolTable.findClass(type_sar.name);
     if (!class_symbol)
         throw new SemanticError(type_sar.line,"Invalid type ",type_sar.name);
 
@@ -510,6 +515,7 @@ auto findSymbol(SAR sar, bool recurse=true)
     else {
         switch (sar.type) {
         case SARType.ID_SAR:
+        case SARType.ARR_SAR:
             symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
             break;
         case SARType.FUNC_SAR:

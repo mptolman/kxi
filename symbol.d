@@ -10,7 +10,8 @@ immutable GLOBAL_SCOPE = "g";
 struct SymbolTable
 {
 private:
-    static Symbol[string] table;
+    static Symbol[string] byId;
+    static Symbol[][Scope] byScope;
     @disable this();
 
 public:
@@ -20,22 +21,26 @@ public:
             // don't error--just keep one copy
         }
         else if (cast(VarSymbol)s && findVariable(s.name,s.scpe,false)) {
+            throw new Exception(text("Multiple declarations for variable ",s.name));
             //throw new Exception(text("(",s.line,"): Variable '",s.name,"' has already been declared"));
         }
         else if (cast(MethodSymbol)s && findMethod(s.name,s.scpe,false)) {
+            throw new Exception(text("Multiple declarations for method ",s.name));
             //throw new Exception(text("(",s.line,"): Method '",s.name,"' has already been declared"));
         }
         else if (cast(ClassSymbol)s && findClass(s.name)) {
+            throw new Exception(text("Multiple declarations for class ",s.name));
             //throw new Exception(text("(",s.line,"): Class '",s.name,"' has already been declared"));
         }
         else {
-            table[s.id] = s;
+            byId[s.id] = s;
+            byScope[s.scpe] ~= s;
         }
     }
 
     static auto get(string id)
     {
-        return id in table ? table[id] : null;
+        return id in byId ? byId[id] : null;
     }
 
     static auto findVariable(string name, Scope scpe, bool recurse=true)
@@ -60,25 +65,36 @@ public:
 
     static auto find(T)(string name, Scope scpe, bool recurse=true)
     {
-        for ( ; scpe.length; scpe.pop()) {
-            auto matches = table.values
-                            .filter!(a => a.scpe == scpe)
+        Symbol match;
+
+        for (; scpe.length; scpe.pop()) {
+            if (scpe !in byScope) {
+                if (!recurse)
+                    break;
+                else
+                    continue;
+            }
+
+            auto matches = byScope[scpe]
                             .filter!(a => a.name == name)
-                            .filter!(a => cast(T) a !is null)
+                            .filter!(a => cast(T)a !is null)
                             .array;
-            if (matches.length)
-                return matches[0];
-            if (!recurse) 
-                return null;
+
+            if (matches.length) {
+                match = matches[0];
+                break;
+            }
+            if (!recurse)
+                break;
         }
 
-        return null;
+        return match;
     }
 
     static string toString()
     {
         string s;
-        foreach (i,j; table)
+        foreach (i,j; byId)
             s ~= j.toString() ~ "\n";            
         return s;
     }
@@ -131,6 +147,21 @@ public:
         }
         return false;
     }
+
+    const hash_t toHash()
+    {
+        return typeid(scpe).getHash(&scpe);
+    }
+
+    const bool opEquals(ref const Scope s)
+    {
+        return cmp(this.scpe, s.scpe) == 0;
+    }
+
+    const int opCmp(ref const Scope s)
+    {
+        return cmp(this.scpe, s.scpe);
+    }
 }
 
 abstract class Symbol
@@ -152,21 +183,6 @@ public:
         this.type = type;
         this.modifier = modifier;
         this.scpe = scpe;
-    }
-
-    auto isAccessibleFrom(Scope scpe)
-    {
-        if (this.modifier == PUBLIC_MODIFIER)
-            return true;
-
-        Scope currScope = this.scpe;
-        while (currScope.length) {
-            if (currScope == scpe)
-                return true;
-            currScope.pop();
-        }
-        
-        return false;
     }
 
     override string toString()

@@ -68,7 +68,7 @@ void assertValue(string[] values ...)
     error(values);
 }
 
-void error(T)(T[] types ...)
+void error(Args...)(Args types)
 {
     string s = text("Expected ",types[0]);
     if (types.length > 1) {
@@ -387,8 +387,7 @@ void assignment_expression()
     case TType.NEW:
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
-        if (_ct.type == TType.IDENTIFIER)
-            tPush(_ct.value,_ct.line);
+        tPush(_ct.value,_ct.line);
         next();
         new_declaration();
         break;

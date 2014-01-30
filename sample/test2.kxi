@@ -17,8 +17,6 @@ class Foo
 
 void main()
 {
-    int x = 1;
-    int y = 2;
-    Foo foo = new Foo();
-    int z = foo.add(x,y) * x + y;
+    int x[];
+    cout << x[1];
 }
