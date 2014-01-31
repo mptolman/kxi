@@ -57,7 +57,7 @@ struct SAR
 
 void arr_sa()
 {
-    writeln("arr_sa");
+    debug writeln("arr_sa");
 
     auto index_sar = _sas.top();
     _sas.pop();
@@ -78,7 +78,7 @@ void arr_sa()
 
 void atoi_sa()
 {
-    writeln("atoi_sa");
+    debug writeln("atoi_sa");
 
     auto sar = _sas.top();
     _sas.pop();
@@ -99,14 +99,14 @@ void atoi_sa()
 
 void bal_sa()
 {
-    writeln("bal_sa");
+    debug writeln("bal_sa");
 
     _sas.push(SAR(SARType.BAL_SAR));
 }
 
 void cbracket_sa()
 {
-    writeln("cbracket_sa");
+    debug writeln("cbracket_sa");
 
     while (_os.top() != "[")
         doStackOp();
@@ -115,7 +115,7 @@ void cbracket_sa()
 
 void cd_sa(string ctorName, Scope scpe, size_t line)
 {
-    writeln("cd_sa");
+    debug writeln("cd_sa");
 
     auto className = scpe.top();
     if (ctorName != className)
@@ -124,7 +124,7 @@ void cd_sa(string ctorName, Scope scpe, size_t line)
 
 void cin_sa()
 {
-    writeln("cin_sa");
+    debug writeln("cin_sa");
 
     while (!_os.empty())
         doStackOp();
@@ -146,7 +146,7 @@ void cin_sa()
 
 void comma_sa()
 {
-    writeln("comma_sa");
+    debug writeln("comma_sa");
 
     while (_os.top() != "(")
         doStackOp();
@@ -154,7 +154,7 @@ void comma_sa()
 
 void cout_sa()
 {
-    writeln("cout_sa");
+    debug writeln("cout_sa");
 
     while (!_os.empty())
         doStackOp();
@@ -176,7 +176,7 @@ void cout_sa()
 
 void cparen_sa(size_t line)
 {
-    writeln("cparen_sa");
+    debug writeln("cparen_sa");
 
     while (_os.top != "(")
         doStackOp();
@@ -185,7 +185,7 @@ void cparen_sa(size_t line)
 
 void eal_sa()
 {
-    writeln("eal_sa");
+    debug writeln("eal_sa");
 
     auto al_sar = SAR(SARType.AL_SAR);
 
@@ -200,7 +200,7 @@ void eal_sa()
 
 void eoe_sa()
 {
-    writeln("eoe_sa");
+    debug writeln("eoe_sa");
 
     while (!_os.empty)
         doStackOp();
@@ -209,7 +209,7 @@ void eoe_sa()
 
 void func_sa()
 {
-    writeln("func_sa");
+    debug writeln("func_sa");
 
     auto al_sar = _sas.top(); 
     _sas.pop();
@@ -227,7 +227,7 @@ void iExist()
     auto id_sar = _sas.top();
     _sas.pop();    
 
-    writefln("iExist: %s",id_sar.name);
+    debug writefln("iExist: %s",id_sar.name);
 
     auto symbol = findSymbol(id_sar);
     if (!symbol)
@@ -239,8 +239,9 @@ void iExist()
     else if (id_sar.type == SARType.ARR_SAR) {
         auto splitType = symbol.type.split(":");
         if (splitType[0] != "@")
-            throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array");
-        symbol.type = splitType[1];
+            throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array. Found ",symbol.type);
+        symbol = new TempSymbol(symbol.name,splitType[1]);
+        SymbolTable.add(symbol);
     }
     
     id_sar.id = symbol.id;
@@ -249,7 +250,7 @@ void iExist()
 
 void if_sa(size_t line)
 {
-    writeln("if_sa");
+    debug writeln("if_sa");
     
     if (_sas.empty())
         throw new SemanticError(line,"Expected boolean expression");
@@ -262,24 +263,22 @@ void if_sa(size_t line)
         throw new SemanticError(line,"if_sa: Failed to load symbol");
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
-
-    writeln("(",sar.line,") if_sa: type is ",symbol.type);
 }
 
 void iPush(string name, Scope scpe, size_t line)
 {
-    writefln("(%s) iPush: %s",line,name);
+    debug writefln("(%s) iPush: %s",line,name);
     _sas.push(SAR(SARType.ID_SAR,name,scpe,line));
 }
 
 void itoa_sa()
 {
-    writeln("itoa_sa");
+    debug writeln("itoa_sa");
 }
 
 void lPush(string value, size_t line)
 {
-    writefln("lPush: %s",value);
+    debug writefln("lPush: %s",value);
 
     auto lit_sar = SAR(SARType.LIT_SAR,value,line);
     auto symbol = findSymbol(lit_sar);
@@ -292,7 +291,7 @@ void lPush(string value, size_t line)
 
 void newarr_sa()
 {
-    writeln("newarr_sa");
+    debug writeln("newarr_sa");
 
     auto index_sar = _sas.top();
     _sas.pop();
@@ -324,7 +323,7 @@ void newarr_sa()
 
 void newobj_sa()
 {
-    writeln("newobj_sa");
+    debug writeln("newobj_sa");
 
     auto al_sar = _sas.top();
     _sas.pop();
@@ -359,7 +358,7 @@ void newobj_sa()
 
 void oPush(string op, size_t line)
 {    
-    writefln("(%s) oPush: %s",line,op);
+    debug writefln("(%s) oPush: %s",line,op);
 
     while (!_os.empty && _opWeights[_os.top] >= _opWeights[op] && _opWeights[_os.top] != _opWeights["("]) {
         if (op == "=" && _os.top == "=")
@@ -372,7 +371,7 @@ void oPush(string op, size_t line)
 
 void return_sa(Scope scpe, size_t line)
 {
-    writeln("return_sa");
+    debug writeln("return_sa");
 
     while (!_os.empty())
         doStackOp();
@@ -409,7 +408,7 @@ void rExist()
     auto obj_sar = _sas.top();
     _sas.pop();
 
-    writefln("rExist: %s.%s",obj_sar.name,member_sar.name);
+    debug writefln("rExist: %s.%s",obj_sar.name,member_sar.name);
 
     auto obj_symbol = findSymbol(obj_sar);
     if (!obj_symbol)
@@ -442,7 +441,7 @@ void tExist()
     auto type_sar = _sas.top();
     _sas.pop();
 
-    writefln("tExist: %s",type_sar.name);
+    debug writefln("tExist: %s",type_sar.name);
 
     if (!SymbolTable.findClass(type_sar.name))
         throw new SemanticError(type_sar.line,"Invalid type ",type_sar.name);
@@ -455,7 +454,7 @@ void tPush(string type, size_t line)
 
 void vPush(string name, Scope scpe, size_t line)
 {
-    writefln("(%s) vPush: %s",line,name);
+    debug writefln("(%s) vPush: %s",line,name);
 
     auto symbol = SymbolTable.findVariable(name,scpe,false);
     if (!symbol)
@@ -464,9 +463,21 @@ void vPush(string name, Scope scpe, size_t line)
     _sas.push(SAR(SARType.ID_SAR,name,scpe,line,symbol.id));
 }
 
-void while_sa()
+void while_sa(size_t line)
 {
-    writeln("while_sa");
+    debug writeln("while_sa");
+
+    if (_sas.empty())
+        throw new SemanticError(line,"Expected boolean expression");
+
+    auto sar = _sas.top();
+    _sas.pop();
+
+    auto symbol = findSymbol(sar);
+    if (!symbol)
+        throw new SemanticError(line,"if_sa: Failed to load symbol");
+    if (symbol.type != "bool")
+        throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
 }
 
 class SemanticError : Exception
@@ -486,7 +497,7 @@ void doStackOp()
 {
     auto op = _os.top();
     _os.pop();
-    writefln("Doing '%s' op",op);
+    debug writefln("Doing '%s' op",op);
 
     auto r_sar = _sas.top();
     _sas.pop();
@@ -495,12 +506,21 @@ void doStackOp()
     _sas.pop();
 
     auto r_symbol = findSymbol(r_sar);
+    if (!r_symbol)
+        throw new SemanticError(l_sar.line,"doStackOp: Failed to load rval");
+
     auto l_symbol = findSymbol(l_sar);
+    if (!l_symbol)
+        throw new SemanticError(l_sar.line,"doStackOp: Failed to load lval");
 
     switch(op) {
     case "=":
-        if (l_symbol.type != r_symbol.type)
-            throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
+        if (l_symbol.type != r_symbol.type) {
+            if (SymbolTable.findClass(l_symbol.type) && r_symbol.type == "null") {}
+                // allow
+            else
+                throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
+        }
         break;
     case "+":
     case "-":
@@ -519,8 +539,12 @@ void doStackOp()
     case ">=":
     case "==":
     case "!=":
-        if (l_symbol.type != r_symbol.type)
-            throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type, " and ",r_symbol.type);
+        if (l_symbol.type != r_symbol.type) {
+            if (SymbolTable.findClass(l_symbol.type) && r_symbol.type == "null") {}
+                // allow
+            else
+                throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type, " and ",r_symbol.type);
+        }
         auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),"bool");
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
         SymbolTable.add(temp_symbol);        

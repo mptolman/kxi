@@ -2,11 +2,6 @@ import std.conv;
 import std.stdio;
 import lexer, symbol, semantic;
 
-immutable INT   = "int";
-immutable CHAR  = "char";
-immutable BOOL  = "bool";
-immutable VOID  = "void";
-
 void parse(File src)
 {
     _tokens = new Lexer(src);
@@ -96,7 +91,7 @@ void compilation_unit()
     while (_ct.type == TType.CLASS)
         class_declaration();
 
-    assertValue(VOID);
+    assertValue("void");
     auto returnType = _ct.value;
     
     next();
@@ -245,7 +240,7 @@ void constructor_declaration()
     MethodSymbol methodSymbol;
 
     if (_firstPass)
-        methodSymbol = new MethodSymbol(ctorName,VOID,PUBLIC_MODIFIER,_scope);
+        methodSymbol = new MethodSymbol(ctorName,"void",PUBLIC_MODIFIER,_scope);
     else
         cd_sa(ctorName,_scope,_ct.line);
 
@@ -508,7 +503,7 @@ void statement()
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
             cparen_sa(_ct.line);
-            while_sa();
+            while_sa(_ct.line);
         }
 
         next();
@@ -599,8 +594,10 @@ void expression()
         case TType.TRUE:
         case TType.FALSE:        
         case TType.NULL:
-            if (_firstPass)
-                SymbolTable.add(new GlobalSymbol(_ct.value,BOOL));
+            if (_firstPass && _ct.type == TType.NULL)
+                SymbolTable.add(new GlobalSymbol(_ct.value,"null"));
+            else if (_firstPass)
+                SymbolTable.add(new GlobalSymbol(_ct.value,"bool"));
             else
                 lPush(_ct.value,_ct.line);
             next();
@@ -776,7 +773,7 @@ void character_literal()
     assertType(TType.CHAR_DELIM);
 
     if (_firstPass)
-        SymbolTable.add(new GlobalSymbol(s,CHAR));
+        SymbolTable.add(new GlobalSymbol(s,"char"));
     else
         lPush(s,_ct.line);
 
@@ -790,7 +787,7 @@ void numeric_literal()
     assertType(TType.INT_LITERAL);
 
     if (_firstPass)
-        SymbolTable.add(new GlobalSymbol(_ct.value,INT));
+        SymbolTable.add(new GlobalSymbol(_ct.value,"int"));
     else
         lPush(_ct.value,_ct.line);
 
