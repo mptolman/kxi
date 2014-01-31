@@ -1,7 +1,7 @@
 import std.array; // split
 import std.conv;
 import std.stdio;
-import icode, stack, symbol;
+import container, icode, symbol;
 
 enum SARType : byte
 {

@@ -1,5 +1,6 @@
 import std.ascii;
 import std.stdio;
+import container;
 
 enum TType : byte 
 {
@@ -60,12 +61,13 @@ public:
     this(File file) 
     {
         _file = file;
+        _tokens = new Queue!Token;
     }
 
     Token peek()
     {
-        if (_tokens.length)
-            return _tokens[0];
+        if (!_tokens.empty())
+            return _tokens.front();
 
         loadMoreTokens();
         return peek();
@@ -73,9 +75,9 @@ public:
 
     Token next()
     {
-        if (_tokens.length) {
-            Token t = _tokens[0];
-            _tokens = _tokens[1..$];
+        if (!_tokens.empty()) {
+            Token t = _tokens.front();
+            _tokens.pop();
             return t;
         }
 
@@ -85,14 +87,14 @@ public:
 
     void rewind()
     {
-        _tokens = null;
+        _tokens.clear();
         _lineNum = 0;
         _file.rewind();
     }
 
 private:
     File _file;
-    Token[] _tokens;
+    Queue!Token _tokens;
     size_t _lineNum;
     static immutable BUFFER_SIZE = 500;
 
@@ -156,9 +158,9 @@ private:
                     else if (c == '+' || c == '-')
                         state = State.PLUS_OR_MINUS;
                     else if (tok in tokenMap)
-                        _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     else
-                        _tokens ~= Token(TType.UNKNOWN,tok,_lineNum);
+                        _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
                     break;
 
                 case State.ALPHANUM:
@@ -167,11 +169,11 @@ private:
                         break;
                     }
                     if (tok in tokenMap)
-                        _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     else if (tok.length < MAX_ID_LEN)
-                        _tokens ~= Token(TType.IDENTIFIER,tok,_lineNum);
+                        _tokens.push(Token(TType.IDENTIFIER,tok,_lineNum));
                     else
-                        _tokens ~= Token(TType.UNKNOWN,tok,_lineNum);
+                        _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
                     state = State.START;
                     --i;
                     break;
@@ -181,7 +183,7 @@ private:
                         tok ~= c;
                         break;
                     }
-                    _tokens ~= Token(TType.INT_LITERAL,tok,_lineNum);
+                    _tokens.push(Token(TType.INT_LITERAL,tok,_lineNum));
                     state = State.START;
                     --i;
                     break;
@@ -192,7 +194,7 @@ private:
                         state = State.DIGIT;
                         break;
                     }
-                    _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     state = State.START;
                     --i;
                     break;
@@ -202,14 +204,14 @@ private:
                         tok ~= c;
                     else
                         --i;
-                    _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     state = State.START;
                     break;
 
                 case State.AND:
                     if (c == '&') {
                         tok ~= c;
-                        _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     }
                     else {
                         --i;
@@ -220,7 +222,7 @@ private:
                 case State.OR:
                     if (c == '|') {
                         tok ~= c;
-                        _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     }
                     else {
                         --i;
@@ -231,7 +233,7 @@ private:
                 case State.NOT:
                     if (c == '=') {
                         tok ~= c;
-                        _tokens ~= Token(tokenMap[tok],tok,_lineNum);                       
+                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     }
                     else {
                         --i;
@@ -244,7 +246,7 @@ private:
                         tok ~= c;
                     else
                         --i;
-                    _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     state = State.START;
                     break;
 
@@ -253,14 +255,14 @@ private:
                         tok ~= c;
                     else
                         --i;
-                    _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     state = State.START;
                     break;
 
                 case State.CHAR_BEGIN:
-                    _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     tok = [c];
-                    _tokens ~= Token(TType.CHAR_LITERAL,tok,_lineNum);
+                    _tokens.push(Token(TType.CHAR_LITERAL,tok,_lineNum));
                     if (c == '\\')
                         state = State.CHAR_ESCAPE;
                     else
@@ -269,18 +271,18 @@ private:
 
                 case State.CHAR_ESCAPE:
                     tok = [c];
-                    _tokens ~= Token(TType.CHAR_LITERAL,tok,_lineNum);
+                    _tokens.push(Token(TType.CHAR_LITERAL,tok,_lineNum));
                     state = State.CHAR_END;
                     break;
 
                 case State.CHAR_END:
                     tok = [c];
                     if (c == '\'') {
-                        _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                         state = State.START;
                         break;
                     }
-                    _tokens ~= Token(TType.UNKNOWN,tok,_lineNum);
+                    _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
                     state = State.START;
                     --i;
                     break;
@@ -292,7 +294,7 @@ private:
                     }
                     else {
                         // Divide operator
-                        _tokens ~= Token(tokenMap[tok],tok,_lineNum);
+                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
                     }
                     state = State.START;
                     --i;
@@ -305,12 +307,12 @@ private:
                 }
             }
 
-            if (_tokens.length >= BUFFER_SIZE)
+            if (_tokens.size() >= BUFFER_SIZE)
                 break;
         }
 
         if (_file.eof)
-            _tokens ~= Token(TType.EOF);
+            _tokens.push(Token(TType.EOF));
     }
 }
 
