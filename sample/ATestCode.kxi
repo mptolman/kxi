@@ -1,0 +1,54 @@
+cass iNode {
+	public int root;
+	public iode left;
+	public illode right;
+
+	public iNode(int key) {
+		root = key;
+		left = null;
+		right = null;
+	}
+}
+
+class iTreee {
+	priate iNode root;
+	private int first;
+
+	public iTree() {
+		root = null;
+	}
+	
+	public void add(int key) {
+		if (root = null) {
+			root new iNode(key);
+			return true;
+		}
+		else
+			return insert(key, root, 42);
+	}
+
+	private boolean insert(int key, iNde node) {
+		if (key < node.root)
+			if (node.left == null) {
+				node.left = new iNode(key);
+				return true;
+			}
+			else
+				return insert(key, node.left);
+		else if (key > node.root)
+			if (node.right == null) {
+				node.right = new iNode(key);
+				return true;
+			}
+			else
+				return insert(key, node.right);
+		else
+			return false;
+	}
+	
+	pulic void print() {
+		first = true;
+		inorder(root);
+		System.out.print('\n');
+	}
+
