@@ -89,12 +89,7 @@ void atoi_sa()
     if (symbol.type != "char")
         throw new SemanticError(sar.line,"Invalid argument type for atoi. Expected char, not ",symbol.type);
 
-    try {
-
-    }
-    catch (Exception) {
-        throw new SemanticError(sar.line,"atoi argument cannot be converted to integer");
-    }
+    // TODO
 }
 
 void bal_sa()
@@ -274,6 +269,8 @@ void iPush(string name, Scope scpe, size_t line)
 void itoa_sa()
 {
     debug writeln("itoa_sa");
+
+    // TODO
 }
 
 void lPush(string value, size_t line)

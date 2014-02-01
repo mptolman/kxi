@@ -1,5 +1,5 @@
 import std.stdio;
-import parser;
+import parser, symbol;
 
 void compile(string srcFileName)
 {

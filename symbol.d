@@ -1,3 +1,5 @@
+import std.algorithm;
+import std.array;
 import std.conv;
 import std.string;
 
@@ -64,20 +66,31 @@ public:
     static auto find(T)(string name, Scope scpe, bool recurse=true)
     {
         for (; scpe.length; scpe.pop()) {
-            if (scpe !in byScope) {
-                if (!recurse)
-                    break;
-                else
-                    continue;
-            }
-
-            foreach (symbol; byScope[scpe])
-                if (symbol.name == name && cast(T)symbol !is null)
-                    return symbol;
-
+            auto matches = byId.values
+                            .filter!(a => a.name == name)
+                            .filter!(a => a.scpe == scpe)
+                            .filter!(a => cast(T)a !is null)
+                            .array;
+            if (matches.length)
+                return matches[0];
             if (!recurse)
                 break;
         }
+        //for (; scpe.length; scpe.pop()) {
+        //    if (scpe !in byScope) {
+        //        if (!recurse)
+        //            break;
+        //        else
+        //            continue;
+        //    }
+
+        //    foreach (symbol; byScope[scpe])
+        //        if (symbol.name == name && cast(T)symbol !is null)
+        //            return symbol;
+
+        //    if (!recurse)
+        //        break;
+        //}
 
         return null;
     }

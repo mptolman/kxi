@@ -63,7 +63,7 @@ void assertValue(string[] values ...)
     error(values);
 }
 
-void error(Args...)(Args types)
+void error(T)(T[] types...)
 {
     string s = text("Expected ",types[0]);
     if (types.length > 1) {
@@ -612,7 +612,7 @@ void expression()
             expressionz();
             break;
         default:
-            error("expression");
+            error(["expression"]);
         }
     }
 }
