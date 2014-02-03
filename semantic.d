@@ -1,6 +1,7 @@
 import std.array; // split
 import std.conv;
 import std.stdio;
+import std.string;
 import container, icode, symbol;
 
 enum SARType : byte
@@ -89,7 +90,7 @@ void atoi_sa()
     if (symbol.type != "char")
         throw new SemanticError(sar.line,"Invalid argument type for atoi. Expected char, not ",symbol.type);
 
-    // TODO
+    _sas.push(SAR(SARType.LIT_SAR,sar.name,sar.line));
 }
 
 void bal_sa()
