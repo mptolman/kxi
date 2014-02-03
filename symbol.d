@@ -17,20 +17,17 @@ private:
 public:
     static void add(Symbol s)
     {
-        if (cast(GlobalSymbol)s && findGlobal(s.name)) {
+        if (cast(GlobalSymbol)s && findGlobal(s.name,s.type)) {
             // don't error--just keep one copy
         }
         else if (cast(VarSymbol)s && findVariable(s.name,s.scpe,false)) {
-            throw new Exception(text("Multiple declarations for variable ",s.name));
-            //throw new Exception(text("(",s.line,"): Variable '",s.name,"' has already been declared"));
+            throw new Exception(text("(",s.line,"): Duplicate declaration of variable ",s.name));
         }
         else if (cast(MethodSymbol)s && findMethod(s.name,s.scpe,false)) {
-            throw new Exception(text("Multiple declarations for method ",s.name));
-            //throw new Exception(text("(",s.line,"): Method '",s.name,"' has already been declared"));
+            throw new Exception(text("(",s.line,"): Duplicate declaration of method ",s.name));
         }
         else if (cast(ClassSymbol)s && findClass(s.name)) {
-            throw new Exception(text("Multiple declarations for class ",s.name));
-            //throw new Exception(text("(",s.line,"): Class '",s.name,"' has already been declared"));
+            throw new Exception(text("(",s.line,"): Duplicate declaration of class ",s.name));
         }
         else {
             byId[s.id] = s;
@@ -45,54 +42,52 @@ public:
 
     static auto findVariable(string name, Scope scpe, bool recurse=true)
     {
-        return find!VarSymbol(name,scpe,recurse);
-    }
-
-    static auto findClass(string name)
-    {
-        return find!ClassSymbol(name,Scope(GLOBAL_SCOPE),false);
+        auto matches = find!VarSymbol(name,scpe,recurse);
+        return matches.length ? matches[0] : null;
     }
 
     static auto findMethod(string name, Scope scpe, bool recurse=true)
     {
-        return find!MethodSymbol(name,scpe,recurse);
+        auto matches = find!MethodSymbol(name,scpe,recurse);
+        return matches.length ? matches[0] : null;
     }
 
-    static auto findGlobal(string name)
+    static auto findClass(string name)
     {
-        return find!GlobalSymbol(name,Scope(GLOBAL_SCOPE),false);
+        auto matches = find!ClassSymbol(name,Scope(GLOBAL_SCOPE),false);
+        return matches.length ? matches[0] : null;
+    }
+
+    static auto findGlobal(string name, string type)
+    {
+        foreach (s; find!GlobalSymbol(name,Scope(GLOBAL_SCOPE),false))
+            if (s.type == type)
+                return s;
+        return null;
     }
 
     static auto find(T)(string name, Scope scpe, bool recurse=true)
     {
+        Symbol[] matches;
+
         for (; scpe.length; scpe.pop()) {
-            auto matches = byId.values
-                            .filter!(a => a.name == name)
-                            .filter!(a => a.scpe == scpe)
-                            .filter!(a => cast(T)a !is null)
-                            .array;
-            if (matches.length)
-                return matches[0];
-            if (!recurse)
+            if (scpe !in byScope) {
+                if (!recurse)
+                    break;
+                else
+                    continue;
+            }
+            
+            matches = byScope[scpe]
+                        .filter!(a => a.name == name)
+                        .filter!(a => cast(T)a !is null)
+                        .array;
+
+            if (matches.length || !recurse)
                 break;
         }
-        //for (; scpe.length; scpe.pop()) {
-        //    if (scpe !in byScope) {
-        //        if (!recurse)
-        //            break;
-        //        else
-        //            continue;
-        //    }
 
-        //    foreach (symbol; byScope[scpe])
-        //        if (symbol.name == name && cast(T)symbol !is null)
-        //            return symbol;
-
-        //    if (!recurse)
-        //        break;
-        //}
-
-        return null;
+        return matches;
     }
 
     static string toString()
@@ -124,7 +119,7 @@ public:
     auto top()
     {
         auto pos = lastIndexOf(scpe,'.');
-        return pos >= 0 ? scpe[pos+1..$] : scpe;
+        return pos >= 0 ? scpe[pos+1..$].idup : scpe.idup;
     }
 
     void reset()
@@ -178,15 +173,17 @@ public:
     string name;
     string type;
     string modifier;
+    size_t line;
     Scope scpe;
 
-    this(string prefix, string name, string type, string modifier, Scope scpe)
+    this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
     {
         this.id = text(prefix,++counter);
         this.name = name;
         this.type = type;
         this.modifier = modifier;
         this.scpe = scpe;
+        this.line = line;
     }
 
     override string toString()
@@ -197,9 +194,9 @@ public:
 
 class ClassSymbol : Symbol
 {
-    this(string className, Scope scpe)
+    this(string className, Scope scpe, size_t line)
     {
-        super("C",className,className,PUBLIC_MODIFIER,scpe);
+        super("C",className,className,PUBLIC_MODIFIER,scpe,line);
     }
 
     override string toString()
@@ -212,9 +209,9 @@ class MethodSymbol : Symbol
 {
     string[] params;
 
-    this(string methodName, string returnType, string modifier, Scope scpe)
+    this(string methodName, string returnType, string modifier, Scope scpe, size_t line)
     {
-        super("M",methodName,returnType,modifier,scpe);
+        super("M",methodName,returnType,modifier,scpe,line);
     }
 
     void addParam(Symbol s)
@@ -230,17 +227,17 @@ class MethodSymbol : Symbol
 
 abstract class VarSymbol : Symbol
 {
-    this(string prefix, string name, string type, string modifier, Scope scpe)
+    this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
     {
-        super(prefix,name,type,modifier,scpe);
+        super(prefix,name,type,modifier,scpe,line);
     }
 }
 
 class LVarSymbol : VarSymbol
 {
-    this(string name, string type, Scope scpe)
+    this(string name, string type, Scope scpe, size_t line)
     {
-        super("L",name,type,PRIVATE_MODIFIER,scpe);
+        super("L",name,type,PRIVATE_MODIFIER,scpe,line);
     }
 
     override string toString()
@@ -251,9 +248,9 @@ class LVarSymbol : VarSymbol
 
 class ParamSymbol : VarSymbol
 {
-    this(string name, string type, Scope scpe)
+    this(string name, string type, Scope scpe, size_t line)
     {
-        super("P",name,type,PRIVATE_MODIFIER,scpe);
+        super("P",name,type,PRIVATE_MODIFIER,scpe,line);
     }
 
     override string toString()
@@ -264,9 +261,9 @@ class ParamSymbol : VarSymbol
 
 class IVarSymbol : VarSymbol
 {
-    this(string name, string type, string modifier, Scope scpe)
+    this(string name, string type, string modifier, Scope scpe, size_t line)
     {
-        super("V",name,type,modifier,scpe);
+        super("V",name,type,modifier,scpe,line);
     }
 
     override string toString()
@@ -279,7 +276,7 @@ class GlobalSymbol : Symbol
 {
     this(string name, string type)
     {
-        super("G",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
+        super("G",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE),0);
     }
 
     override string toString()
@@ -292,7 +289,7 @@ class TempSymbol : Symbol
 {
     this(string name, string type)
     {
-        super("T",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
+        super("T",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE),0);
     }
 
     override string toString()
@@ -305,7 +302,7 @@ class RefSymbol : Symbol
 {
     this(string name, string type)
     {
-        super("R",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
+        super("R",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE),0);
     }
 
     override string toString()

@@ -99,7 +99,7 @@ void compilation_unit()
     auto methodName = _ct.value;
 
     if (_firstPass)
-        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope));
+        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
 
     _scope.push(methodName);
 
@@ -126,7 +126,7 @@ void class_declaration()
     auto className = _ct.value;
 
     if (_firstPass)
-        SymbolTable.add(new ClassSymbol(className,_scope));
+        SymbolTable.add(new ClassSymbol(className,_scope,_ct.line));
 
     _scope.push(className);
 
@@ -186,7 +186,7 @@ void field_declaration(string modifier, string type, string identifier)
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (_firstPass)
-            s = new MethodSymbol(identifier,type,modifier,_scope);
+            s = new MethodSymbol(identifier,type,modifier,_scope,_ct.line);
 
         _scope.push(identifier);
 
@@ -208,7 +208,7 @@ void field_declaration(string modifier, string type, string identifier)
         }
 
         if (_firstPass)
-            s = new IVarSymbol(identifier,type,modifier,_scope);
+            s = new IVarSymbol(identifier,type,modifier,_scope,_ct.line);
         else
             vPush(identifier,_scope,_ct.line);
 
@@ -236,11 +236,12 @@ void constructor_declaration()
 
     assertType(TType.IDENTIFIER);
     auto ctorName = _ct.value;
+    auto line = _ct.line;
 
     MethodSymbol methodSymbol;
 
     if (_firstPass)
-        methodSymbol = new MethodSymbol(ctorName,"void",PUBLIC_MODIFIER,_scope);
+        methodSymbol = new MethodSymbol(ctorName,"void",PUBLIC_MODIFIER,_scope,_ct.line);
     else
         cd_sa(ctorName,_scope,_ct.line);
 
@@ -297,7 +298,7 @@ void parameter(MethodSymbol methodSymbol)
     }
 
     if (methodSymbol !is null) {
-        auto p = new ParamSymbol(identifier,type,_scope);
+        auto p = new ParamSymbol(identifier,type,_scope,_ct.line);
         methodSymbol.addParam(p);
         SymbolTable.add(p);
     }
@@ -347,7 +348,7 @@ void variable_declaration()
     }
 
     if (_firstPass)
-        SymbolTable.add(new LVarSymbol(identifier,type,_scope));
+        SymbolTable.add(new LVarSymbol(identifier,type,_scope,_ct.line));
     else
         vPush(identifier,_scope,_ct.line);
 
@@ -592,14 +593,19 @@ void expression()
     else {
         switch (_ct.type) {
         case TType.TRUE:
-        case TType.FALSE:        
-        case TType.NULL:
-            if (_firstPass && _ct.type == TType.NULL)
-                SymbolTable.add(new GlobalSymbol(_ct.value,"null"));
-            else if (_firstPass)
+        case TType.FALSE:   
+            if (_firstPass)
                 SymbolTable.add(new GlobalSymbol(_ct.value,"bool"));
             else
-                lPush(_ct.value,_ct.line);
+                lPush(_ct.value,"bool",_ct.line);                
+            next();
+            expressionz();   
+            break;
+        case TType.NULL:
+            if (_firstPass)
+                SymbolTable.add(new GlobalSymbol(_ct.value,"null"));
+            else
+                lPush(_ct.value,"null",_ct.line);           
             next();
             expressionz();
             break;
@@ -775,7 +781,7 @@ void character_literal()
     if (_firstPass)
         SymbolTable.add(new GlobalSymbol(s,"char"));
     else
-        lPush(s,_ct.line);
+        lPush(s,"char",_ct.line);
 
     next();
 }
@@ -789,7 +795,7 @@ void numeric_literal()
     if (_firstPass)
         SymbolTable.add(new GlobalSymbol(_ct.value,"int"));
     else
-        lPush(_ct.value,_ct.line);
+        lPush(_ct.value,"int",_ct.line);
 
     next();
 }
