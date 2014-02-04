@@ -541,8 +541,10 @@ void doStackOp()
         if (l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid operands for '",op,"' operator. Types do not match");
         auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),l_symbol.type);
-        _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
         SymbolTable.add(temp_symbol);
+        _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
+
+        iMath(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     case "<":
     case ">":
@@ -557,8 +559,8 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type, " and ",r_symbol.type);
         }
         auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),"bool");
+        SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
-        SymbolTable.add(temp_symbol);        
         break;
     case "||":
     case "&&":

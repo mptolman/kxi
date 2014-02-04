@@ -1,6 +1,6 @@
 import std.conv;
 import std.stdio;
-import lexer, symbol, semantic;
+import icode, lexer, symbol, semantic;
 
 void parse(File src)
 {
@@ -98,8 +98,13 @@ void compilation_unit()
     assertType(TType.MAIN);
     auto methodName = _ct.value;
 
-    if (_firstPass)
+    if (_firstPass) {
         SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
+        iMain();
+    }
+    else {
+        iLabel(SymbolTable.findMethod(methodName,_scope,false).id);
+    }
 
     _scope.push(methodName);
 
@@ -108,6 +113,7 @@ void compilation_unit()
     next();
     assertType(TType.PAREN_CLOSE);     
     next();
+
     method_body();
 
     _scope.pop();
