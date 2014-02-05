@@ -13,7 +13,7 @@ void iMain()
 {
     auto main = SymbolTable.findMethod("main",Scope(GLOBAL_SCOPE),false);
     if (!main)
-        throw new Exception("Failed to locate main in symbol table");
+        throw new Exception("iMain: Failed to locate main in symbol table");
     iFunc(main.id,"this");
     push("QUIT","0");
 }
@@ -25,7 +25,6 @@ void iFunc(string opd1, string opd2, string[] args=null)
         push("PUSH",a);
     push("CALL",opd1);
 }
-
 
 private:
 Quad[] _quads;
