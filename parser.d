@@ -102,6 +102,9 @@ void compilation_unit()
         SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
         iMain();
     }
+    else {
+        iLabel(SymbolTable.findMethod(methodName,_scope,false).id);
+    }
 
     _scope.push(methodName);
 
@@ -110,6 +113,7 @@ void compilation_unit()
     next();
     assertType(TType.PAREN_CLOSE);     
     next();
+
     method_body();
 
     _scope.pop();
