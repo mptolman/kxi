@@ -5,5 +5,5 @@ void compile(string srcFileName)
 {
     File src = File(srcFileName);
     parse(src);
-    printICode();
+    debug printICode();
 }

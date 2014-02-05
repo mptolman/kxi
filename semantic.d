@@ -84,7 +84,7 @@ void atoi_sa()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto symbol = findSymbol(sar);
+    auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
         throw new SemanticError(sar.line,"atoi: Failed to load symbol");    
     if (symbol.type != "char")
@@ -130,7 +130,7 @@ void cin_sa()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto symbol = findSymbol(sar);
+    auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
         throw new SemanticError(sar.line,"cin_sa: Failed to load symbol");
 
@@ -160,7 +160,7 @@ void cout_sa()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto symbol = findSymbol(sar);
+    auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
         throw new SemanticError(sar.line,"cout_sa: Failed to load symbol");
 
@@ -223,23 +223,38 @@ void func_sa()
 void iExist()
 {
     auto id_sar = _sas.top();
-    _sas.pop();    
+    _sas.pop();
 
     debug writefln("iExist: %s",id_sar.name);
 
-    auto symbol = findSymbol(id_sar);
-    if (!symbol)
-        throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' does not exist in this scope");
+    Symbol symbol;
 
-    if (id_sar.sarType == SARType.FUNC_SAR) {
+    switch (id_sar.sarType) {
+    case SARType.ID_SAR:
+    case SARType.ARR_SAR:
+        symbol = SymbolTable.findVariable(id_sar.name,id_sar.scpe);
+        if (!symbol)
+            throw new SemanticError(id_sar.line,"Variable '",id_sar.name,"' does not exist in this scope");
+        break;
+    case SARType.FUNC_SAR:
+        symbol = SymbolTable.findMethod(id_sar.name,id_sar.scpe);
+        if (!symbol)
+            throw new SemanticError(id_sar.line,"Method '",id_sar.name,"' does not exist in this scope");
         checkFuncArgs(id_sar,cast(MethodSymbol)symbol);
-    }
-    else if (id_sar.sarType == SARType.ARR_SAR) {
+        break;
+    case SARType.ARR_SAR:
+        symbol = SymbolTable.findVariable(id_sar.name,id_sar.scpe);
+        if (!symbol)
+            throw new SemanticError(id_sar.line,"Variable '",id_sar.name,"' does not exist in this scope");
         auto splitType = symbol.type.split(":");
         if (splitType[0] != "@")
-            throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array. Found ",symbol.type);
+            throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array");
         symbol = new TempSymbol(symbol.name,splitType[1]);
         SymbolTable.add(symbol);
+        break;
+    default:
+        throw new SemanticError(id_sar.line,"iExist: Invalid SARType ",id_sar.type);
+        break;
     }
     
     id_sar.id = symbol.id;
@@ -251,12 +266,12 @@ void if_sa(size_t line)
     debug writeln("if_sa");
     
     if (_sas.empty())
-        throw new SemanticError(line,"Expected boolean expression");
+        throw new SemanticError(line,"Invalid boolean expression");
 
     auto sar = _sas.top();
     _sas.pop();
 
-    auto symbol = findSymbol(sar);
+    auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
         throw new SemanticError(line,"if_sa: Failed to load symbol");
     if (symbol.type != "bool")
@@ -276,7 +291,7 @@ void itoa_sa()
     auto sar = _sas.top();
     _sas.pop();
 
-    auto symbol = findSymbol(sar);
+    auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
         throw new SemanticError(sar.line,"itoa: Failed to load symbol");
     if (symbol.type != "int")
@@ -403,7 +418,7 @@ void return_sa(Scope scpe, size_t line)
     else {
         auto ret_sar = _sas.top();
         _sas.pop();
-        auto ret_symbol = findSymbol(ret_sar);
+        auto ret_symbol = SymbolTable.getById(ret_sar.id);
         if (!ret_symbol)
             throw new SemanticError(ret_sar.line,"return_sa: Failed to load return symbol");
         if (ret_symbol.type != returnType)
@@ -421,7 +436,7 @@ void rExist()
 
     debug writefln("rExist: %s.%s",obj_sar.name,member_sar.name);
 
-    auto obj_symbol = findSymbol(obj_sar);
+    auto obj_symbol = SymbolTable.getById(obj_sar.id);
     if (!obj_symbol)
         throw new SemanticError(obj_sar.line,"rExist: Failed to load object symbol ",obj_sar.id);
 
@@ -432,7 +447,25 @@ void rExist()
     auto class_scope = class_symbol.scpe;
     class_scope.push(class_symbol.name);
 
-    member_sar.scpe = class_scope;
+    Symbol member_symbol;
+
+    switch (member_sar.sarType) {
+    case SARType.ID_SAR:
+    case SARType.ARR_SAR:
+        member_symbol = SymbolTable.findVariable(member_sar.name,class_scope,false);
+        if (!member_symbol)
+            throw new SemanticError(member_sar.line,"Variable '",member_sar.name,"' does not exist in class '",class_symbol.name,"'");
+        break;
+    case SARType.FUNC_SAR:
+        member_symbol = SymbolTable.findMethod(member_sar.name,class_scope,false);
+        if (!member_symbol)
+            throw new SemanticError(member_sar.line,"Method '",member_sar.name,"' does not exist in class '",class_symbol.name,"'");
+        checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
+        break;
+    default:
+        throw new SemanticError(member_sar.line,"rExist: Invalid SARType ",member_sar.sarType);
+    }
+
     auto member_symbol = findSymbol(member_sar,false);
     if (!member_symbol)
         throw new SemanticError(member_sar.line,"Member '",member_sar.name,"' does not exist in class '",class_symbol.name,"'");
@@ -516,11 +549,11 @@ void doStackOp()
     auto l_sar = _sas.top();
     _sas.pop();
 
-    auto r_symbol = findSymbol(r_sar);
+    auto r_symbol = SymbolTable.getById(r_sar.id);
     if (!r_symbol)
         throw new SemanticError(l_sar.line,"doStackOp: Failed to load rval symbol");
 
-    auto l_symbol = findSymbol(l_sar);
+    auto l_symbol = SymbolTable.getById(l_sar.id);
     if (!l_symbol)
         throw new SemanticError(l_sar.line,"doStackOp: Failed to load lval symbol");
 

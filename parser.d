@@ -98,13 +98,10 @@ void compilation_unit()
     assertType(TType.MAIN);
     auto methodName = _ct.value;
 
-    if (_firstPass) {
+    if (_firstPass)
         SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
+    else
         iMain();
-    }
-    else {
-        iLabel(SymbolTable.findMethod(methodName,_scope,false).id);
-    }
 
     _scope.push(methodName);
 

@@ -42,20 +42,17 @@ public:
 
     static auto findVariable(string name, Scope scpe, bool recurse=true)
     {
-        auto matches = find!VarSymbol(name,scpe,recurse);
-        return matches.length ? matches[0] : null;
+        return findFirst!VarSymbol(name,scpe,recurse);
     }
 
     static auto findMethod(string name, Scope scpe, bool recurse=true)
     {
-        auto matches = find!MethodSymbol(name,scpe,recurse);
-        return matches.length ? matches[0] : null;
+        return findFirst!MethodSymbol(name,scpe,recurse);
     }
 
     static auto findClass(string name)
     {
-        auto matches = find!ClassSymbol(name,Scope(GLOBAL_SCOPE),false);
-        return matches.length ? matches[0] : null;
+        return findFirst!ClassSymbol(name,Scope(GLOBAL_SCOPE),false);
     }
 
     static auto findGlobal(string name, string type)
@@ -64,6 +61,12 @@ public:
             if (s.type == type)
                 return s;
         return null;
+    }
+
+    static auto findFirst(T)(string name, Scope scpe, bool recurse=true)
+    {
+        auto matches = find!T(name,scpe,recurse);
+        return matches.length ? matches[0] : null;
     }
 
     static auto find(T)(string name, Scope scpe, bool recurse=true)
@@ -139,11 +142,9 @@ public:
 
     auto contains(Scope s)
     {
-        while (s.length) {
+        for (; s.length; s.pop())
             if (s.scpe == this.scpe)
                 return true;
-            s.pop();
-        }
         return false;
     }
 
