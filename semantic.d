@@ -231,7 +231,6 @@ void iExist()
 
     switch (id_sar.sarType) {
     case SARType.ID_SAR:
-    case SARType.ARR_SAR:
         symbol = SymbolTable.findVariable(id_sar.name,id_sar.scpe);
         if (!symbol)
             throw new SemanticError(id_sar.line,"Variable '",id_sar.name,"' does not exist in this scope");
@@ -460,15 +459,11 @@ void rExist()
         member_symbol = SymbolTable.findMethod(member_sar.name,class_scope,false);
         if (!member_symbol)
             throw new SemanticError(member_sar.line,"Method '",member_sar.name,"' does not exist in class '",class_symbol.name,"'");
-        checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
         break;
     default:
         throw new SemanticError(member_sar.line,"rExist: Invalid SARType ",member_sar.sarType);
     }
 
-    auto member_symbol = findSymbol(member_sar,false);
-    if (!member_symbol)
-        throw new SemanticError(member_sar.line,"Member '",member_sar.name,"' does not exist in class '",class_symbol.name,"'");
     if (member_symbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
         throw new SemanticError(member_sar.line,"Member ",class_symbol.name,".",member_sar.name," is private");
 
@@ -517,7 +512,7 @@ void while_sa(size_t line)
     auto sar = _sas.top();
     _sas.pop();
 
-    auto symbol = findSymbol(sar);
+    auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
         throw new SemanticError(line,"if_sa: Failed to load symbol");
     if (symbol.type != "bool")
