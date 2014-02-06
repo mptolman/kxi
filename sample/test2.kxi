@@ -37,5 +37,6 @@ class A
 
 void main()
 {
-
+    Foo foo = new Foo();
+    foo.bar() = new Bar();
 }

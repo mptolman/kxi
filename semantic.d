@@ -67,7 +67,7 @@ void arr_sa()
     auto id_sar = _sas.top();
     _sas.pop();
 
-    auto index_symbol = findSymbol(index_sar);
+    auto index_symbol = SymbolTable.getById(index_sar.id);
     if (!index_symbol)
         throw new SemanticError(id_sar.line,"arr_sa: Failed to load index symbol");
     if (index_symbol.type != "int")
@@ -554,6 +554,15 @@ void doStackOp()
 
     switch(op) {
     case "=":
+        switch (l_sar.sarType) {
+        case SARType.ID_SAR:
+        case SARType.ARR_SAR:
+        case SARType.REF_SAR:
+            break; // allow
+        default:            
+            throw new SemanticError(l_sar.line,"Invalid left-hand operand for assignment statement");
+        }
+
         if (l_symbol.type != r_symbol.type) {
             if (SymbolTable.findClass(l_symbol.type) && r_symbol.type == "null") {}
                 // allow
@@ -603,35 +612,35 @@ void doStackOp()
     }
 }
 
-auto findSymbol(SAR sar, bool recurse=true)
-{
-    Symbol symbol;
+//auto findSymbol(SAR sar, bool recurse=true)
+//{
+//    Symbol symbol;
 
-    if (sar.id) {
-        symbol = SymbolTable.getById(sar.id);
-    }
-    else {
-        switch (sar.sarType) {
-        case SARType.ID_SAR:
-        case SARType.ARR_SAR:
-            symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
-            break;
-        case SARType.FUNC_SAR:
-            symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
-            break;
-        case SARType.TYPE_SAR:
-            symbol = SymbolTable.findClass(sar.name);
-            break;
-        case SARType.LIT_SAR:
-            symbol = SymbolTable.findGlobal(sar.name,sar.type);
-            break;
-        default:
-            throw new SemanticError(sar.line,"findSymbol: Invalid SARType ",sar.sarType);
-        }
-    }
+//    if (sar.id) {
+//        symbol = SymbolTable.getById(sar.id);
+//    }
+//    else {
+//        switch (sar.sarType) {
+//        case SARType.ID_SAR:
+//        case SARType.ARR_SAR:
+//            symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
+//            break;
+//        case SARType.FUNC_SAR:
+//            symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
+//            break;
+//        case SARType.TYPE_SAR:
+//            symbol = SymbolTable.findClass(sar.name);
+//            break;
+//        case SARType.LIT_SAR:
+//            symbol = SymbolTable.findGlobal(sar.name,sar.type);
+//            break;
+//        default:
+//            throw new SemanticError(sar.line,"findSymbol: Invalid SARType ",sar.sarType);
+//        }
+//    }
 
-    return symbol;
-}
+//    return symbol;
+//}
 
 auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
 {
