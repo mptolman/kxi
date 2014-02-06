@@ -98,10 +98,10 @@ void compilation_unit()
     assertType(TType.MAIN);
     auto methodName = _ct.value;
 
-    if (_firstPass)
+    if (_firstPass) {
         SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
-    else
         iMain();
+    }
 
     _scope.push(methodName);
 
@@ -239,7 +239,6 @@ void constructor_declaration()
 
     assertType(TType.IDENTIFIER);
     auto ctorName = _ct.value;
-    auto line = _ct.line;
 
     MethodSymbol methodSymbol;
 

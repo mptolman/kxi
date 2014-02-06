@@ -275,6 +275,8 @@ void if_sa(size_t line)
         throw new SemanticError(line,"if_sa: Failed to load symbol");
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
+
+    iIfCondition(symbol.id,"SKIPIF");
 }
 
 void iPush(string name, Scope scpe, size_t line)
@@ -446,32 +448,30 @@ void rExist()
     auto class_scope = class_symbol.scpe;
     class_scope.push(class_symbol.name);
 
-    Symbol member_symbol;
-
-    switch (member_sar.sarType) {
-    case SARType.ID_SAR:
-    case SARType.ARR_SAR:
-        member_symbol = SymbolTable.findVariable(member_sar.name,class_scope,false);
-        if (!member_symbol)
-            throw new SemanticError(member_sar.line,"Variable '",member_sar.name,"' does not exist in class '",class_symbol.name,"'");
-        break;
-    case SARType.FUNC_SAR:
-        member_symbol = SymbolTable.findMethod(member_sar.name,class_scope,false);
-        if (!member_symbol)
-            throw new SemanticError(member_sar.line,"Method '",member_sar.name,"' does not exist in class '",class_symbol.name,"'");
-        break;
-    default:
-        throw new SemanticError(member_sar.line,"rExist: Invalid SARType ",member_sar.sarType);
-    }
+    member_sar.scpe = class_scope;
+    Symbol member_symbol = findSymbol(member_sar);
+    if (!member_symbol)
+        throw new SemanticError(member_sar.line,"Member '",member_sar.name,"' does not exist in class ",class_symbol.name);
 
     if (member_symbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
         throw new SemanticError(member_sar.line,"Member ",class_symbol.name,".",member_sar.name," is private");
 
-    if (member_sar.sarType == SARType.FUNC_SAR)
-        checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
-
     auto ref_symbol = new RefSymbol(text(obj_symbol.name,'.',member_symbol.name),member_symbol.type);
     SymbolTable.add(ref_symbol);
+
+    switch (member_sar.sarType) {
+    case SARType.ID_SAR:
+        iVarRef(obj_symbol.id,member_symbol.id,ref_symbol.id);
+        break;
+    case SARType.FUNC_SAR:
+        checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
+        break;
+    case SARType.ARR_SAR:
+        break;
+    default:
+        throw new SemanticError(member_sar.line,"rExist: Invalid SARType ",member_sar.type);
+    }
+
     _sas.push(SAR(SARType.REF_SAR,ref_symbol.name,obj_sar.scpe,obj_sar.line,ref_symbol.id));
 }
 
@@ -569,6 +569,8 @@ void doStackOp()
             else
                 throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
         }
+
+        iGenericOp(op,r_symbol.id,l_symbol.id);
         break;
     case "+":
     case "-":
@@ -581,7 +583,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        iMath(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        iMathOp(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     case "<":
     case ">":
@@ -598,49 +600,53 @@ void doStackOp()
         auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),"bool");
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
+
+        iGenericOp(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     case "||":
     case "&&":
         if (l_symbol.type != "bool" || l_symbol.type != r_symbol.type)
-            throw new SemanticError(l_sar.line,"Expected expression of type bool, not ",l_symbol.type);
+            throw new SemanticError(l_sar.line,"Invalid boolean expression");
         auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),"bool");
-        _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
         SymbolTable.add(temp_symbol);
+        _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
+
+        iGenericOp(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     default:
         throw new SemanticError(l_sar.line,"doStackOp: Invalid operation ",op);
     }
 }
 
-//auto findSymbol(SAR sar, bool recurse=true)
-//{
-//    Symbol symbol;
+auto findSymbol(SAR sar, bool recurse=true)
+{
+    Symbol symbol;
 
-//    if (sar.id) {
-//        symbol = SymbolTable.getById(sar.id);
-//    }
-//    else {
-//        switch (sar.sarType) {
-//        case SARType.ID_SAR:
-//        case SARType.ARR_SAR:
-//            symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
-//            break;
-//        case SARType.FUNC_SAR:
-//            symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
-//            break;
-//        case SARType.TYPE_SAR:
-//            symbol = SymbolTable.findClass(sar.name);
-//            break;
-//        case SARType.LIT_SAR:
-//            symbol = SymbolTable.findGlobal(sar.name,sar.type);
-//            break;
-//        default:
-//            throw new SemanticError(sar.line,"findSymbol: Invalid SARType ",sar.sarType);
-//        }
-//    }
+    if (sar.id) {
+        symbol = SymbolTable.getById(sar.id);
+    }
+    else {
+        switch (sar.sarType) {
+        case SARType.ID_SAR:
+        case SARType.ARR_SAR:
+            symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
+            break;
+        case SARType.FUNC_SAR:
+            symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
+            break;
+        case SARType.TYPE_SAR:
+            symbol = SymbolTable.findClass(sar.name);
+            break;
+        case SARType.LIT_SAR:
+            symbol = SymbolTable.findGlobal(sar.name,sar.type);
+            break;
+        default:
+            throw new SemanticError(sar.line,"findSymbol: Invalid SARType ",sar.sarType);
+        }
+    }
 
-//    return symbol;
-//}
+    return symbol;
+}
 
 auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
 {

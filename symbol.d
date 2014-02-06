@@ -262,6 +262,8 @@ class ParamSymbol : VarSymbol
 
 class IVarSymbol : VarSymbol
 {
+    size_t offset;
+    
     this(string name, string type, string modifier, Scope scpe, size_t line)
     {
         super("V",name,type,modifier,scpe,line);
