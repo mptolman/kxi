@@ -276,7 +276,7 @@ void if_sa(size_t line)
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
 
-    iIfCondition(symbol.id,"SKIPIF");
+    iIfCondition(symbol.id);
 }
 
 void iPush(string name, Scope scpe, size_t line)
@@ -517,6 +517,8 @@ void while_sa(size_t line)
         throw new SemanticError(line,"if_sa: Failed to load symbol");
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
+
+    iWhile(symbol.id);
 }
 
 class SemanticError : Exception
