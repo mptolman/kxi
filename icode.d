@@ -74,8 +74,8 @@ void iLabel(string label)
 
 private:
 Quad[] _quads;
-string _label;
 string[string] _opMap;
+string _label;
 size_t _labelCount;
 
 void push(string opcode, string opd1, string opd2=null, string opd3=null)
@@ -84,9 +84,11 @@ void push(string opcode, string opd1, string opd2=null, string opd3=null)
     _label = null;
 }
 
-auto makeLabel(string label)
+auto makeLabel(string prefix = null)
 {
-    return text(label,++_labelCount);
+    if (!prefix)
+        prefix = "L";
+    return text(prefix,++_labelCount);
 }
 
 static this()
