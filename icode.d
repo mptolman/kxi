@@ -2,21 +2,132 @@ import std.conv;
 import std.stdio;
 import container, symbol;
 
-struct Quad
+
+//----------------------------
+// Methods
+//----------------------------
+void initMain()
 {
-    string opcode;
-    string opd1;
-    string opd2;
-    string opd3;
-    string label;
+    auto main = SymbolTable.findMethod("main",Scope(GLOBAL_SCOPE),false);
+    if (!main)
+        throw new Exception("initMain: Failed to locate main in symbol table");
+    funcCall(main.id,"this");
+    addQuad("QUIT");
 }
 
-void iMain()
+void funcCall(string symbolId, string opd1, string[] args=null)
 {
-
+    addQuad("FRAME",symbolId,opd1);
+    foreach (a; args)
+        addQuad("PUSH",a);
+    addQuad("CALL",symbolId);
 }
 
-void iOperator(string op, string opd1, string opd2, string opd3=null)
+void funcBody(string method, Scope scpe)
+{
+    auto symbol = SymbolTable.findMethod(method,scpe,false);
+    if (!symbol)
+        throw new Exception(text("funcBody: Failed to find method ",method," in symbol table"));
+    setLabel(symbol.id,true);
+}
+
+void funcReturn(string r=null)
+{
+    if (!r)
+        addQuad("RTN");
+    else
+        addQuad("RETURN",r);
+}
+
+//----------------------------
+// if statement
+//----------------------------
+void ifCond(string symbolId)
+{
+    auto skipIf = makeLabel("SKIPIF");
+    addQuad("BF",symbolId,skipIf);
+    pushLabel(skipIf);
+}
+
+void elseCond()
+{
+    auto skipElse = makeLabel("SKIPELSE");
+    addQuad("JMP",skipElse);
+
+    setLabel(_labelStack.top());
+    _labelStack.pop();
+    pushLabel(skipElse);
+}
+
+void endIf()
+{
+    setLabel(_labelStack.top());
+    _labelStack.pop();
+}
+
+//----------------------------
+// while statement
+//----------------------------
+void beginWhile()
+{
+    setLabel(makeLabel("BEGIN"));
+    pushLabel(_currentLabel);
+}
+
+void whileCond(string symbolId)
+{
+    auto endWhile = makeLabel("ENDWHILE");
+    addQuad("BF",symbolId,endWhile);
+    pushLabel(endWhile);
+}
+
+void endWhile()
+{
+    auto endWhile = _labelStack.top();
+    _labelStack.pop();
+
+    auto begin = _labelStack.top();
+    _labelStack.pop();
+    addQuad("JMP",begin);
+
+    setLabel(endWhile);
+}
+
+//----------------------------
+// References
+//----------------------------
+void refVar(string opd1, string opd2, string opd3)
+{
+    addQuad("REF",opd1,opd2,opd3);
+}
+
+//----------------------------
+// I/O
+//----------------------------
+void read(string symId, string type)
+{
+    if (type == "int")
+        addQuad("RDI",symId);
+    else if (type == "char")
+        addQuad("RDC",symId);
+    else
+        throw new Exception(text("read: Invalid type ",type));
+}
+
+void write(string symId, string type)
+{
+    if (type == "int")
+        addQuad("WRTI",symId);
+    else if (type == "char")
+        addQuad("WRTC",symId);
+    else
+        throw new Exception(text("write: Invalid type ",type));
+}
+
+//----------------------------
+// operators
+//----------------------------
+void operator(string op, string opd1, string opd2, string opd3=null)
 {
     auto lv = SymbolTable.getById(opd1);
     auto rv = SymbolTable.getById(opd2);
@@ -28,78 +139,52 @@ void iOperator(string op, string opd1, string opd2, string opd3=null)
     else
         addQuad(_opMap[op],opd1,opd2,opd3);
 }
-//void iMain()
-//{
-//    auto main = SymbolTable.findMethod("main",Scope(GLOBAL_SCOPE),false);
-//    if (!main)
-//        throw new Exception("iMain: Failed to locate main in symbol table");
-//    iFunc(main.id,"this");
-//    push("QUIT","0");
-//    iPushLabel(main.id,true);
-//}
 
-void iFunc(string opd1, string opd2, string[] args=null)
+void setLabel(string label, bool priority=false)
 {
-    addQuad("FRAME",opd1,opd2);
-    foreach (a; args)
-        addQuad("PUSH",a);
-    addQuad("CALL",opd1);
+    if (_currentLabel && _currentLabelTakesPriority) {        
+        backPatch(label,_currentLabel);
+    }
+    else if (_currentLabel) {
+        backPatch(_currentLabel,label);
+        _currentLabel = label;
+        _currentLabelTakesPriority = priority;
+    }
+    else {
+        _currentLabel = label;
+        _currentLabelTakesPriority = priority;
+    }
 }
 
-//void iFuncBody()
+//void setLabel(Label label)
 //{
+//    if (_currentLabel && _currentLabelTakesPriority) {
+//        backPatch(label,_currentLabel);
+//    }
+//    else if (_currentLabel) {
+//        backPatch(_currentLabel,label);
+//        _currentLabel = label;
+//    }
+//    else {
+//        _currentLabel = label;
+//    }
 //}
 
-//void iVarRef(string opd1, string opd2, string opd3)
+//void pushLabel(string label, bool priority=false)
 //{
-//    push("REF",opd1,opd2,opd3);
+//    pushLabel(Label(label,priority));
 //}
 
-//void iIfCondition(string symId)
-//{
-//    auto label = makeLabel("SKIPIF");
-//    addQuad("BF",symId,label);
-//    iPushLabel(label);
-//}
+void pushLabel(string label)
+{
+    _labelStack.push(label);
+}
 
-//void iBeginWhile()
-//{
-//    auto label = makeLabel("BEGIN");
-//    //iPopLabel();
-//    iPushLabel(label);
-//}
-
-//void iWhile(string symId)
-//{
-//    auto label = makeLabel("ENDWHILE");
-//    push("BF",symId,label);
-//    iPushLabel(label);
-//}
-
-//void iEndWhile()
-//{
-//    auto endLabel = _labelStack.top();
-//    _labelStack.pop();
-//    auto startLabel = _labelStack.top();
-//    _labelStack.pop();
-
-//    push("JMP",startLabel);
-//    setLabel(endLabel);
-//}
-
-//void iElse()
-//{
-//    auto label = makeLabel("SKIPELSE");
-//    push("JMP",label);
-
-//    iPopLabel();
-//    iPushLabel(label);
-//}
-
-//void iArrRef(string opd1, string opd2, string opd3)
-//{
-
-//}
+void popLabel()
+{
+    setLabel(_labelStack.top());
+    _labelStack.pop();
+}
 
 void printICode()
 {
@@ -107,65 +192,67 @@ void printICode()
         writefln("%s\t%s %s %s %s",q.label,q.opcode,q.opd1,q.opd2,q.opd3);
 }
 
-//void iPushLabel(string label, bool priority=false)
-//{
-//    _labelStack.push(new Label(label,priority));
-//}
-
-//void iPopLabel()
-//{
-//    auto topLabel = _labelStack.top();
-//    _labelStack.pop();
-
-//    if (_currentLabel && _currentLabel.priority) {
-//        backPatch(topLabel,_currentLabel);
-//    }
-//    else if (_currentLabel) {
-//        backPatch(_currentLabel,topLabel);
-//        _currentLabel = topLabel;
-//    }
-//    else {
-//        _currentLabel = topLabel;
-//    }
-//}
-
-//void setLabel(Label label)
-//{
-//    if (_currentLabel)
-//        backPatch(_currentLabel,label);
-//    _currentLabel = label;
-//}
-
 private:
 Quad[] _quads;
+
+string _currentLabel;
+bool _currentLabelTakesPriority;
+
+Stack!string _labelStack;
+size_t[string] _labelCount;
+
 string[string] _opMap;
 
-Label _currentLabel;
-size_t[string] _labelCount;
-Stack!Label _labelStack;
+struct Quad
+{
+    string opcode;
+    string opd1;
+    string opd2;
+    string opd3;
+    string label;
+}
 
 struct Label
 {
     string label;
     bool priority;
 
-    bool opEquals()(auto ref const string s) const
+    this(string label, bool priority=false)
     {
-        return label == s;
+        this.label = label;
+        this.priority = priority;
     }
 
-    string opCast(string)() const {
+    auto toString() const
+    {
         return label;
     }
+
+    auto opCast(T : bool)() const
+    {
+        return cast(bool)(label.length);
+    }
+
+    auto opEquals()(auto ref const Label l) const
+    {
+        return this.label == l.label;
+    }
 }
 
-void addQuad(string opcode, string opd1, string opd2=null, string opd3=null)
+void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
 {
-    _quads ~= Quad(opcode,opd1,opd2,opd3,_currentLabel.label);
-    _currentLabel = Label.init;
+    _quads ~= Quad(opcode,opd1,opd2,opd3,_currentLabel);
+    _currentLabel = null;
 }
 
-void backPatch(Label oldLabel, Label newLabel)
+auto makeLabel(string prefix=null)
+{
+    if (!prefix)
+        prefix = "L";
+    return text(prefix,++_labelCount[prefix]);
+}
+
+void backPatch(string oldLabel, string newLabel)
 {
     foreach (ref q; _quads) {
         q.opd1 = q.opd1 == oldLabel ? newLabel : q.opd1;
@@ -175,16 +262,9 @@ void backPatch(Label oldLabel, Label newLabel)
     }
 }
 
-auto makeLabel(string prefix = null, bool priority=false)
-{
-    if (!prefix)
-        prefix = "L";
-    return Label(text(prefix,++_labelCount[prefix]),priority);
-}
-
 static this()
 {
-    _labelStack = new Stack!Label;
+    _labelStack = new Stack!string;
 
     _opMap = [
         "+":    "ADD",
@@ -199,6 +279,8 @@ static this()
         "!=":   "NE",
         "&&":   "AND",
         "||":   "OR",
-        "=":    "MOV"
+        "=":    "MOV",
+        "<<":   "WRITE",
+        ">>":   "READ"
     ];
 }

@@ -97,10 +97,11 @@ void compilation_unit()
     next();
     assertType(TType.MAIN);
     auto methodName = _ct.value;
+    auto methodScope = _scope;
 
     if (_firstPass) {
         SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
-        iMain();
+        icode.initMain();
     }
 
     _scope.push(methodName);
@@ -111,9 +112,8 @@ void compilation_unit()
     assertType(TType.PAREN_CLOSE);     
     next();
 
-    if (!_firstPass) {
-        
-    }
+    if (!_firstPass)
+        icode.funcBody(methodName,methodScope);        
 
     method_body();
 
@@ -195,6 +195,7 @@ void field_declaration(string modifier, string type, string identifier)
         if (_firstPass)
             s = new MethodSymbol(identifier,type,modifier,_scope,_ct.line);
 
+        auto methodScope = _scope;
         _scope.push(identifier);
 
         next();
@@ -202,6 +203,9 @@ void field_declaration(string modifier, string type, string identifier)
             parameter_list(cast(MethodSymbol)s);
         assertType(TType.PAREN_CLOSE);        
         next();
+
+        if (!_firstPass)
+            icode.funcBody(identifier, methodScope);
 
         method_body();
         _scope.pop();
@@ -243,13 +247,14 @@ void constructor_declaration()
 
     assertType(TType.IDENTIFIER);
     auto ctorName = _ct.value;
+    auto ctorScope = _scope;
 
     MethodSymbol methodSymbol;
 
     if (_firstPass)
-        methodSymbol = new MethodSymbol(ctorName,"void",PUBLIC_MODIFIER,_scope,_ct.line);
+        methodSymbol = new MethodSymbol(ctorName, "void", PUBLIC_MODIFIER, _scope, _ct.line);
     else
-        cd_sa(ctorName,_scope,_ct.line);
+        cd_sa(ctorName, _scope, _ct.line);
 
     _scope.push(ctorName);
 
@@ -260,8 +265,11 @@ void constructor_declaration()
         parameter_list(methodSymbol);
     assertType(TType.PAREN_CLOSE); 
     next();
-    method_body();
 
+    if (!_firstPass)
+        icode.funcBody(ctorName, ctorScope);
+
+    method_body();
     _scope.pop();
 
     if (methodSymbol !is null)
@@ -496,20 +504,20 @@ void statement()
         statement();
 
         if (_ct.type == TType.ELSE) {
-            //if (!_firstPass)
-            //    iElse();
+            if (!_firstPass)
+                icode.elseCond();
             next();
             statement();
         }
 
-        //if (!_firstPass)
-        //    iPopLabel();
+        if (!_firstPass)
+            icode.endIf();
         break;
     case TType.WHILE:
         next();
         assertType(TType.PAREN_OPEN);
         if (!_firstPass) {
-            //iBeginWhile();
+            icode.beginWhile();
             oPush(_ct.value,_ct.line);
         }
 
@@ -524,8 +532,8 @@ void statement()
         next();
         statement();
 
-        //if (!_firstPass)
-        //    iEndWhile();
+        if (!_firstPass)
+            icode.endWhile();
         break;
     case TType.RETURN:
         next();

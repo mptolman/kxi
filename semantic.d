@@ -135,7 +135,7 @@ void cin_sa()
         throw new SemanticError(sar.line,"cin_sa: Failed to load symbol");
 
     if (symbol.type == "int" || symbol.type == "char") {
-        // gen icode
+        icode.read(symbol.id,symbol.type);
     }
     else {
         throw new SemanticError(sar.line,"Invalid type for cin. Expected char or int, not ",symbol.type);
@@ -165,7 +165,7 @@ void cout_sa()
         throw new SemanticError(sar.line,"cout_sa: Failed to load symbol");
 
     if (symbol.type == "int" || symbol.type == "char") {
-        // gen icode
+        icode.write(symbol.id,symbol.type);
     }
     else {
         throw new SemanticError(sar.line,"Invalid type for cout. Expected char or int, not ",symbol.type);
@@ -276,7 +276,7 @@ void if_sa(size_t line)
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
 
-    //iIfCondition(symbol.id);
+    icode.ifCond(symbol.id);
 }
 
 void iPush(string name, Scope scpe, size_t line)
@@ -415,6 +415,7 @@ void return_sa(Scope scpe, size_t line)
     if (_sas.empty()) {
         if (returnType != "void")
             throw new SemanticError(line,"Method '",methodName,"' must return value of type ",returnType);
+        icode.funcReturn();
     }
     else {
         auto ret_sar = _sas.top();
@@ -424,6 +425,7 @@ void return_sa(Scope scpe, size_t line)
             throw new SemanticError(ret_sar.line,"return_sa: Failed to load return symbol");
         if (ret_symbol.type != returnType)
             throw new SemanticError(line,"Return statement for method '",methodName,"' must be of type ",returnType,", not ",ret_symbol.type);
+        icode.funcReturn(ret_symbol.id);        
     }
 }
 
@@ -461,10 +463,11 @@ void rExist()
 
     switch (member_sar.sarType) {
     case SARType.ID_SAR:
-        //iVarRef(obj_symbol.id,member_symbol.id,ref_symbol.id);
+        icode.refVar(obj_symbol.id, member_symbol.id, ref_symbol.id);
         break;
     case SARType.FUNC_SAR:
-        checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
+        checkFuncArgs(member_sar, cast(MethodSymbol)member_symbol);
+        icode.funcCall(member_symbol.id, obj_symbol.id);
         break;
     case SARType.ARR_SAR:
         break;
@@ -518,7 +521,7 @@ void while_sa(size_t line)
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
 
-    //iWhile(symbol.id);
+    icode.whileCond(symbol.id);
 }
 
 class SemanticError : Exception
@@ -572,7 +575,7 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
         }
 
-        iOperator(op,r_symbol.id,l_symbol.id);
+        icode.operator(op,r_symbol.id,l_symbol.id);
         break;
     case "+":
     case "-":
@@ -585,7 +588,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        iOperator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        icode.operator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     case "<":
     case ">":
@@ -603,7 +606,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        iOperator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        icode.operator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     case "||":
     case "&&":
@@ -613,7 +616,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        iOperator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        icode.operator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     default:
         throw new SemanticError(l_sar.line,"doStackOp: Invalid operation ",op);
