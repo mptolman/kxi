@@ -496,20 +496,20 @@ void statement()
         statement();
 
         if (_ct.type == TType.ELSE) {
-            if (!_firstPass)
-                iElse();
+            //if (!_firstPass)
+            //    iElse();
             next();
             statement();
         }
 
-        if (!_firstPass)
-            iPopLabel();
+        //if (!_firstPass)
+        //    iPopLabel();
         break;
     case TType.WHILE:
         next();
         assertType(TType.PAREN_OPEN);
         if (!_firstPass) {
-            iBeginWhile();
+            //iBeginWhile();
             oPush(_ct.value,_ct.line);
         }
 
@@ -524,8 +524,8 @@ void statement()
         next();
         statement();
 
-        if (!_firstPass)
-            iEndWhile();
+        //if (!_firstPass)
+        //    iEndWhile();
         break;
     case TType.RETURN:
         next();

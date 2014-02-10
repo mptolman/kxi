@@ -276,7 +276,7 @@ void if_sa(size_t line)
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
 
-    iIfCondition(symbol.id);
+    //iIfCondition(symbol.id);
 }
 
 void iPush(string name, Scope scpe, size_t line)
@@ -461,7 +461,7 @@ void rExist()
 
     switch (member_sar.sarType) {
     case SARType.ID_SAR:
-        iVarRef(obj_symbol.id,member_symbol.id,ref_symbol.id);
+        //iVarRef(obj_symbol.id,member_symbol.id,ref_symbol.id);
         break;
     case SARType.FUNC_SAR:
         checkFuncArgs(member_sar,cast(MethodSymbol)member_symbol);
@@ -518,7 +518,7 @@ void while_sa(size_t line)
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
 
-    iWhile(symbol.id);
+    //iWhile(symbol.id);
 }
 
 class SemanticError : Exception
@@ -572,7 +572,7 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
         }
 
-        iGenericOp(op,r_symbol.id,l_symbol.id);
+        iOperator(op,r_symbol.id,l_symbol.id);
         break;
     case "+":
     case "-":
@@ -585,7 +585,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        iMathOp(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        iOperator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     case "<":
     case ">":
@@ -603,7 +603,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        iGenericOp(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        iOperator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     case "||":
     case "&&":
@@ -613,7 +613,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        iGenericOp(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        iOperator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
         break;
     default:
         throw new SemanticError(l_sar.line,"doStackOp: Invalid operation ",op);
