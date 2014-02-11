@@ -32,6 +32,7 @@ public:
         else {
             byId[s.id] = s;
             byScope[s.scpe] ~= s;
+            s.trigger();
         }
     }
 
@@ -191,10 +192,14 @@ public:
     {
         return text("\nid: ",id,"\nvalue: ",name,"\ntype: ",type,"\nscope: ",scpe,"\nmodifier: ",modifier,"\n");
     }
+
+    void trigger() {}
 }
 
 class ClassSymbol : Symbol
 {
+    size_t size;
+
     this(string className, Scope scpe, size_t line)
     {
         super("C",className,className,PUBLIC_MODIFIER,scpe,line);
@@ -267,6 +272,19 @@ class IVarSymbol : VarSymbol
     this(string name, string type, string modifier, Scope scpe, size_t line)
     {
         super("V",name,type,modifier,scpe,line);
+    }
+
+    override void trigger()
+    {
+        auto classSym = cast(ClassSymbol)SymbolTable.findClass(this.scpe.top());
+        if (!classSym)
+            throw new Exception("IVarSymbol.trigger: Failed to load class symbol");
+
+        this.offset = classSym.size;
+        if (this.type == "char")
+            classSym.size += char.sizeof;
+        else
+            classSym.size += int.sizeof;
     }
 
     override string toString()

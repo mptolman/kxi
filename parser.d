@@ -236,8 +236,9 @@ void field_declaration(string modifier, string type, string identifier)
         next();
     }
 
-    if (s !is null)
+    if (s !is null) {
         SymbolTable.add(s);
+    }
 }
 
 void constructor_declaration()
