@@ -222,33 +222,6 @@ struct Quad
     string label;
 }
 
-struct Label
-{
-    string label;
-    bool priority;
-
-    this(string label, bool priority=false)
-    {
-        this.label = label;
-        this.priority = priority;
-    }
-
-    auto toString() const
-    {
-        return label;
-    }
-
-    auto opCast(T : bool)() const
-    {
-        return cast(bool)(label.length);
-    }
-
-    auto opEquals()(auto ref const Label l) const
-    {
-        return this.label == l.label;
-    }
-}
-
 void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
 {
     _quads ~= Quad(opcode,opd1,opd2,opd3,_currentLabel);
@@ -289,8 +262,6 @@ static this()
         "!=":   "NE",
         "&&":   "AND",
         "||":   "OR",
-        "=":    "MOV",
-        "<<":   "WRITE",
-        ">>":   "READ"
+        "=":    "MOV"
     ];
 }

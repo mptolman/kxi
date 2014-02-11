@@ -133,12 +133,10 @@ void cin_sa()
     if (!symbol)
         throw new SemanticError(sar.line,"cin_sa: Failed to load symbol");
 
-    if (symbol.type == "int" || symbol.type == "char") {
+    if (symbol.type == "int" || symbol.type == "char")
         icode.read(symbol.id,symbol.type);
-    }
-    else {
+    else
         throw new SemanticError(sar.line,"Invalid type for cin. Expected char or int, not ",symbol.type);
-    }
 }
 
 void comma_sa()
@@ -163,19 +161,17 @@ void cout_sa()
     if (!symbol)
         throw new SemanticError(sar.line,"cout_sa: Failed to load symbol");
 
-    if (symbol.type == "int" || symbol.type == "char") {
-        icode.write(symbol.id,symbol.type);
-    }
-    else {
+    if (symbol.type == "int" || symbol.type == "char")
+        icode.write(symbol.id, symbol.type);
+    else
         throw new SemanticError(sar.line,"Invalid type for cout. Expected char or int, not ",symbol.type);
-    }
 }
 
 void cparen_sa(size_t line)
 {
     debug writeln("cparen_sa");
 
-    while (_os.top != "(")
+    while (_os.top() != "(")
         doStackOp();
     _os.pop();
 }
@@ -258,7 +254,7 @@ void iExist()
         symbol = new TempSymbol(varSymbol.name, splitType[1]);
         SymbolTable.add(symbol);
 
-        icode.arrRef(varSymbol.id,id_sar.id,symbol.id);
+        icode.arrRef(varSymbol.id, id_sar.id, symbol.id);
         break;
     default:
         throw new SemanticError(id_sar.line,"iExist: Invalid SARType ",id_sar.type);
@@ -283,7 +279,7 @@ void if_sa(size_t line)
     if (!symbol)
         throw new SemanticError(line,"if_sa: Failed to load symbol");
     if (symbol.type != "bool")
-        throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
+        throw new SemanticError(line,"Expected boolean expression, not ",symbol.type);
 
     icode.ifCond(symbol.id);
 }
@@ -452,7 +448,7 @@ void return_sa(Scope scpe, size_t line, bool endOfMethod=false)
 
         auto ret_symbol = SymbolTable.getById(ret_sar.id);
         if (!ret_symbol)
-            throw new SemanticError(ret_sar.line,"return_sa: Failed to load return symbol");
+            throw new SemanticError(line,"return_sa: Failed to load return symbol ",ret_sar);
         if (ret_symbol.type != returnType)
             throw new SemanticError(line,"Return statement for method '",methodName,"' must be of type ",returnType,", not ",ret_symbol.type);
 
@@ -534,6 +530,7 @@ void tExist()
 
 void tPush(string type, size_t line)
 {
+    debug writefln("(%s) tPush: %s",line,type);
     _sas.push(SAR(SARType.TYPE_SAR,type,line));
 }
 
@@ -666,35 +663,35 @@ void doStackOp()
     }
 }
 
-auto findSymbol(SAR sar, bool recurse=true)
-{
-    Symbol symbol;
+//auto findSymbol(SAR sar, bool recurse=true)
+//{
+//    Symbol symbol;
 
-    if (sar.id) {
-        symbol = SymbolTable.getById(sar.id);
-    }
-    else {
-        switch (sar.sarType) {
-        case SARType.ID_SAR:
-        case SARType.ARR_SAR:
-            symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
-            break;
-        case SARType.FUNC_SAR:
-            symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
-            break;
-        case SARType.TYPE_SAR:
-            symbol = SymbolTable.findClass(sar.name);
-            break;
-        case SARType.LIT_SAR:
-            symbol = SymbolTable.findGlobal(sar.name,sar.type);
-            break;
-        default:
-            throw new SemanticError(sar.line,"findSymbol: Invalid SARType ",sar.sarType);
-        }
-    }
+//    if (sar.id) {
+//        symbol = SymbolTable.getById(sar.id);
+//    }
+//    else {
+//        switch (sar.sarType) {
+//        case SARType.ID_SAR:
+//        case SARType.ARR_SAR:
+//            symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
+//            break;
+//        case SARType.FUNC_SAR:
+//            symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
+//            break;
+//        case SARType.TYPE_SAR:
+//            symbol = SymbolTable.findClass(sar.name);
+//            break;
+//        case SARType.LIT_SAR:
+//            symbol = SymbolTable.findGlobal(sar.name,sar.type);
+//            break;
+//        default:
+//            throw new SemanticError(sar.line,"findSymbol: Invalid SARType ",sar.sarType);
+//        }
+//    }
 
-    return symbol;
-}
+//    return symbol;
+//}
 
 auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
 {
