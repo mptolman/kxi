@@ -1,6 +1,18 @@
-import icode;
+import std.stdio;
+import icode, symbol;
 
-void generate()
+void generateTCode()
 {
-    
+    foreach (quad; icode.getQuads())
+    {
+        
+    }
+}
+
+private:
+string[][size_t] _regs;
+
+auto getRegister()
+{
+
 }

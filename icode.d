@@ -10,7 +10,7 @@ void callMain()
     auto main = SymbolTable.findMethod("main",Scope(GLOBAL_SCOPE),false);
     if (!main)
         throw new Exception("initMain: Failed to locate main in symbol table");
-    funcCall(main.id,main.type);
+    funcCall(main.id,"this");
     addQuad("QUIT");
 }
 
@@ -195,6 +195,11 @@ void printICode()
 {
     foreach (q; _quads)
         writefln("%s\t%s %s %s %s",q.label,q.opcode,q.opd1,q.opd2,q.opd3);
+}
+
+auto getQuads()
+{
+    return _quads.idup;
 }
 
 private:
