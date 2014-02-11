@@ -354,13 +354,13 @@ void newarr_sa()
     }
     SymbolTable.add(elemsz_symbol);
 
-    auto totalsz_symbol = new TempSymbol("int","int");
+    auto totalsz_symbol = new TempSymbol(null,"int");
     SymbolTable.add(totalsz_symbol);
 
-    auto arr_symbol = new TempSymbol(arrsz_symbol.name,text("@:",type_sar.name));
+    auto arr_symbol = new TempSymbol(null,text("@:",type_sar.name));
     SymbolTable.add(arr_symbol);
 
-    icode.operator("*", elemsz_symbol.id, arrsz_symbol.id ,totalsz_symbol.id);
+    icode.operator("*", elemsz_symbol.id, arrsz_symbol.id, totalsz_symbol.id);
     icode.malloc(totalsz_symbol.id, arr_symbol.id);
 
     _sas.push(SAR(SARType.NEW_SAR,arr_symbol.name,type_sar.line,arr_symbol.id));
@@ -393,10 +393,12 @@ void newobj_sa()
     al_sar.line = type_sar.line;
     checkFuncArgs(al_sar,ctor_symbol);
 
-    auto mem_symbol = new TempSymbol(type_sar.name,type_sar.name);
+    // Allocate memory for object
+    auto mem_symbol = new TempSymbol(null,type_sar.name);
     SymbolTable.add(mem_symbol);
     icode.malloc(class_symbol.size, mem_symbol.id);
 
+    // Call constructor
     auto temp_symbol = new TempSymbol(type_sar.name,type_sar.name);
     SymbolTable.add(temp_symbol);
     icode.funcCall(ctor_symbol.id, mem_symbol.id, al_sar.params, temp_symbol.id);
@@ -494,7 +496,9 @@ void rExist()
         SymbolTable.add(ref_symbol);
 
         if (member_sar.sarType == SARType.ARR_SAR)
-            icode.arrRef(varSymbol.id,member_sar.id,ref_symbol.id);
+            icode.arrRef(varSymbol.id, member_sar.id, ref_symbol.id);
+        else
+            icode.varRef(obj_symbol.id, varSymbol.id, ref_symbol.id);
         break;
     case SARType.FUNC_SAR:
         auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(member_sar.name,class_scope,false);
@@ -508,7 +512,7 @@ void rExist()
         ref_symbol = new RefSymbol(text(obj_symbol.name,'.',methodSymbol.name),methodSymbol.type);
         SymbolTable.add(ref_symbol);
 
-        icode.funcCall(methodSymbol.id,obj_symbol.id,member_sar.params,ref_symbol.id);
+        icode.funcCall(methodSymbol.id, obj_symbol.id, member_sar.params, ref_symbol.id);
         break;
     default:
         throw new SemanticError(member_sar.line,"rExist: Invalid SARType ",member_sar.type);

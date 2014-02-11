@@ -1,7 +1,9 @@
 class A
 {
     public int x = 1;
+    
     A() {}
+
     public void f(int x)
     {
 
@@ -11,6 +13,5 @@ class A
 void main()
 {
     A a = new A();
-    int x = 1 + 2 * 3 - 5;
-    a.f(1+2*3-5);
+    a.x = 1;
 }
