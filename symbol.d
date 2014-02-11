@@ -17,22 +17,13 @@ private:
 public:
     static void add(Symbol s)
     {
-        if (cast(GlobalSymbol)s && findGlobal(s.name,s.type)) {
-            // don't error--just keep one copy
-        }
-        else if (cast(VarSymbol)s && findVariable(s.name,s.scpe,false)) {
-            throw new Exception(text("(",s.line,"): Duplicate declaration of variable ",s.name));
-        }
-        else if (cast(MethodSymbol)s && findMethod(s.name,s.scpe,false)) {
-            throw new Exception(text("(",s.line,"): Duplicate declaration of method ",s.name));
-        }
-        else if (cast(ClassSymbol)s && findClass(s.name)) {
-            throw new Exception(text("(",s.line,"): Duplicate declaration of class ",s.name));
-        }
-        else {
+        bool dontInsert = false;
+        s.beforeInsert(dontInsert);
+
+        if (!dontInsert) {
             byId[s.id] = s;
             byScope[s.scpe] ~= s;
-            s.trigger();
+            s.afterInsert();
         }
     }
 
@@ -193,7 +184,8 @@ public:
         return text("\nid: ",id,"\nvalue: ",name,"\ntype: ",type,"\nscope: ",scpe,"\nmodifier: ",modifier,"\n");
     }
 
-    void trigger() {}
+    void beforeInsert(out bool dontInsert) {}
+    void afterInsert() {}
 }
 
 class ClassSymbol : Symbol
@@ -208,6 +200,12 @@ class ClassSymbol : Symbol
     override string toString()
     {
         return text(typeid(typeof(this)),Symbol.toString);
+    }
+
+    override void beforeInsert(out bool dontInsert)
+    {
+        if (SymbolTable.findClass(this.name))
+            throw new Exception(text("(",this.line,"): Duplicate definition for class ",this.name));
     }
 }
 
@@ -229,6 +227,12 @@ class MethodSymbol : Symbol
     {
         return text(typeid(typeof(this)),Symbol.toString(),"\nparams: ",params,"\n");
     }
+
+    override void beforeInsert(out bool dontInsert)
+    {
+        if (SymbolTable.findMethod(this.name,this.scpe,false))
+            throw new Exception(text("(",this.line,"): Duplicate definition for method ",this.name));
+    }
 }
 
 abstract class VarSymbol : Symbol
@@ -236,6 +240,12 @@ abstract class VarSymbol : Symbol
     this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
     {
         super(prefix,name,type,modifier,scpe,line);
+    }
+
+    override void beforeInsert(out bool dontInsert)
+    {
+        if (SymbolTable.findVariable(this.name,this.scpe,false))
+            throw new Exception(text("(",this.line,"): Duplicate definition for variable ",this.name));
     }
 }
 
@@ -274,11 +284,11 @@ class IVarSymbol : VarSymbol
         super("V",name,type,modifier,scpe,line);
     }
 
-    override void trigger()
+    override void afterInsert()
     {
         auto classSym = cast(ClassSymbol)SymbolTable.findClass(this.scpe.top());
         if (!classSym)
-            throw new Exception("IVarSymbol.trigger: Failed to load class symbol");
+            throw new Exception("IVarSymbol.afterInsert: Failed to load class symbol");
 
         this.offset = classSym.size;
         if (this.type == "char")
@@ -303,6 +313,12 @@ class GlobalSymbol : Symbol
     override string toString()
     {
         return text(typeid(typeof(this)),Symbol.toString);
+    }
+
+    override void beforeInsert(out bool dontInsert)
+    {
+        if (SymbolTable.findGlobal(this.name,this.type))
+            dontInsert = true;
     }
 }
 

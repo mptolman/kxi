@@ -1,0 +1,6 @@
+import icode;
+
+void generate()
+{
+    
+}

@@ -73,8 +73,7 @@ void arr_sa()
     if (index_symbol.type != "int")
         throw new SemanticError(id_sar.line,"Invalid array index. Expected int, not ", index_symbol.type);
 
-    id_sar.sarType = SARType.ARR_SAR;
-    _sas.push(id_sar);
+    _sas.push(SAR(SARType.ARR_SAR,id_sar.name,id_sar.scpe,id_sar.line,index_symbol.id));
 }
 
 void atoi_sa()
@@ -231,25 +230,35 @@ void iExist()
 
     switch (id_sar.sarType) {
     case SARType.ID_SAR:
-        symbol = SymbolTable.findVariable(id_sar.name,id_sar.scpe);
+        symbol = SymbolTable.findVariable(id_sar.name, id_sar.scpe);
         if (!symbol)
             throw new SemanticError(id_sar.line,"Variable '",id_sar.name,"' does not exist in this scope");
         break;
     case SARType.FUNC_SAR:
-        symbol = SymbolTable.findMethod(id_sar.name,id_sar.scpe);
-        if (!symbol)
+        auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(id_sar.name, id_sar.scpe);
+        if (!methodSymbol)
             throw new SemanticError(id_sar.line,"Method '",id_sar.name,"' does not exist in this scope");
-        checkFuncArgs(id_sar,cast(MethodSymbol)symbol);
+
+        checkFuncArgs(id_sar, methodSymbol);
+
+        symbol = new TempSymbol(methodSymbol.name, methodSymbol.type);
+        SymbolTable.add(symbol);
+
+        icode.funcCall(methodSymbol.id, "this", id_sar.params, symbol.id);
         break;
     case SARType.ARR_SAR:
-        symbol = SymbolTable.findVariable(id_sar.name,id_sar.scpe);
-        if (!symbol)
+        auto varSymbol = SymbolTable.findVariable(id_sar.name, id_sar.scpe);
+        if (!varSymbol)
             throw new SemanticError(id_sar.line,"Variable '",id_sar.name,"' does not exist in this scope");
-        auto splitType = symbol.type.split(":");
+
+        auto splitType = varSymbol.type.split(":");
         if (splitType[0] != "@")
             throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array");
-        symbol = new TempSymbol(symbol.name,splitType[1]);
+
+        symbol = new TempSymbol(varSymbol.name, splitType[1]);
         SymbolTable.add(symbol);
+
+        icode.arrRef(varSymbol.id,id_sar.id,symbol.id);
         break;
     default:
         throw new SemanticError(id_sar.line,"iExist: Invalid SARType ",id_sar.type);
@@ -320,32 +329,45 @@ void newarr_sa()
 {
     debug writeln("newarr_sa");
 
-    auto index_sar = _sas.top();
+    auto size_sar = _sas.top();
     _sas.pop();
 
     auto type_sar = _sas.top();
     _sas.pop();
 
-    auto index_symbol = SymbolTable.getById(index_sar.id);
-    if (!index_symbol)
-        throw new SemanticError(index_sar.line,"newarr_sa: Failed to load index symbol");
-    if (index_symbol.type != "int")
-        throw new SemanticError(index_sar.line,"Invalid array index. Expected int, not ",index_symbol.type);
+    auto arrsz_symbol = SymbolTable.getById(size_sar.id);
+    if (!arrsz_symbol)
+        throw new SemanticError(size_sar.line,"newarr_sa: Failed to load index symbol");
+    if (arrsz_symbol.type != "int")
+        throw new SemanticError(size_sar.line,"Invalid array size. Expected int, not ",arrsz_symbol.type);
 
+    Symbol elemsz_symbol;
     switch(type_sar.name) {
     case "int":
-    case "char":
-    case "bool":
-        // allow
+        elemsz_symbol = new TempSymbol(text(int.sizeof),"int");
         break;
-    default:
-        if (!SymbolTable.findClass(type_sar.name))
-            throw new SemanticError(type_sar.line,"Invalid array type ",type_sar.name);
+    case "char":
+        elemsz_symbol = new TempSymbol(text(char.sizeof),"int");
+        break;
+    case "bool":
+        elemsz_symbol = new TempSymbol(text(bool.sizeof),"int");
+        break;
+    default: // pointer
+        elemsz_symbol = new TempSymbol(text(int.sizeof),"int");
+        break;
     }
+    SymbolTable.add(elemsz_symbol);
 
-    auto temp = new TempSymbol(index_symbol.name,text("@:",type_sar.name));
-    SymbolTable.add(temp);
-    _sas.push(SAR(SARType.NEW_SAR,temp.name,type_sar.line,temp.id));
+    auto totalsz_symbol = new TempSymbol("int","int");
+    SymbolTable.add(totalsz_symbol);
+
+    auto arr_symbol = new TempSymbol(arrsz_symbol.name,text("@:",type_sar.name));
+    SymbolTable.add(arr_symbol);
+
+    icode.operator("*", elemsz_symbol.id, arrsz_symbol.id ,totalsz_symbol.id);
+    icode.malloc(totalsz_symbol.id, arr_symbol.id);
+
+    _sas.push(SAR(SARType.NEW_SAR,arr_symbol.name,type_sar.line,arr_symbol.id));
 }
 
 void newobj_sa()
@@ -359,7 +381,7 @@ void newobj_sa()
     _sas.pop();
 
     // Make sure type exists
-    auto class_symbol = SymbolTable.findClass(type_sar.name);
+    auto class_symbol = cast(ClassSymbol)SymbolTable.findClass(type_sar.name);
     if (!class_symbol)
         throw new SemanticError(type_sar.line,"Invalid type ",type_sar.name);
 
@@ -375,12 +397,18 @@ void newobj_sa()
     al_sar.line = type_sar.line;
     checkFuncArgs(al_sar,ctor_symbol);
 
+    auto mem_symbol = new TempSymbol(type_sar.name,type_sar.name);
+    SymbolTable.add(mem_symbol);
+    icode.malloc(class_symbol.size, mem_symbol.id);
+
     auto temp_symbol = new TempSymbol(type_sar.name,type_sar.name);
+    SymbolTable.add(temp_symbol);
+    icode.funcCall(ctor_symbol.id, mem_symbol.id, al_sar.params, temp_symbol.id);
+
     auto new_sar = SAR(SARType.NEW_SAR,type_sar.name,type_sar.line,temp_symbol.id);
     new_sar.params = al_sar.params.dup;
 
     _sas.push(new_sar);
-    SymbolTable.add(temp_symbol);
 }
 
 void oPush(string op, size_t line)
@@ -396,7 +424,7 @@ void oPush(string op, size_t line)
     _os.push(op);
 }
 
-void return_sa(Scope scpe, size_t line)
+void return_sa(Scope scpe, size_t line, bool endOfMethod=false)
 {
     debug writeln("return_sa");
 
@@ -413,18 +441,21 @@ void return_sa(Scope scpe, size_t line)
     auto returnType = methodSymbol.type;
 
     if (_sas.empty()) {
-        if (returnType != "void")
+        if (returnType != "void" && !endOfMethod)
             throw new SemanticError(line,"Method '",methodName,"' must return value of type ",returnType);
+
         icode.funcReturn();
     }
     else {
         auto ret_sar = _sas.top();
         _sas.pop();
+
         auto ret_symbol = SymbolTable.getById(ret_sar.id);
         if (!ret_symbol)
             throw new SemanticError(ret_sar.line,"return_sa: Failed to load return symbol");
         if (ret_symbol.type != returnType)
             throw new SemanticError(line,"Return statement for method '",methodName,"' must be of type ",returnType,", not ",ret_symbol.type);
+
         icode.funcReturn(ret_symbol.id);        
     }
 }
@@ -439,10 +470,12 @@ void rExist()
 
     debug writefln("rExist: %s.%s",obj_sar.name,member_sar.name);
 
+    // Load object symbol
     auto obj_symbol = SymbolTable.getById(obj_sar.id);
     if (!obj_symbol)
         throw new SemanticError(obj_sar.line,"rExist: Failed to load object symbol ",obj_sar.id);
 
+    // Load class symbol
     auto class_symbol = SymbolTable.findClass(obj_symbol.type);
     if (!class_symbol)
         throw new SemanticError(obj_sar.line,"Identifier ",obj_symbol.name," is not a class type");
@@ -450,26 +483,36 @@ void rExist()
     auto class_scope = class_symbol.scpe;
     class_scope.push(class_symbol.name);
 
-    member_sar.scpe = class_scope;
-    Symbol member_symbol = findSymbol(member_sar);
-    if (!member_symbol)
-        throw new SemanticError(member_sar.line,"Member '",member_sar.name,"' does not exist in class ",class_symbol.name);
-
-    if (member_symbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
-        throw new SemanticError(member_sar.line,"Member ",class_symbol.name,".",member_sar.name," is private");
-
-    auto ref_symbol = new RefSymbol(text(obj_symbol.name,'.',member_symbol.name),member_symbol.type);
-    SymbolTable.add(ref_symbol);
+    Symbol ref_symbol;
 
     switch (member_sar.sarType) {
     case SARType.ID_SAR:
-        icode.refVar(obj_symbol.id, member_symbol.id, ref_symbol.id);
+    case SARType.ARR_SAR:
+        auto varSymbol = SymbolTable.findVariable(member_sar.name,class_scope,false);
+        if (!varSymbol)
+            throw new SemanticError(member_sar.line,"Variable '",member_sar.name,"' does not exist in class ",class_symbol.name);
+        if (varSymbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
+            throw new SemanticError(member_sar.line,"Variable ",class_symbol.name,".",member_sar.name," is private");
+
+        ref_symbol = new RefSymbol(text(obj_symbol.name,'.',varSymbol.name),varSymbol.type);
+        SymbolTable.add(ref_symbol);
+
+        if (member_sar.sarType == SARType.ARR_SAR)
+            icode.arrRef(varSymbol.id,member_sar.id,ref_symbol.id);
         break;
     case SARType.FUNC_SAR:
-        checkFuncArgs(member_sar, cast(MethodSymbol)member_symbol);
-        icode.funcCall(member_symbol.id, obj_symbol.id);
-        break;
-    case SARType.ARR_SAR:
+        auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(member_sar.name,class_scope,false);
+        if (!methodSymbol)
+            throw new SemanticError(member_sar.line,"Method '",member_sar.name,"' does not exist in class ",class_symbol.name);
+        if (methodSymbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
+            throw new SemanticError(member_sar.line,"Method ",class_symbol.name,".",member_sar.name," is private");
+
+        checkFuncArgs(member_sar, methodSymbol);
+
+        ref_symbol = new RefSymbol(text(obj_symbol.name,'.',methodSymbol.name),methodSymbol.type);
+        SymbolTable.add(ref_symbol);
+
+        icode.funcCall(methodSymbol.id,obj_symbol.id,member_sar.params,ref_symbol.id);
         break;
     default:
         throw new SemanticError(member_sar.line,"rExist: Invalid SARType ",member_sar.type);
@@ -581,7 +624,7 @@ void doStackOp()
     case "-":
     case "*":
     case "/":
-    case "%":
+    //case "%":
         if (l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid operands for '",op,"' operator. Types do not match");
         auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),l_symbol.type);

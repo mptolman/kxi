@@ -101,7 +101,7 @@ void compilation_unit()
 
     if (_firstPass) {
         SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
-        icode.initMain();
+        icode.callMain();
     }
 
     _scope.push(methodName);
@@ -253,7 +253,7 @@ void constructor_declaration()
     MethodSymbol methodSymbol;
 
     if (_firstPass)
-        methodSymbol = new MethodSymbol(ctorName, "void", PUBLIC_MODIFIER, _scope, _ct.line);
+        methodSymbol = new MethodSymbol(ctorName, "this", PUBLIC_MODIFIER, _scope, _ct.line);
     else
         cd_sa(ctorName, _scope, _ct.line);
 
@@ -334,6 +334,10 @@ void method_body()
         statement();
 
     assertType(TType.BLOCK_END);
+
+    if (!_firstPass)
+        return_sa(_scope,_ct.line,true);
+
     next();
 }
 

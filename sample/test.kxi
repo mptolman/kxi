@@ -1,20 +1,10 @@
 class A
 {
-    public B b;
+    public int x = 1;
     A() {}
-    public void f()
-    {
-        return;
-    }
-}
-
-class B
-{
-    public int x;
 }
 
 void main()
 {
-    A a = new A();
-    a.f();
+
 }

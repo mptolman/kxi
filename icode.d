@@ -2,32 +2,38 @@ import std.conv;
 import std.stdio;
 import container, symbol;
 
-
 //----------------------------
 // Methods
 //----------------------------
-void initMain()
+void callMain()
 {
     auto main = SymbolTable.findMethod("main",Scope(GLOBAL_SCOPE),false);
     if (!main)
         throw new Exception("initMain: Failed to locate main in symbol table");
-    funcCall(main.id,"this");
+    funcCall(main.id,main.type);
     addQuad("QUIT");
 }
 
-void funcCall(string symbolId, string opd1, string[] args=null)
+void funcCall(string methodId, string opd1, string[] args=null, string returnId=null)
 {
-    addQuad("FRAME",symbolId,opd1);
+    auto method = SymbolTable.getById(methodId);
+    if (!method)
+            throw new Exception("funcCall: Failed to load method symbol");
+
+    addQuad("FRAME",methodId,opd1);
     foreach (a; args)
         addQuad("PUSH",a);
-    addQuad("CALL",symbolId);
+    addQuad("CALL",methodId);
+
+    if (returnId && method.type != "void")
+        addQuad("PEEK",returnId);
 }
 
-void funcBody(string method, Scope scpe)
+void funcBody(string methodName, Scope scpe)
 {
-    auto symbol = SymbolTable.findMethod(method,scpe,false);
+    auto symbol = SymbolTable.findMethod(methodName,scpe,false);
     if (!symbol)
-        throw new Exception(text("funcBody: Failed to find method ",method," in symbol table"));
+        throw new Exception(text("funcBody: Failed to find method ",methodName," in symbol table"));
     setLabel(symbol.id,true);
 }
 
@@ -96,9 +102,14 @@ void endWhile()
 //----------------------------
 // References
 //----------------------------
-void refVar(string opd1, string opd2, string opd3)
+void varRef(string opd1, string opd2, string opd3)
 {
     addQuad("REF",opd1,opd2,opd3);
+}
+
+void arrRef(string opd1, string opd2, string opd3)
+{
+    addQuad("AEF",opd1,opd2,opd3);
 }
 
 //----------------------------
@@ -125,7 +136,7 @@ void write(string symId, string type)
 }
 
 //----------------------------
-// operators
+// Operators
 //----------------------------
 void operator(string op, string opd1, string opd2, string opd3=null)
 {
@@ -138,6 +149,19 @@ void operator(string op, string opd1, string opd2, string opd3=null)
         addQuad("ADI",rv.id,lv.id,opd3);
     else
         addQuad(_opMap[op],opd1,opd2,opd3);
+}
+
+//----------------------------
+// Memory allocation
+//----------------------------
+void malloc(size_t size, string addrId)
+{
+    addQuad("NEWI",to!string(size),addrId);
+}
+
+void malloc(string sizeId, string addrId)
+{
+    addQuad("NEW",sizeId,addrId);
 }
 
 void setLabel(string label, bool priority=false)
@@ -155,25 +179,6 @@ void setLabel(string label, bool priority=false)
         _currentLabelTakesPriority = priority;
     }
 }
-
-//void setLabel(Label label)
-//{
-//    if (_currentLabel && _currentLabelTakesPriority) {
-//        backPatch(label,_currentLabel);
-//    }
-//    else if (_currentLabel) {
-//        backPatch(_currentLabel,label);
-//        _currentLabel = label;
-//    }
-//    else {
-//        _currentLabel = label;
-//    }
-//}
-
-//void pushLabel(string label, bool priority=false)
-//{
-//    pushLabel(Label(label,priority));
-//}
 
 void pushLabel(string label)
 {
