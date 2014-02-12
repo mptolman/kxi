@@ -1,7 +1,7 @@
 import std.stdio;
 import icode, symbol;
 
-void generateTCode()
+void generateTCode(File dest)
 {
     foreach (quad; icode.getQuads())
     {
