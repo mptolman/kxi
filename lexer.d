@@ -135,7 +135,7 @@ private:
                     tok = [c];
 
                     if (isWhite(c)) { /* ignore whitespace */ }
-                    else if (isAlpha(c) || c == '_')
+                    else if (isAlpha(c))
                         state = State.ALPHANUM;
                     else if (isDigit(c))
                         state = State.DIGIT;
