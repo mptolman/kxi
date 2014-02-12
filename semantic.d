@@ -6,27 +6,25 @@ import container, icode, symbol;
 
 enum SARType : byte
 {
-    ID_SAR,
-    TYPE_SAR,
-    BAL_SAR,
     AL_SAR,
-    LIT_SAR,
-    TEMP_SAR,
-    REF_SAR,
+    ARR_SAR,
+    BAL_SAR,
     FUNC_SAR,
+    ID_SAR,
+    LIT_SAR,
     NEW_SAR,
-    ARR_SAR
+    TEMP_SAR,
+    TYPE_SAR
 }
 
 struct SAR
 {
     SARType sarType;
     string name;
-    string type;
     string id;
     Scope scpe;
     size_t line;
-    string[] params;  
+    string[] params;
 
     this(SARType sarType)
     {
@@ -211,7 +209,7 @@ void func_sa()
     _sas.pop();
 
     auto func_sar = SAR(SARType.FUNC_SAR,id_sar.name,id_sar.scpe,id_sar.line);
-    func_sar.params = al_sar.params.dup;
+    func_sar.params = al_sar.params;
     _sas.push(func_sar);
 }
 
@@ -257,7 +255,7 @@ void iExist()
         icode.arrRef(varSymbol.id, id_sar.id, symbol.id);
         break;
     default:
-        throw new SemanticError(id_sar.line,"iExist: Invalid SARType ",id_sar.type);
+        throw new SemanticError(id_sar.line,"iExist: Invalid SARType ",id_sar.sarType);
         break;
     }
     
@@ -317,7 +315,6 @@ void lPush(string value, string type, size_t line)
         throw new SemanticError(line,"lPush: Failed to locate global symbol '",value,"'");
 
     auto lit_sar = SAR(SARType.LIT_SAR,value,line,symbol.id);
-    lit_sar.type = type;
     _sas.push(lit_sar);
 }
 
@@ -399,7 +396,7 @@ void newobj_sa()
     icode.malloc(class_symbol.size, mem_symbol.id);
 
     // Call constructor
-    auto temp_symbol = new TempSymbol(type_sar.name,type_sar.name);
+    auto temp_symbol = new TempSymbol(null,type_sar.name);
     SymbolTable.add(temp_symbol);
     icode.funcCall(ctor_symbol.id, mem_symbol.id, al_sar.params, temp_symbol.id);
 
@@ -492,7 +489,7 @@ void rExist()
         if (varSymbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
             throw new SemanticError(member_sar.line,"Variable ",class_symbol.name,".",member_sar.name," is private");
 
-        ref_symbol = new RefSymbol(text(obj_symbol.name,'.',varSymbol.name),varSymbol.type);
+        ref_symbol = new RefSymbol(null,varSymbol.type);
         SymbolTable.add(ref_symbol);
 
         if (member_sar.sarType == SARType.ARR_SAR)
@@ -509,16 +506,18 @@ void rExist()
 
         checkFuncArgs(member_sar, methodSymbol);
 
-        ref_symbol = new RefSymbol(text(obj_symbol.name,'.',methodSymbol.name),methodSymbol.type);
+        ref_symbol = new RefSymbol(null,methodSymbol.type);
         SymbolTable.add(ref_symbol);
 
         icode.funcCall(methodSymbol.id, obj_symbol.id, member_sar.params, ref_symbol.id);
         break;
+
     default:
-        throw new SemanticError(member_sar.line,"rExist: Invalid SARType ",member_sar.type);
+        throw new SemanticError(member_sar.line,"rExist: Invalid SARType ",member_sar.sarType);
     }
 
-    _sas.push(SAR(SARType.REF_SAR,ref_symbol.name,obj_sar.scpe,obj_sar.line,ref_symbol.id));
+    member_sar.id = ref_symbol.id;
+    _sas.push(member_sar);
 }
 
 void tExist()
@@ -576,7 +575,7 @@ class SemanticError : Exception
     }
 }
 
-private:
+private:    
 Stack!SAR _sas;
 Stack!string _os;
 immutable size_t[string] _opWeights;
@@ -606,7 +605,6 @@ void doStackOp()
         switch (l_sar.sarType) {
         case SARType.ID_SAR:
         case SARType.ARR_SAR:
-        case SARType.REF_SAR:
             break; // allow
         default:            
             throw new SemanticError(l_sar.line,"Invalid left-hand operand for assignment statement");
@@ -619,7 +617,7 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
         }
 
-        icode.operator(op,r_symbol.id,l_symbol.id);
+        icode.operator(op,l_symbol.id,r_symbol.id);
         break;
     case "+":
     case "-":
@@ -628,7 +626,8 @@ void doStackOp()
     //case "%":
         if (l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid operands for '",op,"' operator. Types do not match");
-        auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),l_symbol.type);
+
+        auto temp_symbol = new TempSymbol(null,l_symbol.type);
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
@@ -644,9 +643,10 @@ void doStackOp()
             if (SymbolTable.findClass(l_symbol.type) && r_symbol.type == "null") {}
                 // allow
             else
-                throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type, " and ",r_symbol.type);
+                throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type," and ",r_symbol.type);
         }
-        auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),"bool");
+
+        auto temp_symbol = new TempSymbol(null,"bool");
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
@@ -656,6 +656,7 @@ void doStackOp()
     case "&&":
         if (l_symbol.type != "bool" || l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid boolean expression");
+
         auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),"bool");
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
@@ -666,36 +667,6 @@ void doStackOp()
         throw new SemanticError(l_sar.line,"doStackOp: Invalid operation ",op);
     }
 }
-
-//auto findSymbol(SAR sar, bool recurse=true)
-//{
-//    Symbol symbol;
-
-//    if (sar.id) {
-//        symbol = SymbolTable.getById(sar.id);
-//    }
-//    else {
-//        switch (sar.sarType) {
-//        case SARType.ID_SAR:
-//        case SARType.ARR_SAR:
-//            symbol = SymbolTable.findVariable(sar.name,sar.scpe,recurse);
-//            break;
-//        case SARType.FUNC_SAR:
-//            symbol = SymbolTable.findMethod(sar.name,sar.scpe,recurse);
-//            break;
-//        case SARType.TYPE_SAR:
-//            symbol = SymbolTable.findClass(sar.name);
-//            break;
-//        case SARType.LIT_SAR:
-//            symbol = SymbolTable.findGlobal(sar.name,sar.type);
-//            break;
-//        default:
-//            throw new SemanticError(sar.line,"findSymbol: Invalid SARType ",sar.sarType);
-//        }
-//    }
-
-//    return symbol;
-//}
 
 auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
 {

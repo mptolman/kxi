@@ -215,7 +215,7 @@ void field_declaration(string modifier, string type, string identifier)
             type = "@:" ~ type;
             next();
             assertType(TType.ARRAY_END); 
-            next();            
+            next();
         }
 
         if (_firstPass)
