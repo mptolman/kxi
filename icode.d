@@ -144,11 +144,11 @@ void operator(string op, string opd1, string opd2, string opd3=null)
     auto rv = SymbolTable.getById(opd2);
 
     if (op == "+" && cast(GlobalSymbol)rv && rv.type == "int")
-        addQuad("ADI",opd3,lv.id,rv.id);
+        addQuad("ADI",lv.id,rv.name,opd3);
     else if (op == "+" && cast(GlobalSymbol)lv && lv.type == "int")
-        addQuad("ADI",opd3,lv.id,rv.id);
-    else if (op == "=" && cast(GlobalSymbol)rv && rv.type == "int")
-        addQuad("MOVI",lv.id,rv.id);
+        addQuad("ADI",rv.id,lv.name,opd3);
+    else if (op == "=" && cast(GlobalSymbol)lv && lv.type == "int")
+        addQuad("MOVI",lv.name,rv.id);
     else
         addQuad(_opMap[op],opd1,opd2,opd3);
 }

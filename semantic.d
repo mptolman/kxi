@@ -617,7 +617,7 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
         }
 
-        icode.operator(op,l_symbol.id,r_symbol.id);
+        icode.operator(op,r_symbol.id,l_symbol.id);
         break;
     case "+":
     case "-":
