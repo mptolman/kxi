@@ -132,8 +132,11 @@ void class_declaration()
     assertType(TType.IDENTIFIER);
     auto className = _ct.value;
 
-    if (_firstPass)
+    if (_firstPass) {
         SymbolTable.add(new ClassSymbol(className,_scope,_ct.line));
+        // static initializer
+        SymbolTable.add(new MethodSymbol("__"~className,"void",PUBLIC_MODIFIER,_scope,_ct.line));
+    }
 
     _scope.push(className);
 
@@ -144,6 +147,9 @@ void class_declaration()
         class_member_declaration(className);
     assertType(TType.BLOCK_END);
     next();
+
+    if (!_firstPass)
+        icode.endOfClass();
 
     _scope.pop();
 }
@@ -267,8 +273,10 @@ void constructor_declaration()
     assertType(TType.PAREN_CLOSE); 
     next();
 
-    if (!_firstPass)
+    if (!_firstPass) {
         icode.funcBody(ctorName, ctorScope);
+        icode.staticInit(ctorName);
+    }
 
     method_body();
     _scope.pop();
@@ -336,7 +344,7 @@ void method_body()
     assertType(TType.BLOCK_END);
 
     if (!_firstPass)
-        return_sa(_scope,_ct.line,true);
+        funcEnd_sa();
 
     next();
 }

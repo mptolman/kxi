@@ -213,6 +213,13 @@ void func_sa()
     _sas.push(func_sar);
 }
 
+void funcEnd_sa()
+{
+    debug writeln("funcEnd_sa");
+
+    icode.funcReturn();
+}
+
 void iExist()
 {
     auto id_sar = _sas.top();
@@ -419,7 +426,7 @@ void oPush(string op, size_t line)
     _os.push(op);
 }
 
-void return_sa(Scope scpe, size_t line, bool endOfMethod=false)
+void return_sa(Scope scpe, size_t line)
 {
     debug writeln("return_sa");
 
@@ -436,7 +443,7 @@ void return_sa(Scope scpe, size_t line, bool endOfMethod=false)
     auto returnType = methodSymbol.type;
 
     if (_sas.empty()) {
-        if (returnType != "void" && !endOfMethod)
+        if (returnType != "void")
             throw new SemanticError(line,"Method '",methodName,"' must return value of type ",returnType);
 
         icode.funcReturn();

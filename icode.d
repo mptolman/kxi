@@ -18,7 +18,7 @@ void funcCall(string methodId, string opd1, string[] args=null, string returnId=
 {
     auto method = SymbolTable.getById(methodId);
     if (!method)
-            throw new Exception("funcCall: Failed to load method symbol");
+        throw new Exception("funcCall: Failed to load method symbol");
 
     addQuad("FRAME",methodId,opd1);
     foreach (a; args)
@@ -43,6 +43,23 @@ void funcReturn(string r=null)
         addQuad("RTN");
     else
         addQuad("RETURN",r);
+}
+
+//----------------------------
+// class member initialization
+//----------------------------
+void staticInit(string className)
+{
+    auto symbol = SymbolTable.findMethod("__"~className,Scope(GLOBAL_SCOPE),false);
+    if (!symbol)
+        throw new Exception(text("staticInit: Failed to load symbol for static initializer for class ",className));
+    funcCall(symbol.id, "this");
+}
+
+void endOfClass()
+{
+    _quads ~= _classInitQuads;
+    _classInitQuads = null;
 }
 
 //----------------------------
@@ -143,14 +160,22 @@ void operator(string op, string opd1, string opd2, string opd3=null)
     auto lv = SymbolTable.getById(opd1);
     auto rv = SymbolTable.getById(opd2);
 
-    if (op == "+" && cast(GlobalSymbol)rv && rv.type == "int")
-        addQuad("ADI",lv.id,rv.name,opd3);
-    else if (op == "+" && cast(GlobalSymbol)lv && lv.type == "int")
-        addQuad("ADI",rv.id,lv.name,opd3);
-    else if (op == "=" && cast(GlobalSymbol)lv && lv.type == "int")
-        addQuad("MOVI",lv.name,rv.id);
-    else
-        addQuad(_opMap[op],opd1,opd2,opd3);
+    switch (op) {
+    case "=":
+        if (cast(IVarSymbol)rv)
+            addStaticQuad("MOV",opd1,opd2);
+        else
+            addQuad("MOV",opd1,opd2);
+        break;
+    default:
+        throw new Exception(text("icode.operator: Invalid operator ",op));
+    }
+    //if (op == "+" && cast(GlobalSymbol)rv && rv.type == "int")
+    //    addQuad("ADI",lv.id,rv.name,opd3);
+    //else if (op == "+" && cast(GlobalSymbol)lv && lv.type == "int")
+    //    addQuad("ADI",rv.id,lv.name,opd3);
+    //else if (op == "=" && cast(GlobalSymbol)lv && lv.type == "int")
+    //    addQuad("MOVI",lv.name,rv.id);
 }
 
 //----------------------------
@@ -206,6 +231,7 @@ auto getQuads()
 
 private:
 Quad[] _quads;
+Quad[] _classInitQuads;
 
 string _currentLabel;
 bool _currentLabelTakesPriority;
@@ -228,6 +254,11 @@ void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null
 {
     _quads ~= Quad(opcode,opd1,opd2,opd3,_currentLabel);
     _currentLabel = null;
+}
+
+void addStaticQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
+{
+    _classInitQuads ~= Quad(opcode,opd1,opd2,opd3);
 }
 
 auto makeLabel(string prefix=null)
