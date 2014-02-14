@@ -152,7 +152,7 @@ void class_declaration()
     next();
 
     if (!_firstPass)
-        icode.endOfClass();
+        icode.classEnd();
 
     _scope.pop();
 }
@@ -277,8 +277,8 @@ void constructor_declaration()
     next();
 
     if (!_firstPass) {
+        icode.staticInit(ctorName); // call the static initializer
         icode.funcBody(ctorName, ctorScope);
-        icode.staticInit(ctorName);
     }
 
     method_body();

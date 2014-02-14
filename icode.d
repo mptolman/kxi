@@ -20,13 +20,13 @@ void funcCall(string methodId, string opd1, string[] args=null, string returnId=
     if (!method)
         throw new Exception("funcCall: Failed to load method symbol");
 
-    addQuad("FRAME",methodId,opd1);
-    foreach (a; args)
-        addQuad("PUSH",a);
-    addQuad("CALL",methodId);
+    addQuad("FRAME", methodId, opd1);
+    foreach (arg; args)
+        addQuad("PUSH", arg);
+    addQuad("CALL", methodId);
 
     if (returnId && method.type != "void")
-        addQuad("PEEK",returnId);
+        addQuad("PEEK", returnId);
 }
 
 void funcBody(string methodName, Scope scpe)
@@ -34,7 +34,7 @@ void funcBody(string methodName, Scope scpe)
     auto symbol = SymbolTable.findMethod(methodName,scpe,false);
     if (!symbol)
         throw new Exception(text("funcBody: Failed to find method ",methodName," in symbol table"));
-    setLabel(symbol.id,true);
+    setLabel(symbol.id, true);
 }
 
 void funcReturn(string r=null)
@@ -66,6 +66,7 @@ void staticInit(string className)
 
 void classEnd()
 {
+    addStaticQuad("RTN");
     _quads ~= _classInitQuads;
     _classInitQuads = null;
 }
@@ -163,6 +164,79 @@ void write(string symId, string type)
 //----------------------------
 // Operators
 //----------------------------
+void assignOp(string opd1, string opd2, bool memberInit=false)
+{
+    if (memberInit)
+        addStaticQuad("MOV",opd1,opd2);
+    else
+        addQuad("MOV",opd1,opd2);
+}
+
+void mathOp(string op, string opd1, string opd2, string opd3)
+{
+    switch (op) {
+    case "+":
+        addQuad("ADD", opd1, opd2, opd3);
+        break;
+    case "-":
+        addQuad("SUB", opd1, opd2, opd3);
+        break;
+    case "*":
+        addQuad("MUL", opd1, opd2, opd3);
+        break;
+    case "/":
+        addQuad("DIV", opd1, opd2, opd3);
+        break;
+    default:
+        throw new Exception("mathOp: Invalid math operator '"~op~"'");
+    }
+}
+
+void relOp(string op, string opd1, string opd2, string opd3)
+{
+    switch (op) {
+    case "<":
+        addQuad("LT", opd1, opd2, opd3);
+        break;
+    case ">":
+        addQuad("GT", opd1, opd2, opd3);
+        break;
+    case "<=":
+        addQuad("LE", opd1, opd2, opd3);
+        break;
+    case ">=":
+        addQuad("GE", opd1, opd2, opd3);
+        break;
+    case "==":
+        addQuad("EQ", opd1, opd2, opd3);
+        break;
+    case "!=":
+        addQuad("NE", opd1, opd2, opd3);
+        break;
+    default:
+        throw new Exception("relOp: Invalid relational operator '"~op~"'");
+    }
+}
+
+void boolOp(string op, string opd1, string opd2, string opd3)
+{
+    switch (op) {
+    case "&&":
+        addQuad("AND", opd1, opd2, opd3);
+    case "||":
+        addQuad("OR", opd1, opd2, opd3);
+    default:
+        throw new Exception("boolOp: Invalid boolean operator '"~op~"'");
+    }
+}
+
+void genericOp(string op, string opd1, string opd2, string opd3)
+{
+    if (op !in _opMap)
+        throw new Exception("genericOp: Invalid operator '"~op~"'");
+    addQuad(_opMap[op], opd1, opd2, opd3);
+}
+
 void operator(string op, string opd1, string opd2, string opd3=null)
 {
     auto lv = SymbolTable.getById(opd1);
@@ -202,10 +276,10 @@ void malloc(string sizeId, string addrId)
 void setLabel(string label, bool priority=false)
 {
     if (_currentLabel && _currentLabelTakesPriority) {        
-        backPatch(label,_currentLabel);
+        backPatch(label, _currentLabel);
     }
     else if (_currentLabel) {
-        backPatch(_currentLabel,label);
+        backPatch(_currentLabel, label);
         _currentLabel = label;
         _currentLabelTakesPriority = priority;
     }
@@ -220,21 +294,15 @@ void pushLabel(string label)
     _labelStack.push(label);
 }
 
-void popLabel()
+auto getQuads()
 {
-    setLabel(_labelStack.top());
-    _labelStack.pop();
+    return _quads.idup;
 }
 
 void printICode()
 {
     foreach (q; _quads)
         writefln("%s\t%s %s %s %s",q.label,q.opcode,q.opd1,q.opd2,q.opd3);
-}
-
-auto getQuads()
-{
-    return _quads.idup;
 }
 
 private:

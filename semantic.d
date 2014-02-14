@@ -13,6 +13,7 @@ enum SARType : byte
     ID_SAR,
     LIT_SAR,
     NEW_SAR,
+    SID_SAR,
     TEMP_SAR,
     TYPE_SAR
 }
@@ -398,7 +399,7 @@ void newobj_sa()
     checkFuncArgs(al_sar,ctor_symbol);
 
     // Allocate memory for object
-    auto mem_symbol = new TempSymbol(null,type_sar.name);
+    auto mem_symbol = new TempSymbol(null, type_sar.name);
     SymbolTable.add(mem_symbol);
     icode.malloc(class_symbol.size, mem_symbol.id);
 
@@ -548,11 +549,14 @@ void vPush(string name, Scope scpe, size_t line)
 {
     debug writefln("(%s) vPush: %s",line,name);
 
-    auto symbol = SymbolTable.findVariable(name,scpe,false);
+    auto symbol = SymbolTable.findVariable(name, scpe, false);
     if (!symbol)
         throw new SemanticError(line,"Could not find variable declaration for ",name);
 
-    _sas.push(SAR(SARType.ID_SAR,name,scpe,line,symbol.id));
+    if (cast(IVarSymbol)symbol)
+        _sas.push(SAR(SARType.SID_SAR,name,scpe,line,symbol.id));
+    else
+        _sas.push(SAR(SARType.ID_SAR,name,scpe,line,symbol.id));
 }
 
 void while_sa(size_t line)
@@ -611,6 +615,7 @@ void doStackOp()
     case "=":
         switch (l_sar.sarType) {
         case SARType.ID_SAR:
+        case SARType.SID_SAR:
         case SARType.ARR_SAR:
             break; // allow
         default:            
@@ -624,13 +629,12 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
         }
 
-        icode.operator(op,r_symbol.id,l_symbol.id);
+        icode.assignOp(r_symbol.id, l_symbol.id, l_sar.sarType == SARType.SID_SAR);
         break;
     case "+":
     case "-":
     case "*":
     case "/":
-    //case "%":
         if (l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid operands for '",op,"' operator. Types do not match");
 
@@ -638,7 +642,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        icode.operator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        icode.mathOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
         break;
     case "<":
     case ">":
@@ -647,7 +651,7 @@ void doStackOp()
     case "==":
     case "!=":
         if (l_symbol.type != r_symbol.type) {
-            if (SymbolTable.findClass(l_symbol.type) && r_symbol.type == "null") {}
+            if ((op == "==" || op == "!=") && SymbolTable.findClass(l_symbol.type) && r_symbol.type == "null") {}
                 // allow
             else
                 throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type," and ",r_symbol.type);
@@ -657,7 +661,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        icode.operator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        icode.relOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
         break;
     case "||":
     case "&&":
@@ -668,7 +672,7 @@ void doStackOp()
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
-        icode.operator(op,l_symbol.id,r_symbol.id,temp_symbol.id);
+        icode.boolOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
         break;
     default:
         throw new SemanticError(l_sar.line,"doStackOp: Invalid operation ",op);
@@ -680,8 +684,8 @@ auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
     if (sar.params.length != methodSymbol.params.length)
         throw new SemanticError(sar.line,"Wrong number of arguments for method ",sar.name);
 
-    foreach (i,a; sar.params.dup.reverse) {
-        auto arg = SymbolTable.getById(a);
+    foreach (i,argSymId; sar.params.dup.reverse) {
+        auto arg = SymbolTable.getById(argSymId);
         auto param = SymbolTable.getById(methodSymbol.params[i]);
         if (arg.type != param.type)
             throw new SemanticError(sar.line,"Wrong parameter type. Found ",arg.type, "; expected ",param.type);        

@@ -171,7 +171,7 @@ public:
 
     this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
     {
-        this.id = text(prefix,++_symbolCount[prefix]);
+        this.id = text(prefix,++counter);
         this.name = name;
         this.type = type;
         this.modifier = modifier;
@@ -347,6 +347,3 @@ class RefSymbol : Symbol
         return text(typeid(typeof(this)),Symbol.toString);
     }
 }
-
-private:
-size_t[string] _symbolCount;
