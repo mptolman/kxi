@@ -4,16 +4,14 @@ import compiler;
 
 int main(string[] args)
 {
-    string srcFileName, destFileName;
-
     if (args.length < 2) {
         writefln("Usage: %s <source> [<dest>]",args[0]);
         return 1;
     }
 
     try {
-        srcFileName = args[1];
-        destFileName = args.length > 2 ? args[2] : stripRight(args[1]) ~ ".asm";
+        string srcFileName = args[1];
+        string destFileName = args.length > 2 ? args[2] : stripRight(args[1]) ~ ".asm";
 
         compile(srcFileName, destFileName);
         writeln("success");

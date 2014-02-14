@@ -48,6 +48,14 @@ void funcReturn(string r=null)
 //----------------------------
 // class member initialization
 //----------------------------
+void classBegin(string className)
+{
+    auto symbol = SymbolTable.findMethod("__"~className,Scope(GLOBAL_SCOPE),false);
+    if (!symbol)
+        throw new Exception("classBegin: Failed to load symbol for static initializer for class "~className);
+    _staticInitLabel = symbol.id;
+}
+
 void staticInit(string className)
 {
     auto symbol = SymbolTable.findMethod("__"~className,Scope(GLOBAL_SCOPE),false);
@@ -56,7 +64,7 @@ void staticInit(string className)
     funcCall(symbol.id, "this");
 }
 
-void endOfClass()
+void classEnd()
 {
     _quads ~= _classInitQuads;
     _classInitQuads = null;
@@ -233,6 +241,7 @@ private:
 Quad[] _quads;
 Quad[] _classInitQuads;
 
+string _staticInitLabel;
 string _currentLabel;
 bool _currentLabelTakesPriority;
 
@@ -258,7 +267,8 @@ void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null
 
 void addStaticQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
 {
-    _classInitQuads ~= Quad(opcode,opd1,opd2,opd3);
+    _classInitQuads ~= Quad(opcode,opd1,opd2,opd3,_staticInitLabel);
+    _staticInitLabel = null;
 }
 
 auto makeLabel(string prefix=null)

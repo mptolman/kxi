@@ -137,6 +137,9 @@ void class_declaration()
         // static initializer
         SymbolTable.add(new MethodSymbol("__"~className,"void",PUBLIC_MODIFIER,_scope,_ct.line));
     }
+    else {
+        icode.classBegin(className);
+    }
 
     _scope.push(className);
 
