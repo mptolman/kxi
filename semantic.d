@@ -357,7 +357,7 @@ void newarr_sa()
         elemsz = int.sizeof;
         break;
     }
-    
+
     auto elemsz_symbol = new GlobalSymbol(to!string(elemsz),"int");
     SymbolTable.add(elemsz_symbol);
 
@@ -573,7 +573,7 @@ void while_sa(size_t line)
 
     auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
-        throw new SemanticError(line,"if_sa: Failed to load symbol");
+        throw new SemanticError(line,"while_sa: Failed to load symbol");
     if (symbol.type != "bool")
         throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
 

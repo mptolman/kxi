@@ -53,7 +53,7 @@ void classBegin(string className)
     auto symbol = SymbolTable.findMethod("__"~className,Scope(GLOBAL_SCOPE),false);
     if (!symbol)
         throw new Exception("classBegin: Failed to load symbol for static initializer for class "~className);
-    _staticInitLabel = symbol.id;
+    _classInitLabel = symbol.id;
 }
 
 void staticInit(string className)
@@ -66,7 +66,7 @@ void staticInit(string className)
 
 void classEnd()
 {
-    addStaticQuad("RTN");
+    addClassInitQuad("RTN");
     _quads ~= _classInitQuads;
     _classInitQuads = null;
 }
@@ -121,8 +121,8 @@ void endWhile()
 
     auto begin = _labelStack.top();
     _labelStack.pop();
-    addQuad("JMP",begin);
 
+    addQuad("JMP",begin);
     setLabel(endWhile);
 }
 
@@ -168,7 +168,7 @@ void write(string symId, string type)
 void assignOp(string opd1, string opd2, bool memberInit=false)
 {
     if (memberInit)
-        addStaticQuad("MOV",opd1,opd2);
+        addClassInitQuad("MOV",opd1,opd2);
     else
         addQuad("MOV",opd1,opd2);
 }
@@ -240,29 +240,6 @@ void genericOp(string op, string opd1, string opd2, string opd3)
     addQuad(_opMap[op], opd1, opd2, opd3);
 }
 
-void operator(string op, string opd1, string opd2, string opd3=null)
-{
-    auto lv = SymbolTable.getById(opd1);
-    auto rv = SymbolTable.getById(opd2);
-
-    switch (op) {
-    case "=":
-        if (cast(IVarSymbol)rv)
-            addStaticQuad("MOV",opd1,opd2);
-        else
-            addQuad("MOV",opd1,opd2);
-        break;
-    default:
-        throw new Exception(text("icode.operator: Invalid operator ",op));
-    }
-    //if (op == "+" && cast(GlobalSymbol)rv && rv.type == "int")
-    //    addQuad("ADI",lv.id,rv.name,opd3);
-    //else if (op == "+" && cast(GlobalSymbol)lv && lv.type == "int")
-    //    addQuad("ADI",rv.id,lv.name,opd3);
-    //else if (op == "=" && cast(GlobalSymbol)lv && lv.type == "int")
-    //    addQuad("MOVI",lv.name,rv.id);
-}
-
 //----------------------------
 // Memory allocation
 //----------------------------
@@ -307,7 +284,7 @@ private:
 Quad[] _quads;
 Quad[] _classInitQuads;
 
-string _staticInitLabel;
+string _classInitLabel;
 string _currentLabel;
 bool _currentLabelTakesPriority;
 
@@ -331,10 +308,10 @@ void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null
     _currentLabel = null;
 }
 
-void addStaticQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
+void addClassInitQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
 {
-    _classInitQuads ~= Quad(opcode,opd1,opd2,opd3,_staticInitLabel);
-    _staticInitLabel = null;
+    _classInitQuads ~= Quad(opcode,opd1,opd2,opd3,_classInitLabel);
+    _classInitLabel = null;
 }
 
 auto makeLabel(string prefix=null)
