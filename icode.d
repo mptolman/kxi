@@ -56,11 +56,11 @@ void classBegin(string className)
     _classInitLabel = symbol.id;
 }
 
-void staticInit(string className)
+void classInit(string className)
 {
     auto symbol = SymbolTable.findMethod("__"~className,Scope(GLOBAL_SCOPE),false);
     if (!symbol)
-        throw new Exception(text("staticInit: Failed to load symbol for static initializer for class ",className));
+        throw new Exception(text("classInit: Failed to load symbol for static initializer for class ",className));
     funcCall(symbol.id, "this");
 }
 

@@ -277,7 +277,7 @@ void constructor_declaration()
 
     if (!_firstPass) {
         icode.funcBody(ctorName, ctorScope);
-        icode.staticInit(ctorName); // call the static initializer
+        icode.classInit(ctorName); // call the static initializer
     }
 
     method_body();
