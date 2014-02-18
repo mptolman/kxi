@@ -224,8 +224,10 @@ void boolOp(string op, string opd1, string opd2, string opd3)
     switch (op) {
     case "&&":
         addQuad("AND", opd1, opd2, opd3);
+        break;
     case "||":
         addQuad("OR", opd1, opd2, opd3);
+        break;
     default:
         throw new Exception("boolOp: Invalid boolean operator '"~op~"'");
     }

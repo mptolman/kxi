@@ -365,7 +365,7 @@ void newarr_sa()
     auto arr_symbol = new TempSymbol(null,text("@:",type_sar.name));
     SymbolTable.add(arr_symbol);
 
-    icode.operator("*", elemsz_symbol.id, arrsz_symbol.id, totalsz_symbol.id);
+    icode.mathOp("*", elemsz_symbol.id, arrsz_symbol.id, totalsz_symbol.id);
     icode.malloc(totalsz_symbol.id, arr_symbol.id);
 
     _sas.push(SAR(SARType.NEW_SAR,arr_symbol.name,type_sar.line,arr_symbol.id));
