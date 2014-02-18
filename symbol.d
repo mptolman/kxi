@@ -159,7 +159,7 @@ public:
 abstract class Symbol
 {
 private:
-    static size_t counter = 0;
+    static size_t[string] counter;
 
 public:
     string id;
@@ -171,7 +171,7 @@ public:
 
     this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
     {
-        this.id = text(prefix,++counter);
+        this.id = text(prefix,++counter[prefix]);
         this.name = name;
         this.type = type;
         this.modifier = modifier;

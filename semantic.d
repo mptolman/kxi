@@ -342,21 +342,23 @@ void newarr_sa()
     if (arrsz_symbol.type != "int")
         throw new SemanticError(size_sar.line,"Invalid array size. Expected int, not ",arrsz_symbol.type);
 
-    Symbol elemsz_symbol;
+    size_t elemsz;
     switch(type_sar.name) {
     case "int":
-        elemsz_symbol = new TempSymbol(text(int.sizeof),"int");
+        elemsz = int.sizeof;
         break;
     case "char":
-        elemsz_symbol = new TempSymbol(text(char.sizeof),"int");
+        elemsz = char.sizeof;
         break;
     case "bool":
-        elemsz_symbol = new TempSymbol(text(bool.sizeof),"int");
+        elemsz = bool.sizeof;
         break;
     default: // pointer
-        elemsz_symbol = new TempSymbol(text(int.sizeof),"int");
+        elemsz = int.sizeof;
         break;
     }
+    
+    auto elemsz_symbol = new GlobalSymbol(to!string(elemsz),"int");
     SymbolTable.add(elemsz_symbol);
 
     auto totalsz_symbol = new TempSymbol(null,"int");

@@ -6,7 +6,7 @@ class A
 
     public int f(int x)
     {
-
+        
     }
 }
 
@@ -17,6 +17,6 @@ class B
 
 void main()
 {
-    A a = new A();
+    A a[] = new A[100];
     int x;
 }
