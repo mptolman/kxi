@@ -84,8 +84,7 @@ void compilation_unit()
     //    "void" "main" "(" ")" method_body
     // ;
 
-    _scope = Scope.init;
-    _scope.push(GLOBAL_SCOPE);
+    _scope = Scope(GLOBAL_SCOPE);
 
     next();
     while (_ct.type == TType.CLASS)
@@ -100,7 +99,7 @@ void compilation_unit()
     auto methodScope = _scope;
 
     if (_firstPass) {
-        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,_scope,_ct.line));
+        SymbolTable.add(new MethodSymbol(methodName,returnType,PUBLIC_MODIFIER,methodScope,_ct.line));
         icode.callMain();
     }
 

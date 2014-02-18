@@ -78,7 +78,7 @@ void ifCond(string symbolId)
 {
     auto skipIf = makeLabel("SKIPIF");
     addQuad("BF",symbolId,skipIf);
-    pushLabel(skipIf);
+    _labelStack.push(skipIf);
 }
 
 void elseCond()
@@ -88,7 +88,8 @@ void elseCond()
 
     setLabel(_labelStack.top());
     _labelStack.pop();
-    pushLabel(skipElse);
+
+    _labelStack.push(skipElse);
 }
 
 void endIf()
@@ -103,14 +104,14 @@ void endIf()
 void beginWhile()
 {
     setLabel(makeLabel("BEGIN"));
-    pushLabel(_currentLabel);
+    _labelStack.push(_currentLabel);
 }
 
 void whileCond(string symbolId)
 {
     auto endWhile = makeLabel("ENDWHILE");
     addQuad("BF",symbolId,endWhile);
-    pushLabel(endWhile);
+    _labelStack.push(endWhile);
 }
 
 void endWhile()
@@ -287,11 +288,6 @@ void setLabel(string label, bool priority=false)
         _currentLabel = label;
         _currentLabelTakesPriority = priority;
     }
-}
-
-void pushLabel(string label)
-{
-    _labelStack.push(label);
 }
 
 auto getQuads()
