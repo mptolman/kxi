@@ -168,7 +168,7 @@ void write(string symId, string type)
 void assignOp(string opd1, string opd2, bool memberInit=false)
 {
     if (memberInit)
-        addClassInitQuad("MOV",opd1,opd2);
+        addClassInitQuad("MOV",opd2,opd1);
     else
         addQuad("MOV",opd1,opd2);
 }
@@ -268,8 +268,8 @@ private:
 Quad[] _quads;
 Quad[] _classInitQuads;
 
-string _classInitLabel;
 string _currentLabel;
+string _classInitLabel;
 bool _currentLabelTakesPriority;
 
 Stack!string _labelStack;

@@ -133,8 +133,8 @@ void class_declaration()
 
     if (_firstPass) {
         SymbolTable.add(new ClassSymbol(className,_scope,_ct.line));
-        // static initializer
-        SymbolTable.add(new MethodSymbol("__"~className,"void",PUBLIC_MODIFIER,_scope,_ct.line));
+        // static initializer:
+        SymbolTable.add(new MethodSymbol("__"~className,"void",PRIVATE_MODIFIER,_scope,_ct.line));
     }
     else {
         icode.classBegin(className);

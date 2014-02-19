@@ -553,7 +553,7 @@ void vPush(string name, Scope scpe, size_t line)
 
     auto symbol = SymbolTable.findVariable(name, scpe, false);
     if (!symbol)
-        throw new SemanticError(line,"Could not find variable declaration for ",name);
+        throw new SemanticError(line,"vPush: Could not find variable declaration for ",name);
 
     if (cast(IVarSymbol)symbol)
         _sas.push(SAR(SARType.SID_SAR,name,scpe,line,symbol.id));
@@ -670,7 +670,7 @@ void doStackOp()
         if (l_symbol.type != "bool" || l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid boolean expression");
 
-        auto temp_symbol = new TempSymbol(text(l_symbol.id,op,r_symbol.id),"bool");
+        auto temp_symbol = new TempSymbol(null,"bool");
         SymbolTable.add(temp_symbol);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
