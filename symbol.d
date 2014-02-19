@@ -293,6 +293,8 @@ class IVarSymbol : VarSymbol
         this.offset = classSym.size;
         if (this.type == "char")
             classSym.size += char.sizeof;
+        else if (this.type == "bool")
+            classSym.size += bool.sizeof;
         else
             classSym.size += int.sizeof;
     }

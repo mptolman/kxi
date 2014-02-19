@@ -7,7 +7,7 @@ import container, symbol;
 //----------------------------
 void callMain()
 {
-    auto main = SymbolTable.findMethod("main",Scope(GLOBAL_SCOPE),false);
+    auto main = SymbolTable.findMethod("main", Scope(GLOBAL_SCOPE), false);
     if (!main)
         throw new Exception("initMain: Failed to locate main in symbol table");
     funcCall(main.id,"this");
@@ -253,22 +253,6 @@ void malloc(string sizeId, string addrId)
     addQuad("NEW",sizeId,addrId);
 }
 
-void setLabel(string label, bool priority=false)
-{
-    if (_currentLabel && _currentLabelTakesPriority) {        
-        backPatch(label, _currentLabel);
-    }
-    else if (_currentLabel) {
-        backPatch(_currentLabel, label);
-        _currentLabel = label;
-        _currentLabelTakesPriority = priority;
-    }
-    else {
-        _currentLabel = label;
-        _currentLabelTakesPriority = priority;
-    }
-}
-
 auto getQuads()
 {
     return _quads.idup;
@@ -319,6 +303,22 @@ auto makeLabel(string prefix=null)
     if (!prefix)
         prefix = "L";
     return text(prefix,++_labelCount[prefix]);
+}
+
+void setLabel(string label, bool priority=false)
+{
+    if (_currentLabel && _currentLabelTakesPriority) {        
+        backPatch(label, _currentLabel);
+    }
+    else if (_currentLabel) {
+        backPatch(_currentLabel, label);
+        _currentLabel = label;
+        _currentLabelTakesPriority = priority;
+    }
+    else {
+        _currentLabel = label;
+        _currentLabelTakesPriority = priority;
+    }
 }
 
 void backPatch(string oldLabel, string newLabel)

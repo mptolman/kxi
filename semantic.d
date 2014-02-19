@@ -358,19 +358,19 @@ void newarr_sa()
         break;
     }
 
-    auto elemsz_symbol = new GlobalSymbol(to!string(elemsz),"int");
+    auto elemsz_symbol = new GlobalSymbol(to!string(elemsz), "int");
     SymbolTable.add(elemsz_symbol);
 
-    auto totalsz_symbol = new TempSymbol(null,"int");
+    auto totalsz_symbol = new TempSymbol(null, "int");
     SymbolTable.add(totalsz_symbol);
 
-    auto arr_symbol = new TempSymbol(null,text("@:",type_sar.name));
+    auto arr_symbol = new TempSymbol(null, text("@:",type_sar.name));
     SymbolTable.add(arr_symbol);
 
     icode.mathOp("*", elemsz_symbol.id, arrsz_symbol.id, totalsz_symbol.id);
     icode.malloc(totalsz_symbol.id, arr_symbol.id);
 
-    _sas.push(SAR(SARType.NEW_SAR,arr_symbol.name,type_sar.line,arr_symbol.id));
+    _sas.push(SAR(SARType.NEW_SAR, arr_symbol.name, type_sar.line, arr_symbol.id));
 }
 
 void newobj_sa()
@@ -386,7 +386,7 @@ void newobj_sa()
     // Make sure type exists
     auto class_symbol = cast(ClassSymbol)SymbolTable.findClass(type_sar.name);
     if (!class_symbol)
-        throw new SemanticError(type_sar.line,"Invalid type ",type_sar.name);
+        throw new SemanticError(type_sar.line,"Invalid class type ",type_sar.name);
 
     // Make sure ctor exists
     auto scpe = class_symbol.scpe;
@@ -406,12 +406,12 @@ void newobj_sa()
     icode.malloc(class_symbol.size, mem_symbol.id);
 
     // Call constructor
-    auto temp_symbol = new TempSymbol(null,type_sar.name);
+    auto temp_symbol = new TempSymbol(null, type_sar.name);
     SymbolTable.add(temp_symbol);
     icode.funcCall(ctor_symbol.id, mem_symbol.id, al_sar.params, temp_symbol.id);
 
-    auto new_sar = SAR(SARType.NEW_SAR,type_sar.name,type_sar.line,temp_symbol.id);
-    new_sar.params = al_sar.params.dup;
+    auto new_sar = SAR(SARType.NEW_SAR, type_sar.name, type_sar.line, temp_symbol.id);
+    new_sar.params = al_sar.params;
 
     _sas.push(new_sar);
 }

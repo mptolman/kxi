@@ -1,11 +1,6 @@
 class A
 {
     private int x = 1;
-    
-    A() 
-    {
-        x = x + 1;
-    }
 
     public int f(int x)
     {
@@ -20,6 +15,6 @@ class B
 
 void main()
 {
-    A a[] = new A[100];
+    A a = new A();
     int x;
 }
