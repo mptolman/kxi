@@ -544,6 +544,7 @@ void tExist()
 void tPush(string type, size_t line)
 {
     debug writefln("(%s) tPush: %s",line,type);
+    
     _sas.push(SAR(SARType.TYPE_SAR,type,line));
 }
 

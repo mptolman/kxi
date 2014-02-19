@@ -1,6 +1,8 @@
 class A
 {
     private int x = 1;
+    
+    A() {}
 
     public int f(int x)
     {
@@ -16,5 +18,4 @@ class B
 void main()
 {
     A a = new A();
-    int x;
 }
