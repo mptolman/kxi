@@ -1,12 +1,10 @@
+import std.conv;
 import std.stdio;
 import icode, symbol;
 
 void generateTCode(File dest)
 {
-    foreach (quad; icode.getQuads())
-    {
-        
-    }
+
 }
 
 private:

@@ -786,43 +786,35 @@ void character_literal()
 {
     // character_literal::= "\’" character "\’" ;
 
-    string s;
-
     assertType(TType.CHAR_DELIM);
     next();
     assertType(TType.CHAR_LITERAL);
+
+    auto character = _ct.value;
 
     if (_ct.value == "\\") {
         next();
         assertType(TType.CHAR_LITERAL);
         switch (_ct.value) {
         case "\\":
-            s = "\\";
-            break;
         case "n":
-            s = "\n";
-            break;
         case "t":
-            s = "\t";
-            break;
-        case "\'":
-            s = "\'";
+        case "'":
             break;
         default:        
             throw new SyntaxError(_ct.line,"Invalid character escape sequence \'\\",_ct.value,"\'");
         }
-    }
-    else {
-        s = _ct.value;
+
+        character ~= _ct.value;        
     }
 
     next();
     assertType(TType.CHAR_DELIM);
 
     if (_firstPass)
-        SymbolTable.add(new GlobalSymbol(s,"char"));
+        SymbolTable.add(new GlobalSymbol(character,"char"));
     else
-        lPush(s,"char",_ct.line);
+        lPush(character,"char",_ct.line);
 
     next();
 }
@@ -833,10 +825,12 @@ void numeric_literal()
 
     assertType(TType.INT_LITERAL);
 
+    auto value = to!string(to!int(_ct.value));
+
     if (_firstPass)
-        SymbolTable.add(new GlobalSymbol(_ct.value,"int"));
+        SymbolTable.add(new GlobalSymbol(value,"int"));
     else
-        lPush(_ct.value,"int",_ct.line);
+        lPush(value,"int",_ct.line);
 
     next();
 }

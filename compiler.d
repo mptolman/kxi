@@ -5,7 +5,7 @@ import icode, parser, tcode;
 void compile(string srcFileName, string destFileName)
 {    
     File src = File(srcFileName);
-    File dest;// = File(destFileName,"w");
+    File dest; // = File(destFileName,"w");
 
     //scope (failure) { 
     //    try {
