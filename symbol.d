@@ -14,19 +14,96 @@ private:
     static Symbol[][Scope] byScope;
     @disable this();
 
-public:
-    static void add(Symbol s)
+    static void insert(Symbol s)
     {
-        bool dontInsert = false;
-        s.beforeInsert(dontInsert);
-
-        if (!dontInsert) {
-            byId[s.id] = s;
-            byScope[s.scpe] ~= s;
-            s.afterInsert();
-        }
+        byId[s.id] = s;
+        byScope[s.scpe] ~= s;
     }
 
+public:
+//--------------------------
+// Add to symbol table 
+//--------------------------
+    static auto addGlobal(string value, string type)
+    {
+        auto symbol = findGlobal(value, type);
+        if (!symbol)
+            symbol = new GlobalSymbol(value, type);
+
+        insert(symbol);
+        return symbol;
+    }
+
+    static auto addClass(string name)
+    {
+        if (findClass(name))
+            throw new Exception("duplicate class");
+        auto symbol = new ClassSymbol(name, Scope(GLOBAL_SCOPE));
+        insert(symbol);
+        return symbol;
+    }
+
+    static auto addMethod(string name, string returnType, string modifier, Scope scpe, size_t line)
+    {
+        if (findMethod(name, scpe, false))
+            throw new Exception("duplicate method definition");
+
+        auto symbol = new MethodSymbol(name, returnType, modifier, scpe);
+        insert(symbol);
+        return symbol;
+    }
+
+    static auto addVar(T)(string name, string type, Scope scpe, size_t line)
+        if (is(T:VarSymbol))
+    {
+        if (findVariable(name, scpe, false))
+            throw new Exception("duplicate var def");
+
+        auto symbol = new T(name, type, scpe);
+        insert(symbol);
+        return symbol;
+    }
+
+    static auto addIVar(string name, string type, string modifier, Scope scpe, size_t line)
+    {
+        if (findVariable(name, scpe, false))
+            throw new Exception("duplicate var definition");
+      
+        auto symbol = new IVarSymbol(name, type, modifier, scpe);
+        
+        auto classSymbol = cast(ClassSymbol)SymbolTable.findClass(scpe.top());
+        if (!classSymbol)
+            throw new Exception("addIVar: Failed to load class symbol");
+
+        symbol.offset = classSymbol.size;
+        if (symbol.type == "char")
+            classSymbol.size += char.sizeof;
+        else if (symbol.type == "bool")
+            classSymbol.size += bool.sizeof;
+        else
+            classSymbol.size += int.sizeof;
+
+        insert(symbol);
+        return symbol;
+    }
+
+    static auto addTemporary(string name, string type)
+    {
+        auto symbol = new TempSymbol(name, type);
+        insert(symbol);
+        return symbol;
+    }
+
+    static auto addReference(string name, string type)
+    {
+        auto symbol = new RefSymbol(name, type);
+        insert(symbol);
+        return symbol;
+    }
+
+//--------------------------
+// Search symbol table
+//--------------------------    
     static auto getById(string id)
     {
         return id in byId ? byId[id] : null;
@@ -161,6 +238,15 @@ abstract class Symbol
 private:
     static size_t[string] counter;
 
+    this(string prefix, string name, string type, string modifier, Scope scpe)
+    {
+        this.id = text(prefix,++counter[prefix]);
+        this.name = name;
+        this.type = type;
+        this.modifier = modifier;
+        this.scpe = scpe;
+    }
+
 public:
     string id;
     string name;
@@ -169,22 +255,11 @@ public:
     size_t line;
     Scope scpe;
 
-    this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
-    {
-        this.id = text(prefix,++counter[prefix]);
-        this.name = name;
-        this.type = type;
-        this.modifier = modifier;
-        this.scpe = scpe;
-        this.line = line;
-    }
-
     override string toString()
     {
         return text("\nid: ",id,"\nvalue: ",name,"\ntype: ",type,"\nscope: ",scpe,"\nmodifier: ",modifier,"\n");
     }
 
-    void beforeInsert(out bool dontInsert) {}
     void afterInsert() {}
 }
 
@@ -192,20 +267,14 @@ class ClassSymbol : Symbol
 {
     size_t size;
 
-    this(string className, Scope scpe, size_t line)
+    this(string className, Scope scpe)
     {
-        super("C",className,className,PUBLIC_MODIFIER,scpe,line);
+        super("C",className,className,PUBLIC_MODIFIER,scpe);
     }
 
     override string toString()
     {
         return text(typeid(typeof(this)),Symbol.toString);
-    }
-
-    override void beforeInsert(out bool dontInsert)
-    {
-        if (SymbolTable.findClass(this.name))
-            throw new Exception(text("(",this.line,"): Duplicate definition for class ",this.name));
     }
 }
 
@@ -213,9 +282,9 @@ class MethodSymbol : Symbol
 {
     string[] params;
 
-    this(string methodName, string returnType, string modifier, Scope scpe, size_t line)
+    this(string methodName, string returnType, string modifier, Scope scpe)
     {
-        super("M",methodName,returnType,modifier,scpe,line);
+        super("M",methodName,returnType,modifier,scpe);
     }
 
     void addParam(Symbol s)
@@ -227,33 +296,21 @@ class MethodSymbol : Symbol
     {
         return text(typeid(typeof(this)),Symbol.toString(),"\nparams: ",params,"\n");
     }
-
-    override void beforeInsert(out bool dontInsert)
-    {
-        if (SymbolTable.findMethod(this.name,this.scpe,false))
-            throw new Exception(text("(",this.line,"): Duplicate definition for method ",this.name));
-    }
 }
 
 abstract class VarSymbol : Symbol
 {
-    this(string prefix, string name, string type, string modifier, Scope scpe, size_t line)
+    this(string prefix, string name, string type, string modifier, Scope scpe)
     {
-        super(prefix,name,type,modifier,scpe,line);
-    }
-
-    override void beforeInsert(out bool dontInsert)
-    {
-        if (SymbolTable.findVariable(this.name,this.scpe,false))
-            throw new Exception(text("(",this.line,"): Duplicate definition for variable ",this.name));
+        super(prefix,name,type,modifier,scpe);
     }
 }
 
 class LVarSymbol : VarSymbol
 {
-    this(string name, string type, Scope scpe, size_t line)
+    this(string name, string type, Scope scpe)
     {
-        super("L",name,type,PRIVATE_MODIFIER,scpe,line);
+        super("L",name,type,PRIVATE_MODIFIER,scpe);
     }
 
     override string toString()
@@ -264,9 +321,9 @@ class LVarSymbol : VarSymbol
 
 class ParamSymbol : VarSymbol
 {
-    this(string name, string type, Scope scpe, size_t line)
+    this(string name, string type, Scope scpe)
     {
-        super("P",name,type,PRIVATE_MODIFIER,scpe,line);
+        super("P",name,type,PRIVATE_MODIFIER,scpe);
     }
 
     override string toString()
@@ -279,24 +336,14 @@ class IVarSymbol : VarSymbol
 {
     size_t offset;
     
-    this(string name, string type, string modifier, Scope scpe, size_t line)
+    this(string name, string type, string modifier, Scope scpe)
     {
-        super("V",name,type,modifier,scpe,line);
+        super("V",name,type,modifier,scpe);
     }
 
     override void afterInsert()
     {
-        auto classSym = cast(ClassSymbol)SymbolTable.findClass(this.scpe.top());
-        if (!classSym)
-            throw new Exception("IVarSymbol.afterInsert: Failed to load class symbol");
 
-        this.offset = classSym.size;
-        if (this.type == "char")
-            classSym.size += char.sizeof;
-        else if (this.type == "bool")
-            classSym.size += bool.sizeof;
-        else
-            classSym.size += int.sizeof;
     }
 
     override string toString()
@@ -309,18 +356,12 @@ class GlobalSymbol : Symbol
 {
     this(string name, string type)
     {
-        super("G",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE),0);
+        super("G",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
     }
 
     override string toString()
     {
         return text(typeid(typeof(this)),Symbol.toString);
-    }
-
-    override void beforeInsert(out bool dontInsert)
-    {
-        if (SymbolTable.findGlobal(this.name,this.type))
-            dontInsert = true;
     }
 }
 
@@ -328,7 +369,7 @@ class TempSymbol : Symbol
 {
     this(string name, string type)
     {
-        super("T",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE),0);
+        super("T",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
     }
 
     override string toString()
@@ -341,7 +382,7 @@ class RefSymbol : Symbol
 {
     this(string name, string type)
     {
-        super("R",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE),0);
+        super("R",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
     }
 
     override string toString()
