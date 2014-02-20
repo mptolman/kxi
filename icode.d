@@ -7,7 +7,7 @@ import container, symbol;
 //----------------------------
 void callMain()
 {
-    auto main = SymbolTable.findMethod("main", Scope(GLOBAL_SCOPE), false);
+    auto main = SymbolTable.findMethod("main",Scope(GLOBAL_SCOPE),false);
     if (!main)
         throw new Exception("initMain: Failed to locate main in symbol table");
     funcCall(main.id,"this");

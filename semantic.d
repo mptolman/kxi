@@ -199,6 +199,25 @@ void eoe_sa()
     _sas.clear();
 }
 
+void funcBegin_sa()
+{
+    _funcHasReturnStatement = false;
+}
+
+void funcEnd_sa(string methodName, Scope methodScope, size_t line)
+{
+    debug writeln("funcEnd_sa");
+
+    auto symbol = SymbolTable.findMethod(methodName, methodScope, false);
+    if (!symbol)
+        throw new SemanticError(line,"funcEnd_sa: Could not load symbol for ",methodName);
+
+    if (!_funcHasReturnStatement && symbol.type != "void")
+        throw new SemanticError(line,"Method must return a value of type ",symbol.type);
+    else if (!_funcHasReturnStatement)
+        icode.funcReturn();
+}
+
 void func_sa()
 {
     debug writeln("func_sa");
@@ -212,13 +231,6 @@ void func_sa()
     auto func_sar = SAR(SARType.FUNC_SAR,id_sar.name,id_sar.scpe,id_sar.line);
     func_sar.params = al_sar.params;
     _sas.push(func_sar);
-}
-
-void funcEnd_sa()
-{
-    debug writeln("funcEnd_sa");
-
-    icode.funcReturn();
 }
 
 void iExist()
@@ -433,6 +445,8 @@ void return_sa(Scope scpe, size_t line)
 {
     debug writeln("return_sa");
 
+    _funcHasReturnStatement = true;
+
     while (!_os.empty())
         doStackOp();
 
@@ -593,6 +607,7 @@ private:
 Stack!SAR _sas;
 Stack!string _os;
 immutable size_t[string] _opWeights;
+bool _funcHasReturnStatement;
 
 void doStackOp()
 {

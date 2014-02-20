@@ -95,6 +95,7 @@ void compilation_unit()
     
     next();
     assertType(TType.MAIN);
+
     auto methodName = _ct.value;
     auto methodScope = _scope;
 
@@ -112,9 +113,9 @@ void compilation_unit()
     next();
 
     if (!_firstPass)
-        icode.funcBody(methodName,methodScope);        
+        icode.funcBody(methodName, methodScope);        
 
-    method_body();
+    method_body(methodName, methodScope);
 
     _scope.pop();
 }
@@ -215,7 +216,7 @@ void field_declaration(string modifier, string type, string identifier)
         if (!_firstPass)
             icode.funcBody(identifier, methodScope);
 
-        method_body();
+        method_body(identifier, methodScope);
         _scope.pop();
     }
     else {        
@@ -255,13 +256,14 @@ void constructor_declaration()
     //    class_name "(" [parameter_list] ")" method_body ;
 
     assertType(TType.IDENTIFIER);
+
     auto ctorName = _ct.value;
     auto ctorScope = _scope;
 
     MethodSymbol methodSymbol;
 
     if (_firstPass)
-        methodSymbol = new MethodSymbol(ctorName, "this", PUBLIC_MODIFIER, _scope, _ct.line);
+        methodSymbol = new MethodSymbol(ctorName, "void", PUBLIC_MODIFIER, _scope, _ct.line);
     else
         cd_sa(ctorName, _scope, _ct.line);
 
@@ -280,7 +282,7 @@ void constructor_declaration()
         icode.classInit(ctorName); // call the static initializer
     }
 
-    method_body();
+    method_body(ctorName, ctorScope);
     _scope.pop();
 
     if (methodSymbol !is null)
@@ -329,7 +331,7 @@ void parameter(MethodSymbol methodSymbol)
     }
 }
 
-void method_body()
+void method_body(string methodName, Scope methodScope)
 {
     // method_body::=
     //    "{" {variable_declaration} {statement} "}" ;
@@ -337,17 +339,19 @@ void method_body()
     assertType(TType.BLOCK_BEGIN);
     next();
 
+    if (!_firstPass)
+        funcBegin_sa();
+
     while (_ct.type == TType.TYPE || (_ct.type == TType.IDENTIFIER && peek().type == TType.IDENTIFIER))
         variable_declaration();
 
     while (_ct.type != TType.BLOCK_END)
         statement();
 
-    assertType(TType.BLOCK_END);
-
     if (!_firstPass)
-        funcEnd_sa();
+        funcEnd_sa(methodName, methodScope, _ct.line);
 
+    assertType(TType.BLOCK_END);
     next();
 }
 
