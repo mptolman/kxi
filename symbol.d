@@ -40,7 +40,7 @@ public:
         if (findClass(name))
             throw new SemanticError(line,"Duplicate declaration for class ",name);
 
-        auto symbol = new ClassSymbol(name, Scope(GLOBAL_SCOPE));
+        auto symbol = new ClassSymbol(name);
         insert(symbol);
         return symbol;
     }
@@ -279,9 +279,9 @@ class ClassSymbol : Symbol
 {
     size_t size;
 
-    this(string className, Scope scpe)
+    this(string className)
     {
-        super("C",className,className,PUBLIC_MODIFIER,scpe);
+        super("C",className,className,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
     }
 
     override string toString()
