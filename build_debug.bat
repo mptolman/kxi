@@ -1,1 +1,1 @@
-dmd -debug main.d compiler.d parser.d lexer.d semantic.d symbol.d icode.d tcode.d container.d
+dmd -debug main.d compiler.d parser.d lexer.d semantic.d symbol.d icode.d tcode.d container.d exception.d

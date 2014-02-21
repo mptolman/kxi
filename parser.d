@@ -1,6 +1,6 @@
 import std.conv;
 import std.stdio;
-import icode, lexer, semantic, symbol;
+import exception, icode, lexer, semantic, symbol;
 
 void parse(File src)
 {
@@ -13,14 +13,6 @@ void parse(File src)
 
     _firstPass = false;
     compilation_unit(); // second pass
-}
-
-class SyntaxError : Exception
-{
-    this(Args...)(size_t line, Args args)
-    {
-        super(text("(",line,"): ",args));
-    }
 }
 
 /****************************
@@ -133,9 +125,8 @@ void class_declaration()
     auto className = _ct.value;
 
     if (_firstPass) {
-        SymbolTable.addClass(className);
-        // static initializer:
-        SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, _scope, _ct.line);
+        SymbolTable.addClass(className, _ct.line);
+        SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, _scope, _ct.line); // static initializer
     }
     else {
         icode.classBegin(className);
@@ -147,7 +138,7 @@ void class_declaration()
     assertType(TType.BLOCK_BEGIN);     
     next();
     while (_ct.type != TType.BLOCK_END)
-        class_member_declaration(className);
+        class_member_declaration();
     assertType(TType.BLOCK_END);
     next();
 
@@ -157,7 +148,7 @@ void class_declaration()
     _scope.pop();
 }
 
-void class_member_declaration(string className)
+void class_member_declaration()
 {
     // class_member_declaration::=
     //      modifier type identifier field_declaration
@@ -172,7 +163,7 @@ void class_member_declaration(string className)
         auto type = _ct.value;
 
         if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-            tPush(type,_ct.line);
+            tPush(type, _ct.line);
             tExist();
         }
 
@@ -181,7 +172,7 @@ void class_member_declaration(string className)
         auto identifier = _ct.value;
 
         next();
-        field_declaration(modifier,type,identifier);
+        field_declaration(identifer, type, modifier);
     }
     else if (_ct.type == TType.IDENTIFIER) {
         constructor_declaration();
@@ -191,7 +182,7 @@ void class_member_declaration(string className)
     }
 }
 
-void field_declaration(string modifier, string type, string identifier)
+void field_declaration(string identifier, string type, string modifier)
 {
     // field_declaration::=
     //     ["[" "]"] ["=" assignment_expression ] ";"  
@@ -298,11 +289,11 @@ void parameter(MethodSymbol methodSymbol)
 {
     // parameter::= type identifier ["[" "]"] ;
 
-    assertType(TType.TYPE, TType.IDENTIFIER);
+    assertType(TType.TYPE,TType.IDENTIFIER);
     auto type = _ct.value;
 
     if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-        tPush(type,_ct.line);
+        tPush(type, _ct.line);
         tExist();
     }
 
@@ -386,7 +377,6 @@ void variable_declaration()
     assertType(TType.SEMICOLON);
     if (!_firstPass)
         eoe_sa();
-
     next();
 }
 
@@ -408,7 +398,7 @@ void assignment_expression()
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
         if (!_firstPass)
-            tPush(_ct.value,_ct.line);
+            tPush(_ct.value, _ct.line);
         next();
         new_declaration();
         break;
@@ -417,7 +407,7 @@ void assignment_expression()
         next();
         assertType(TType.PAREN_OPEN);
         if (!_firstPass)
-            oPush(_ct.value,_ct.line);
+            oPush(_ct.value, _ct.line);
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
@@ -447,7 +437,7 @@ void new_declaration()
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (!_firstPass) {
-            oPush(_ct.value,_ct.line);
+            oPush(_ct.value, _ct.line);
             bal_sa();
         }
 

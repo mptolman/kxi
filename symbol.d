@@ -2,6 +2,7 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.string;
+import exception;
 
 immutable PUBLIC_MODIFIER = "public";
 immutable PRIVATE_MODIFIER = "private";
@@ -34,10 +35,11 @@ public:
         return symbol;
     }
 
-    static auto addClass(string name)
+    static auto addClass(string name, size_t line)
     {
         if (findClass(name))
-            throw new Exception("duplicate class");
+            throw new SemanticError(line,"Duplicate declaration for class ",name);
+
         auto symbol = new ClassSymbol(name, Scope(GLOBAL_SCOPE));
         insert(symbol);
         return symbol;
@@ -46,7 +48,7 @@ public:
     static auto addMethod(string name, string returnType, string modifier, Scope scpe, size_t line)
     {
         if (findMethod(name, scpe, false))
-            throw new Exception("duplicate method definition");
+            throw new SemanticError(line,"Duplicate declaration for method ",name);
 
         auto symbol = new MethodSymbol(name, returnType, modifier, scpe);
         insert(symbol);
@@ -57,7 +59,7 @@ public:
         if (is(T:VarSymbol))
     {
         if (findVariable(name, scpe, false))
-            throw new Exception("duplicate var def");
+            throw new SemanticError(line,"Duplicate declaration for variable ",name);
 
         auto symbol = new T(name, type, scpe);
         insert(symbol);
@@ -67,7 +69,7 @@ public:
     static auto addIVar(string name, string type, string modifier, Scope scpe, size_t line)
     {
         if (findVariable(name, scpe, false))
-            throw new Exception("duplicate var definition");
+            throw new SemanticError(line,"Duplicate declaration for variable ",name);
       
         auto symbol = new IVarSymbol(name, type, modifier, scpe);
         

@@ -1,8 +1,8 @@
-import std.array; // split
+fimport std.array; // split
 import std.conv;
 import std.stdio;
 import std.string;
-import container, icode, symbol;
+import container, exception, icode, symbol;
 
 enum SARType : byte
 {
@@ -25,7 +25,7 @@ struct SAR
     string id;
     Scope scpe;
     size_t line;
-    string[] params;
+    string[] args;
 
     this(SARType sarType)
     {
@@ -86,7 +86,7 @@ void atoi_sa()
     if (!symbol)
         throw new SemanticError(sar.line,"atoi: Failed to load symbol");    
     if (symbol.type != "char")
-        throw new SemanticError(sar.line,"Invalid argument type for atoi. Expected char, not ",symbol.type);
+        throw new SemanticError(sar.line,"Invalid argument for atoi. Expected char, not ",symbol.type);
 
     auto temp = SymbolTable.addTemporary(sar.name, "int");
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
@@ -121,7 +121,7 @@ void cin_sa()
 {
     debug writeln("cin_sa");
 
-    while (!_os.empty())
+    while (!_os.empty)
         doStackOp();
 
     auto sar = _sas.top();
@@ -130,11 +130,10 @@ void cin_sa()
     auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
         throw new SemanticError(sar.line,"cin_sa: Failed to load symbol");
-
-    if (symbol.type == "int" || symbol.type == "char")
-        icode.read(symbol.id,symbol.type);
-    else
+    if (symbol.type != "int" && symbol.type != "char")
         throw new SemanticError(sar.line,"Invalid type for cin. Expected char or int, not ",symbol.type);
+
+    icode.read(symbol.id, symbol.type);
 }
 
 void comma_sa()
@@ -149,7 +148,7 @@ void cout_sa()
 {
     debug writeln("cout_sa");
 
-    while (!_os.empty())
+    while (!_os.empty)
         doStackOp();
 
     auto sar = _sas.top();
@@ -158,11 +157,10 @@ void cout_sa()
     auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
         throw new SemanticError(sar.line,"cout_sa: Failed to load symbol");
-
-    if (symbol.type == "int" || symbol.type == "char")
-        icode.write(symbol.id, symbol.type);
-    else
+    if (symbol.type != "int" && symbol.type != "char")
         throw new SemanticError(sar.line,"Invalid type for cout. Expected char or int, not ",symbol.type);
+
+    icode.write(symbol.id, symbol.type);
 }
 
 void cparen_sa(size_t line)
@@ -181,7 +179,7 @@ void eal_sa()
     auto al_sar = SAR(SARType.AL_SAR);
 
     while (_sas.top().sarType != SARType.BAL_SAR) {
-        al_sar.params ~= _sas.top().id;
+        al_sar.args ~= _sas.top().id;
         _sas.pop(); 
     }
 
@@ -200,6 +198,8 @@ void eoe_sa()
 
 void funcBegin_sa()
 {
+    debug writeln("funcBegin_sa");
+
     _funcHasReturnStatement = false;
 }
 
@@ -209,10 +209,10 @@ void funcEnd_sa(string methodName, Scope methodScope, size_t line)
 
     auto symbol = SymbolTable.findMethod(methodName, methodScope, false);
     if (!symbol)
-        throw new SemanticError(line,"funcEnd_sa: Could not load symbol for ",methodName);
+        throw new Exception("funcEnd_sa: Failed to load symbol for "~methodName);
 
     if (!_funcHasReturnStatement && symbol.type != "void")
-        throw new SemanticError(line,"Method must return a value of type ",symbol.type);
+        throw new SemanticError(line,"Method ",methodName," must return a value of type ",symbol.type);
     else if (!_funcHasReturnStatement)
         icode.funcReturn();
 }
@@ -228,7 +228,7 @@ void func_sa()
     _sas.pop();
 
     auto func_sar = SAR(SARType.FUNC_SAR,id_sar.name,id_sar.scpe,id_sar.line);
-    func_sar.params = al_sar.params;
+    func_sar.args = al_sar.args;
     _sas.push(func_sar);
 }
 
@@ -239,12 +239,12 @@ void iExist()
 
     debug writefln("iExist: %s",id_sar.name);
 
-    Symbol symbol;
+    Symbol tempSymbol;
 
     switch (id_sar.sarType) {
     case SARType.ID_SAR:
-        symbol = SymbolTable.findVariable(id_sar.name, id_sar.scpe);
-        if (!symbol)
+        tempSymbol = SymbolTable.findVariable(id_sar.name, id_sar.scpe);
+        if (!tempSymbol)
             throw new SemanticError(id_sar.line,"Variable '",id_sar.name,"' does not exist in this scope");
         break;
     case SARType.FUNC_SAR:
@@ -254,9 +254,9 @@ void iExist()
 
         checkFuncArgs(id_sar, methodSymbol);
 
-        symbol = SymbolTable.addTemporary(methodSymbol.name, methodSymbol.type);
+        tempSymbol = SymbolTable.addTemporary(methodSymbol.name, methodSymbol.type);
 
-        icode.funcCall(methodSymbol.id, "this", id_sar.params, symbol.id);
+        icode.funcCall(methodSymbol.id, "this", id_sar.args, tempSymbol.id);
         break;
     case SARType.ARR_SAR:
         auto varSymbol = SymbolTable.findVariable(id_sar.name, id_sar.scpe);
@@ -267,16 +267,16 @@ void iExist()
         if (splitType[0] != "@")
             throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array");
 
-        symbol = SymbolTable.addTemporary(varSymbol.name, splitType[1]);
+        tempSymbol = SymbolTable.addTemporary(varSymbol.name, splitType[1]);
 
-        icode.arrRef(varSymbol.id, id_sar.id, symbol.id);
+        icode.arrRef(varSymbol.id, id_sar.id, tempSymbol.id);
         break;
     default:
         throw new SemanticError(id_sar.line,"iExist: Invalid SARType ",id_sar.sarType);
         break;
     }
     
-    id_sar.id = symbol.id;
+    id_sar.id = tempSymbol.id;
     _sas.push(id_sar);
 }
 
@@ -285,7 +285,7 @@ void if_sa(size_t line)
     debug writeln("if_sa");
     
     if (_sas.empty())
-        throw new SemanticError(line,"Invalid boolean expression");
+        throw new SemanticError(line,"Expected boolean expression");
 
     auto sar = _sas.top();
     _sas.pop();
@@ -302,6 +302,7 @@ void if_sa(size_t line)
 void iPush(string name, Scope scpe, size_t line)
 {
     debug writefln("(%s) iPush: %s",line,name);
+
     _sas.push(SAR(SARType.ID_SAR,name,scpe,line));
 }
 
@@ -316,7 +317,7 @@ void itoa_sa()
     if (!symbol)
         throw new SemanticError(sar.line,"itoa: Failed to load symbol");
     if (symbol.type != "int")
-        throw new SemanticError(sar.line,"Invalid argument type for itoa. Expected int, not ",symbol.type);
+        throw new SemanticError(sar.line,"Invalid argument for itoa. Expected int, not ",symbol.type);
 
     auto temp = SymbolTable.addTemporary(sar.name, "char");
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
@@ -346,7 +347,7 @@ void newarr_sa()
 
     auto arrsz_symbol = SymbolTable.getById(size_sar.id);
     if (!arrsz_symbol)
-        throw new SemanticError(size_sar.line,"newarr_sa: Failed to load index symbol");
+        throw new SemanticError(size_sar.line,"newarr_sa: Failed to load symbol");
     if (arrsz_symbol.type != "int")
         throw new SemanticError(size_sar.line,"Invalid array size. Expected int, not ",arrsz_symbol.type);
 
@@ -366,9 +367,9 @@ void newarr_sa()
         break;
     }
 
-    auto elemsz_symbol = SymbolTable.addGlobal(to!string(elemsz), "int");
+    auto elemsz_symbol  = SymbolTable.addGlobal(to!string(elemsz), "int");
     auto totalsz_symbol = SymbolTable.addTemporary(null, "int");
-    auto arr_symbol = SymbolTable.addTemporary(null, "@:"~type_sar.name);
+    auto arr_symbol     = SymbolTable.addTemporary(null, "@:"~type_sar.name);
 
     icode.mathOp("*", elemsz_symbol.id, arrsz_symbol.id, totalsz_symbol.id);
     icode.malloc(totalsz_symbol.id, arr_symbol.id);
@@ -394,14 +395,14 @@ void newobj_sa()
     // Make sure ctor exists
     auto scpe = class_symbol.scpe;
     scpe.push(class_symbol.name);
-    auto ctor_symbol = cast(MethodSymbol)SymbolTable.findMethod(class_symbol.name,scpe,false);
+    auto ctor_symbol = cast(MethodSymbol)SymbolTable.findMethod(class_symbol.name, scpe, false);
     if (!ctor_symbol)
         throw new SemanticError(type_sar.line,"Type ",class_symbol.name," has no constructor");
 
     // Check arguments
-    al_sar.name = type_sar.name;
+    al_sar.name = type_sar.name; // For descriptive errors in checkFuncArgs
     al_sar.line = type_sar.line;
-    checkFuncArgs(al_sar,ctor_symbol);
+    checkFuncArgs(al_sar, ctor_symbol);
 
     // Allocate memory for object
     auto mem_symbol = SymbolTable.addTemporary(null, type_sar.name);
@@ -409,10 +410,10 @@ void newobj_sa()
 
     // Call constructor
     auto temp_symbol = SymbolTable.addTemporary(null, type_sar.name);
-    icode.funcCall(ctor_symbol.id, mem_symbol.id, al_sar.params, temp_symbol.id);
+    icode.funcCall(ctor_symbol.id, mem_symbol.id, al_sar.args, temp_symbol.id);
 
     auto new_sar = SAR(SARType.NEW_SAR, type_sar.name, type_sar.line, temp_symbol.id);
-    new_sar.params = al_sar.params;
+    new_sar.args = al_sar.args;
 
     _sas.push(new_sar);
 }
@@ -446,11 +447,11 @@ void return_sa(Scope scpe, size_t line)
     if (!methodSymbol)
         throw new SemanticError(line,"return_sa: Failed to load method symbol");
 
-    auto returnType = methodSymbol.type;
+    auto expectedRtnType = methodSymbol.type;
 
-    if (_sas.empty()) {
-        if (returnType != "void")
-            throw new SemanticError(line,"Method '",methodName,"' must return value of type ",returnType);
+    if (_sas.empty) {
+        if (expectedRtnType != "void")
+            throw new SemanticError(line,"Method ",methodName," must return value of type ",expectedRtnType);
 
         icode.funcReturn();
     }
@@ -460,9 +461,9 @@ void return_sa(Scope scpe, size_t line)
 
         auto ret_symbol = SymbolTable.getById(ret_sar.id);
         if (!ret_symbol)
-            throw new SemanticError(line,"return_sa: Failed to load return symbol ",ret_sar);
-        if (ret_symbol.type != returnType)
-            throw new SemanticError(line,"Return statement for method '",methodName,"' must be of type ",returnType,", not ",ret_symbol.type);
+            throw new SemanticError(line,"return_sa: Failed to load return symbol");
+        if (ret_symbol.type != expectedRtnType)
+            throw new SemanticError(line,"Return statement for method ",methodName," must be of type ",expectedRtnType,", not ",ret_symbol.type);
 
         icode.funcReturn(ret_symbol.id);        
     }
@@ -520,7 +521,7 @@ void rExist()
 
         ref_symbol = SymbolTable.addReference(null, methodSymbol.type);
 
-        icode.funcCall(methodSymbol.id, obj_symbol.id, member_sar.params, ref_symbol.id);
+        icode.funcCall(methodSymbol.id, obj_symbol.id, member_sar.args, ref_symbol.id);
         break;
 
     default:
@@ -555,9 +556,10 @@ void vPush(string name, Scope scpe, size_t line)
 
     auto symbol = SymbolTable.findVariable(name, scpe, false);
     if (!symbol)
-        throw new SemanticError(line,"vPush: Could not find variable declaration for ",name);
+        throw new Exception("vPush: Failed to load symbol for "~name);
 
     if (cast(IVarSymbol)symbol)
+        // for class static initializer
         _sas.push(SAR(SARType.SID_SAR,name,scpe,line,symbol.id));
     else
         _sas.push(SAR(SARType.ID_SAR,name,scpe,line,symbol.id));
@@ -577,17 +579,9 @@ void while_sa(size_t line)
     if (!symbol)
         throw new SemanticError(line,"while_sa: Failed to load symbol");
     if (symbol.type != "bool")
-        throw new SemanticError(line,"Expression must be of type bool, not ",symbol.type);
+        throw new SemanticError(line,"Expected boolean expression, not ",symbol.type);
 
     icode.whileCond(symbol.id);
-}
-
-class SemanticError : Exception
-{
-    this(Args...)(size_t line, Args args)
-    {
-        super(text("(",line,"): ",args));
-    }
 }
 
 private:    
@@ -683,14 +677,14 @@ void doStackOp()
 
 auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
 {
-    if (sar.params.length != methodSymbol.params.length)
+    if (sar.args.length != methodSymbol.args.length)
         throw new SemanticError(sar.line,"Wrong number of arguments for method ",sar.name);
 
-    foreach (i,argSymId; sar.params.dup.reverse) {
+    foreach (i,argSymId; sar.args.dup.reverse) {
         auto arg = SymbolTable.getById(argSymId);
-        auto param = SymbolTable.getById(methodSymbol.params[i]);
+        auto param = SymbolTable.getById(methodSymbol.args[i]);
         if (arg.type != param.type)
-            throw new SemanticError(sar.line,"Wrong parameter type. Found ",arg.type, "; expected ",param.type);        
+            throw new SemanticError(sar.line,"Wrong argument type. Found ",arg.type, "; expected ",param.type);        
     }
 }
 

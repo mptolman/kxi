@@ -7,7 +7,7 @@ import container, symbol;
 //----------------------------
 void callMain()
 {
-    auto main = SymbolTable.findMethod("main",Scope(GLOBAL_SCOPE),false);
+    auto main = SymbolTable.findMethod("main", Scope(GLOBAL_SCOPE), false);
     if (!main)
         throw new Exception("initMain: Failed to locate main in symbol table");
     funcCall(main.id,"this");
@@ -31,7 +31,7 @@ void funcCall(string methodId, string opd1, string[] args=null, string returnId=
 
 void funcBody(string methodName, Scope scpe)
 {
-    auto symbol = SymbolTable.findMethod(methodName,scpe,false);
+    auto symbol = SymbolTable.findMethod(methodName, scpe, false);
     if (!symbol)
         throw new Exception(text("funcBody: Failed to find method ",methodName," in symbol table"));
     setLabel(symbol.id, true);
@@ -42,7 +42,7 @@ void funcReturn(string r=null)
     if (!r)
         addQuad("RTN");
     else
-        addQuad("RETURN",r);
+        addQuad("RETURN", r);
 }
 
 //----------------------------
@@ -50,7 +50,7 @@ void funcReturn(string r=null)
 //----------------------------
 void classBegin(string className)
 {
-    auto symbol = SymbolTable.findMethod("__"~className,Scope(GLOBAL_SCOPE),false);
+    auto symbol = SymbolTable.findMethod("__"~className, Scope(GLOBAL_SCOPE), false);
     if (!symbol)
         throw new Exception("classBegin: Failed to load symbol for static initializer for class "~className);
     _classInitLabel = symbol.id;
@@ -58,7 +58,7 @@ void classBegin(string className)
 
 void classInit(string className)
 {
-    auto symbol = SymbolTable.findMethod("__"~className,Scope(GLOBAL_SCOPE),false);
+    auto symbol = SymbolTable.findMethod("__"~className, Scope(GLOBAL_SCOPE), false);
     if (!symbol)
         throw new Exception(text("classInit: Failed to load symbol for static initializer for class ",className));
     funcCall(symbol.id, "this");
@@ -77,14 +77,14 @@ void classEnd()
 void ifCond(string symbolId)
 {
     auto skipIf = makeLabel("SKIPIF");
-    addQuad("BF",symbolId,skipIf);
+    addQuad("BF", symbolId, skipIf);
     _labelStack.push(skipIf);
 }
 
 void elseCond()
 {
     auto skipElse = makeLabel("SKIPELSE");
-    addQuad("JMP",skipElse);
+    addQuad("JMP", skipElse);
 
     setLabel(_labelStack.top());
     _labelStack.pop();
@@ -110,7 +110,7 @@ void beginWhile()
 void whileCond(string symbolId)
 {
     auto endWhile = makeLabel("ENDWHILE");
-    addQuad("BF",symbolId,endWhile);
+    addQuad("BF", symbolId, endWhile);
     _labelStack.push(endWhile);
 }
 
@@ -122,7 +122,7 @@ void endWhile()
     auto begin = _labelStack.top();
     _labelStack.pop();
 
-    addQuad("JMP",begin);
+    addQuad("JMP", begin);
     setLabel(endWhile);
 }
 
@@ -131,12 +131,12 @@ void endWhile()
 //----------------------------
 void varRef(string opd1, string opd2, string opd3)
 {
-    addQuad("REF",opd1,opd2,opd3);
+    addQuad("REF", opd1, opd2, opd3);
 }
 
 void arrRef(string opd1, string opd2, string opd3)
 {
-    addQuad("AEF",opd1,opd2,opd3);
+    addQuad("AEF", opd1, opd2, opd3);
 }
 
 //----------------------------
@@ -145,21 +145,21 @@ void arrRef(string opd1, string opd2, string opd3)
 void read(string symId, string type)
 {
     if (type == "int")
-        addQuad("RDI",symId);
+        addQuad("RDI", symId);
     else if (type == "char")
-        addQuad("RDC",symId);
+        addQuad("RDC", symId);
     else
-        throw new Exception(text("read: Invalid type ",type));
+        throw new Exception(text("icode.read: Invalid type ",type));
 }
 
 void write(string symId, string type)
 {
     if (type == "int")
-        addQuad("WRTI",symId);
+        addQuad("WRTI", symId);
     else if (type == "char")
-        addQuad("WRTC",symId);
+        addQuad("WRTC", symId);
     else
-        throw new Exception(text("write: Invalid type ",type));
+        throw new Exception(text("icode.write: Invalid type ",type));
 }
 
 //----------------------------
