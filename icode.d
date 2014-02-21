@@ -233,24 +233,17 @@ void boolOp(string op, string opd1, string opd2, string opd3)
     }
 }
 
-void genericOp(string op, string opd1, string opd2, string opd3)
-{
-    if (op !in _opMap)
-        throw new Exception("genericOp: Invalid operator '"~op~"'");
-    addQuad(_opMap[op], opd1, opd2, opd3);
-}
-
 //----------------------------
 // Memory allocation
 //----------------------------
 void malloc(size_t size, string addrId)
 {
-    addQuad("NEWI",to!string(size),addrId);
+    addQuad("NEWI", to!string(size), addrId);
 }
 
 void malloc(string sizeId, string addrId)
 {
-    addQuad("NEW",sizeId,addrId);
+    addQuad("NEW", sizeId, addrId);
 }
 
 auto getQuads()
@@ -274,8 +267,6 @@ bool _currentLabelTakesPriority;
 
 Stack!string _labelStack;
 size_t[string] _labelCount;
-
-string[string] _opMap;
 
 struct Quad
 {
@@ -334,20 +325,4 @@ void backPatch(string oldLabel, string newLabel)
 static this()
 {
     _labelStack = new Stack!string;
-
-    _opMap = [
-        "+":    "ADD",
-        "-":    "SUB",
-        "/":    "DIV",
-        "*":    "MUL",
-        "<":    "LT",
-        ">":    "GT",
-        "<=":   "LE",
-        ">=":   "GE",
-        "==":   "EQ",
-        "!=":   "NE",
-        "&&":   "AND",
-        "||":   "OR",
-        "=":    "MOV"
-    ];
 }

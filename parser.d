@@ -716,7 +716,6 @@ void fn_arr_member()
             eal_sa();
             func_sa();
         }
-        
         next();
     }
     else {
@@ -759,6 +758,7 @@ void argument_list()
     // argument_list::= expression { "," expression } ;
 
     expression();
+
     while (_ct.type == TType.COMMA) {
         if (!_firstPass)
             comma_sa();
@@ -780,17 +780,18 @@ void character_literal()
     if (_ct.value == "\\") {
         next();
         assertType(TType.CHAR_LITERAL);
+        character ~= _ct.value;
+
         switch (_ct.value) {
         case "\\":
         case "n":
         case "t":
         case "'":
+            // allow
             break;
         default:        
-            throw new SyntaxError(_ct.line,"Invalid character escape sequence \'\\",_ct.value,"\'");
+            throw new SyntaxError(_ct.line,"Invalid character escape sequence '",character,"'");
         }
-
-        character ~= _ct.value;        
     }
 
     next();
@@ -809,7 +810,7 @@ void numeric_literal()
     // numeric_literal::= ["+" | "-"]number ;
 
     assertType(TType.INT_LITERAL);
-
+    
     auto value = to!string(to!int(_ct.value));
 
     if (_firstPass)

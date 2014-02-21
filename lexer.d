@@ -2,7 +2,7 @@ import std.ascii;
 import std.stdio;
 import container;
 
-enum TType : byte 
+enum TType : byte
 {
     // Keywords
     ATOI, CLASS, CIN, COUT, ELSE, FALSE,

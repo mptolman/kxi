@@ -1,4 +1,4 @@
-fimport std.array; // split
+import std.array; // split
 import std.conv;
 import std.stdio;
 import std.string;
@@ -497,9 +497,9 @@ void rExist()
     switch (member_sar.sarType) {
     case SARType.ID_SAR:
     case SARType.ARR_SAR:
-        auto varSymbol = SymbolTable.findVariable(member_sar.name,class_scope,false);
+        auto varSymbol = SymbolTable.findVariable(member_sar.name, class_scope, false);
         if (!varSymbol)
-            throw new SemanticError(member_sar.line,"Variable '",member_sar.name,"' does not exist in class ",class_symbol.name);
+            throw new SemanticError(member_sar.line,"Variable ",member_sar.name," does not exist in class ",class_symbol.name);
         if (varSymbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
             throw new SemanticError(member_sar.line,"Variable ",class_symbol.name,".",member_sar.name," is private");
 
@@ -511,9 +511,9 @@ void rExist()
             icode.varRef(obj_symbol.id, varSymbol.id, ref_symbol.id);
         break;
     case SARType.FUNC_SAR:
-        auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(member_sar.name,class_scope,false);
+        auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(member_sar.name, class_scope, false);
         if (!methodSymbol)
-            throw new SemanticError(member_sar.line,"Method '",member_sar.name,"' does not exist in class ",class_symbol.name);
+            throw new SemanticError(member_sar.line,"Method ",member_sar.name," does not exist in class ",class_symbol.name);
         if (methodSymbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
             throw new SemanticError(member_sar.line,"Method ",class_symbol.name,".",member_sar.name," is private");
 
