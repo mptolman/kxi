@@ -677,14 +677,14 @@ void doStackOp()
 
 auto checkFuncArgs(SAR sar, MethodSymbol methodSymbol)
 {
-    if (sar.args.length != methodSymbol.args.length)
+    if (sar.args.length != methodSymbol.params.length)
         throw new SemanticError(sar.line,"Wrong number of arguments for method ",sar.name);
 
     foreach (i,argSymId; sar.args.dup.reverse) {
         auto arg = SymbolTable.getById(argSymId);
-        auto param = SymbolTable.getById(methodSymbol.args[i]);
+        auto param = SymbolTable.getById(methodSymbol.params[i]);
         if (arg.type != param.type)
-            throw new SemanticError(sar.line,"Wrong argument type. Found ",arg.type, "; expected ",param.type);        
+            throw new SemanticError(sar.line,"Wrong argument type. Found ",arg.type,"; expected ",param.type);        
     }
 }
 

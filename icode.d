@@ -252,9 +252,10 @@ auto getQuads()
 }
 
 void printICode()
-{
-    foreach (q; _quads)
+{    
+    foreach (q; _quads) {
         writefln("%s\t%s %s %s %s",q.label,q.opcode,q.opd1,q.opd2,q.opd3);
+    }
 }
 
 private:
@@ -266,7 +267,6 @@ string _classInitLabel;
 bool _currentLabelTakesPriority;
 
 Stack!string _labelStack;
-size_t[string] _labelCount;
 
 struct Quad
 {
@@ -291,6 +291,8 @@ void addClassInitQuad(string opcode, string opd1=null, string opd2=null, string 
 
 auto makeLabel(string prefix=null)
 {
+    static size_t[string] _labelCount;
+    
     if (!prefix)
         prefix = "L";
     return text(prefix,++_labelCount[prefix]);

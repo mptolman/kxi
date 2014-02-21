@@ -172,7 +172,7 @@ void class_member_declaration()
         auto identifier = _ct.value;
 
         next();
-        field_declaration(identifer, type, modifier);
+        field_declaration(identifier, type, modifier);
     }
     else if (_ct.type == TType.IDENTIFIER) {
         constructor_declaration();
@@ -810,7 +810,7 @@ void numeric_literal()
     // numeric_literal::= ["+" | "-"]number ;
 
     assertType(TType.INT_LITERAL);
-    
+
     auto value = to!string(to!int(_ct.value));
 
     if (_firstPass)

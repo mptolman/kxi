@@ -28,10 +28,10 @@ public:
     static auto addGlobal(string value, string type)
     {
         auto symbol = findGlobal(value, type);
-        if (!symbol)
+        if (!symbol) {
             symbol = new GlobalSymbol(value, type);
-
-        insert(symbol);
+            insert(symbol);
+        }
         return symbol;
     }
 
@@ -111,6 +111,16 @@ public:
         return id in byId ? byId[id] : null;
     }
 
+    static auto getByScope(Scope scpe)
+    {
+        return byScope[scpe];
+    }
+
+    static auto getGlobals()
+    {
+        return byScope[Scope(GLOBAL_SCOPE)].filter!(a => cast(GlobalSymbol)a).array;
+    }
+
     static auto findVariable(string name, Scope scpe, bool recurse=true)
     {
         return findFirst!VarSymbol(name,scpe,recurse);
@@ -154,7 +164,7 @@ public:
             
             matches = byScope[scpe]
                         .filter!(a => a.name == name)
-                        .filter!(a => cast(T)a !is null)
+                        .filter!(a => cast(T)a)
                         .array;
 
             if (matches.length || !recurse)
