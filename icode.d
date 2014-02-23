@@ -2,6 +2,15 @@ import std.conv;
 import std.stdio;
 import container, symbol;
 
+struct Quad
+{
+    string opcode;
+    string opd1;
+    string opd2;
+    string opd3;
+    string label;
+}
+
 //----------------------------
 // Methods
 //----------------------------
@@ -34,7 +43,9 @@ void funcBody(string methodName, Scope scpe)
     auto symbol = SymbolTable.findMethod(methodName, scpe, false);
     if (!symbol)
         throw new Exception(text("funcBody: Failed to find method ",methodName," in symbol table"));
+
     setLabel(symbol.id, true);
+    addQuad("FUNC", symbol.id);
 }
 
 void funcReturn(string r=null)
@@ -248,7 +259,7 @@ void malloc(string sizeId, string addrId)
 
 auto getQuads()
 {
-    return _quads.idup;
+    return _quads;
 }
 
 void printICode()
@@ -267,15 +278,6 @@ string _classInitLabel;
 bool _currentLabelTakesPriority;
 
 Stack!string _labelStack;
-
-struct Quad
-{
-    string opcode;
-    string opd1;
-    string opd2;
-    string opd3;
-    string label;
-}
 
 void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
 {

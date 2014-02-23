@@ -2,9 +2,9 @@ import std.conv;
 import std.stdio;
 import exception, icode, lexer, semantic, symbol;
 
-void parse(File src)
+void parse(string srcFileName)
 {
-    _tokens = new Lexer(src);
+    _tokens = new Lexer(srcFileName);
 
     _firstPass = true;
     compilation_unit(); // first pass
@@ -770,7 +770,6 @@ void argument_list()
 void character_literal()
 {
     // character_literal::= "\’" character "\’" ;
-
     assertType(TType.CHAR_DELIM);
     next();
     assertType(TType.CHAR_LITERAL);

@@ -64,6 +64,11 @@ public:
         _tokens = new Queue!Token;
     }
 
+    this(string fileName)
+    {
+        this(File(fileName));
+    }
+
     Token peek()
     {
         if (!_tokens.empty())
