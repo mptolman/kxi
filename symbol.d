@@ -61,14 +61,14 @@ public:
         if (findVariable(name, scpe, false))
             throw new SemanticError(line,"Duplicate declaration for variable ",name);
 
-        auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(scpe.top(), scpe);
-        if (!methodSymbol)
-            throw new SemanticError(line,"addVar: Failed to load method symbol");
+        //auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(scpe.top(), scpe);
+        //if (!methodSymbol)
+        //    throw new SemanticError(line,"addVar: Failed to load method symbol");
 
         auto varSymbol   = new T(name, type, scpe);
-        varSymbol.offset = methodSymbol.stackOffset;
-        
-        methodSymbol.stackOffset -= int.sizeof;
+        //varSymbol.offset = methodSymbol.stackOffset;
+
+        //methodSymbol.stackOffset -= int.sizeof;
 
         insert(varSymbol);
         return varSymbol;
@@ -97,9 +97,9 @@ public:
         return symbol;
     }
 
-    static auto addTemporary(string name, string type)
+    static auto addTemporary(string type)
     {
-        auto symbol = new TempSymbol(name, type);
+        auto symbol = new TempSymbol(type);
         insert(symbol);
         return symbol;
     }
@@ -382,9 +382,9 @@ class GlobalSymbol : Symbol
 
 class TempSymbol : Symbol
 {
-    this(string name, string type)
+    this(string type)
     {
-        super("T",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
+        super("T",null,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
     }
 
     override string toString()
