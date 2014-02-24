@@ -317,7 +317,7 @@ private:
         }
 
         if (_file.eof)
-            _tokens.push(Token(TType.EOF));
+            _tokens.push(Token(TType.EOF,null,_lineNum));
     }
 }
 
