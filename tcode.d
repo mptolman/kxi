@@ -2,7 +2,7 @@
 import std.stream;
 import icode, symbol;
 
-immutable REG_COUNT = 10;
+immutable REG_COUNT = 9;
 
 void generateTCode(string destFileName)
 {

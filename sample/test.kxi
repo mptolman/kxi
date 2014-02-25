@@ -1,19 +1,18 @@
 class A
 {
-    private int x[];
+    private int x = 3;
+    private bool flag = false;
+    private A a = null;
 
-    public void f()
+    A()
     {
 
     }
 }
 
-class B
-{
-    B() {}
-}
-
 void main()
 {
-
+    int x = 3;
+    int y = x + 1;
+    int z = 1 + 1;
 }
