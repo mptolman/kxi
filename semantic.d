@@ -196,25 +196,27 @@ void eoe_sa()
     _sas.clear();
 }
 
-void funcBegin_sa()
+void funcBegin_sa(bool funcIsCtor)
 {
     debug writeln("funcBegin_sa");
 
-    _funcHasReturnStatement = false;
+    _funcHasReturnStatement = funcIsCtor;
 }
 
 void funcEnd_sa(string methodName, Scope methodScope, size_t line)
 {
     debug writeln("funcEnd_sa");
 
+    if (_funcHasReturnStatement)
+        return;
+
     auto symbol = SymbolTable.findMethod(methodName, methodScope, false);
     if (!symbol)
         throw new Exception("funcEnd_sa: Failed to load symbol for "~methodName);
-
-    if (!_funcHasReturnStatement && symbol.type != "void")
+    if (symbol.type != "void")
         throw new SemanticError(line,"Method ",methodName," must return a value of type ",symbol.type);
-    else if (!_funcHasReturnStatement)
-        icode.funcReturn();
+
+    icode.funcReturn();
 }
 
 void func_sa()

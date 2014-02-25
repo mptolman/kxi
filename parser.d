@@ -269,7 +269,11 @@ void constructor_declaration()
         icode.classInit(ctorName); // call the static initializer
     }
 
-    method_body(ctorName, ctorScope);
+    method_body(ctorName, ctorScope, true);
+
+    if (!_firstPass)
+        icode.funcReturn("this");
+    
     _scope.pop();
 }
 
@@ -313,7 +317,7 @@ void parameter(MethodSymbol methodSymbol)
         methodSymbol.addParam(SymbolTable.addVar!(ParamSymbol)(identifier, type, _scope, _ct.line));
 }
 
-void method_body(string methodName, Scope methodScope)
+void method_body(string methodName, Scope methodScope, bool methodIsCtor=false)
 {
     // method_body::=
     //    "{" {variable_declaration} {statement} "}" ;
@@ -322,7 +326,7 @@ void method_body(string methodName, Scope methodScope)
     next();
 
     if (!_firstPass)
-        funcBegin_sa();
+        funcBegin_sa(methodIsCtor);
 
     while (_ct.type == TType.TYPE || (_ct.type == TType.IDENTIFIER && peek().type == TType.IDENTIFIER))
         variable_declaration();

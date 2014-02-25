@@ -1,6 +1,4 @@
-import std.file;
-import std.stdio;
-import icode, parser, tcode;
+import icode, parser, symbol, tcode;
 
 void compile(string srcFileName, string destFileName)
 {    

@@ -1,13 +1,6 @@
 class A
 {
-    private int x = 1;
-    
-    A() {}
-
-    public int f(int x)
-    {
-        return x;
-    }
+    private int x[];
 }
 
 class B
@@ -17,10 +10,5 @@ class B
 
 void main()
 {
-    int x = 0;
-    bool flag = true;
-    if (x > 0)
-        x = x - 1;
-    else
-        x = x + 1;
+
 }

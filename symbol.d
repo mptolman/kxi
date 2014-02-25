@@ -79,22 +79,22 @@ public:
         if (findVariable(name, scpe, false))
             throw new SemanticError(line,"Duplicate declaration for variable ",name);
       
-        auto symbol = new IVarSymbol(name, type, modifier, scpe);
+        auto varSymbol = new IVarSymbol(name, type, modifier, scpe);
         
         auto classSymbol = cast(ClassSymbol)SymbolTable.findClass(scpe.top());
         if (!classSymbol)
             throw new Exception("addIVar: Failed to load class symbol");
 
-        symbol.offset = classSymbol.size;
-        if (symbol.type == "char")
+        varSymbol.offset = classSymbol.size;
+        if (varSymbol.type == "char")
             classSymbol.size += char.sizeof;
-        else if (symbol.type == "bool")
+        else if (varSymbol.type == "bool")
             classSymbol.size += bool.sizeof;
         else
             classSymbol.size += int.sizeof;
 
-        insert(symbol);
-        return symbol;
+        insert(varSymbol);
+        return varSymbol;
     }
 
     static auto addTemporary(string type)
@@ -292,7 +292,7 @@ class ClassSymbol : Symbol
 
     override string toString()
     {
-        return text(typeid(typeof(this)),Symbol.toString);
+        return text(typeid(typeof(this)),Symbol.toString(),"size: ",size,"\n");
     }
 }
 
@@ -314,7 +314,7 @@ class MethodSymbol : Symbol
 
     override string toString()
     {
-        return text(typeid(typeof(this)),Symbol.toString(),"\nparams: ",params,"\n");
+        return text(typeid(typeof(this)),Symbol.toString(),"params: ",params,"\n");
     }
 }
 
@@ -363,7 +363,7 @@ class IVarSymbol : VarSymbol
 
     override string toString()
     {
-        return text(typeid(typeof(this)),VarSymbol.toString);
+        return text(typeid(typeof(this)),VarSymbol.toString(),"offset: ",offset,"\n");
     }
 }
 
