@@ -1,6 +1,11 @@
 class A
 {
     private int x[];
+
+    public void f()
+    {
+
+    }
 }
 
 class B

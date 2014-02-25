@@ -250,7 +250,7 @@ void constructor_declaration()
     MethodSymbol methodSymbol;
 
     if (_firstPass)
-        methodSymbol = SymbolTable.addMethod(ctorName, "void", PUBLIC_MODIFIER, _scope, _ct.line);
+        methodSymbol = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, _scope, _ct.line);
     else
         cd_sa(ctorName, _scope, _ct.line);
 
@@ -273,7 +273,7 @@ void constructor_declaration()
 
     if (!_firstPass)
         icode.funcReturn("this");
-    
+
     _scope.pop();
 }
 

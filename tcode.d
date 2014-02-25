@@ -2,13 +2,15 @@
 import std.stream;
 import icode, symbol;
 
+immutable REG_COUNT = 10;
+
 void generateTCode(string destFileName)
 {
     _file = new BufferedFile(destFileName, FileMode.Out);
     scope (exit) _file.close();
 
-    // Global variables first
-    generateGlobals();
+    // Global data first
+    genGlobalData();
 
     // Process ICode
     processICode();
@@ -18,7 +20,7 @@ private:
 Stream _file;
 string[][size_t] _regs;
 
-void generateGlobals()
+void genGlobalData()
 {
     foreach(symbol; SymbolTable.getGlobals()) {
         switch (symbol.type) {
@@ -52,6 +54,11 @@ void processICode()
             break;
         }
     }
+}
+
+void genFuncCode(Quad quad)
+{
+
 }
 
 auto write(string label, string opcode, string opd1, string opd2=null, string comment=null)

@@ -453,7 +453,7 @@ void return_sa(Scope scpe, size_t line)
 
     if (_sas.empty) {
         if (expectedRtnType != "void")
-            throw new SemanticError(line,"Method ",methodName," must return value of type ",expectedRtnType);
+            throw new SemanticError(line,"Method ",methodName," must return ",expectedRtnType,", not void");
 
         icode.funcReturn();
     }
