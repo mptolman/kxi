@@ -185,15 +185,15 @@ void assignOp(string opd1, string opd2, bool memberInit=false)
         switch (rhs.type) {
         case "int":
             opcode = "MOVI";
-            opd1   = rhs.name;
+            opd1 = rhs.name;
             break;
         case "bool":
             opcode = "MOVI";
-            opd1   = opd1 == "true" ? "1" : "0";
+            opd1 = rhs.name == "true" ? "1" : "0";
             break;
         case "null":
             opcode = "MOVI";
-            opd1   = "0";
+            opd1 = "0";
             break;
         default:
             break;
