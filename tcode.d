@@ -1,8 +1,9 @@
 //import std.stdio;
+import std.conv;
 import std.stream;
-import icode, symbol;
+import container, icode, symbol;
 
-immutable REG_COUNT = 10;
+immutable REG_COUNT = 15;
 
 void generateTCode(string destFileName)
 {
@@ -19,6 +20,7 @@ void generateTCode(string destFileName)
 private:
 Stream _file;
 string[][size_t] _regs;
+Stack!string _regPool;
 
 void genGlobalData()
 {
@@ -75,5 +77,22 @@ auto write(string label, string opcode, string opd1, string opd2=null, string co
 
 auto getRegister()
 {
+    string reg;
 
+    if (_regPool.size) {
+        reg = _regPool.top;
+        _regPool.pop();
+    }    
+}
+
+void fillRegPool()
+{
+    _regPool.clear();
+    foreach (i; 1..REG_COUNT+1)
+        _regPool.push(text("R",i));
+}
+
+static this()
+{
+    _regPool = new Stack!string;
 }
