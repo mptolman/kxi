@@ -1,5 +1,6 @@
-//import std.stdio;
 import std.conv;
+import std.file;
+import std.stdio;
 import std.stream;
 import container, icode, symbol;
 
@@ -8,7 +9,11 @@ immutable REG_COUNT = 15;
 void generateTCode(string destFileName)
 {
     _file = new BufferedFile(destFileName, FileMode.Out);
-    scope (exit) _file.close();
+
+    scope (failure)
+        remove(destFileName);
+    scope (exit) 
+        _file.close();
 
     // Global data first
     genGlobalData();
@@ -19,12 +24,11 @@ void generateTCode(string destFileName)
 
 private:
 Stream _file;
-string[][size_t] _regs;
-Stack!string _regPool;
+string[][string] _regs;
 
 void genGlobalData()
 {
-    foreach(symbol; SymbolTable.getGlobals()) {
+    foreach (symbol; SymbolTable.getGlobals()) {
         switch (symbol.type) {
         case "int":
             write(symbol.id, ".INT", symbol.name);
@@ -51,6 +55,14 @@ void processICode()
         case "FRAME":
         case "CALL":
         case "FUNC":
+            genFuncCode(quad);
+            break;
+        case "ADD":
+        case "ADI":
+        case "SUB":
+        case "MUL":
+        case "DIV":
+            genMathCode(quad);
             break;
         default:
             break;
@@ -63,6 +75,11 @@ void genFuncCode(Quad quad)
 
 }
 
+void genMathCode(Quad quad)
+{
+
+}
+
 auto write(string label, string opcode, string opd1, string opd2=null, string comment=null)
 {
     static auto format = "%-10s %-5s %-5s %-5s %s";
@@ -70,7 +87,7 @@ auto write(string label, string opcode, string opd1, string opd2=null, string co
     label   = label ? label : "";
     opd1    = opd1 ? opd1 ~ (opd2 ? "," : null) : "";
     opd2    = opd2 ? opd2 : "";
-    comment = comment ? ";"~comment : "";
+    comment = comment ? ";" ~ comment : "";
 
     _file.writefln(format, label, opcode, opd1, opd2, comment);
 }
@@ -79,20 +96,15 @@ auto getRegister()
 {
     string reg;
 
-    if (_regPool.size) {
-        reg = _regPool.top;
-        _regPool.pop();
-    }    
-}
+    foreach (k,v; _regs)
+        if (v.length == 0)
+            return k;
 
-void fillRegPool()
-{
-    _regPool.clear();
-    foreach (i; 1..REG_COUNT+1)
-        _regPool.push(text("R",i));
+    return reg;
 }
 
 static this()
 {
-    _regPool = new Stack!string;
+    foreach (i; 1..REG_COUNT+1)
+        _regs[text("R",i)] = null;
 }
