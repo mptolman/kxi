@@ -178,17 +178,47 @@ void write(string symId, string type)
 //----------------------------
 void assignOp(string opd1, string opd2, bool memberInit=false)
 {
+    string opcode = "MOV";
+    auto rhs = SymbolTable.getById(opd1);
+
+    if (cast(GlobalSymbol)rhs) {
+        switch (rhs.type) {
+        case "int":
+            opcode = "MOVI";
+            opd1 = rhs.name;
+            break;
+        case "bool":
+            opcode = "MOVI";
+            opd1 = rhs.name == "true" ? "1" : "0";
+            break;
+        case "null":
+            opcode = "MOVI";
+            opd1 = "0";
+            break;
+        default:
+            break;
+        }
+    }
+
     if (memberInit)
-        addClassInitQuad("MOV",opd2,opd1);
+        addClassInitQuad(opcode,opd1,opd2);
     else
-        addQuad("MOV",opd1,opd2);
+        addQuad(opcode,opd1,opd2);
 }
 
 void mathOp(string op, string opd1, string opd2, string opd3)
 {
+    auto lhs = SymbolTable.getById(opd1);
+    auto rhs = SymbolTable.getById(opd2);
+
     switch (op) {
     case "+":
-        addQuad("ADD", opd1, opd2, opd3);
+        if (cast(GlobalSymbol)rhs && rhs.type == "int")            
+            addQuad("ADI", opd1, rhs.name, opd3);
+        else if (cast(GlobalSymbol)lhs && lhs.type == "int")
+            addQuad("ADI", opd1, lhs.name, opd3);
+        else
+            addQuad("ADD", opd1, opd2, opd3);
         break;
     case "-":
         addQuad("SUB", opd1, opd2, opd3);
