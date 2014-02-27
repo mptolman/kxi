@@ -38,14 +38,10 @@ void funcCall(string methodId, string opd1, string[] args=null, string returnId=
         addQuad("PEEK", returnId);
 }
 
-void funcBody(string methodName, Scope scpe)
+void funcBody(Symbol methodSymbol)
 {
-    auto symbol = SymbolTable.findMethod(methodName, scpe, false);
-    if (!symbol)
-        throw new Exception(text("funcBody: Failed to find method ",methodName," in symbol table"));
-
-    setLabel(symbol.id, true);
-    addQuad("FUNC", symbol.id);
+    setLabel(methodSymbol.id, true);
+    addQuad("FUNC", methodSymbol.id);
 }
 
 void funcReturn(string r=null)
@@ -59,12 +55,9 @@ void funcReturn(string r=null)
 //----------------------------
 // class member initialization
 //----------------------------
-void classBegin(string className)
+void classBegin(Symbol classSymbol)
 {
-    auto symbol = SymbolTable.findMethod("__"~className, Scope(GLOBAL_SCOPE), false);
-    if (!symbol)
-        throw new Exception("classBegin: Failed to load symbol for static initializer for class "~className);
-    _classInitLabel = symbol.id;
+    _classInitLabel = classSymbol.id;
 }
 
 void classInit(string className)

@@ -108,13 +108,13 @@ void cbracket_sa()
     _os.pop();
 }
 
-void cd_sa(string ctorName, Scope scpe, size_t line)
+void cd_sa(Symbol ctorSymbol, size_t line)
 {
     debug writeln("cd_sa");
 
-    auto className = scpe.top();
-    if (ctorName != className)
-        throw new SemanticError(line,"Constructor '",ctorName,"' does not match class name ",className);
+    auto className = ctorSymbol.scpe.top();
+    if (ctorSymbol.name != className)
+        throw new SemanticError(line,"Constructor '",ctorSymbol.name,"' does not match class name ",className);
 }
 
 void cin_sa()
@@ -325,16 +325,11 @@ void itoa_sa()
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
 }
 
-void lPush(string value, string type, size_t line)
+void lPush(Symbol symbol, size_t line)
 {
-    debug writefln("lPush: %s",value);
+    debug writefln("lPush: %s",symbol.name);
 
-    auto symbol = SymbolTable.findGlobal(value, type);
-    if (!symbol)
-        throw new SemanticError(line,"lPush: Failed to locate global symbol '",value,"'");
-
-    auto lit_sar = SAR(SARType.LIT_SAR,value,line,symbol.id);
-    _sas.push(lit_sar);
+    _sas.push(SAR(SARType.LIT_SAR,symbol.name,line,symbol.id));
 }
 
 void newarr_sa()

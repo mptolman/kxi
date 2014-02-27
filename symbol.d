@@ -331,6 +331,8 @@ class MethodSymbol : Symbol
         auto varSymbol = new ParamSymbol(name, type, this.scpe);
         SymbolTable.insert(varSymbol);
 
+        this.params ~= varSymbol.id;
+        
         return varSymbol;
     }
 
