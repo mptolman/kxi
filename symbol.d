@@ -55,47 +55,47 @@ public:
         return symbol;
     }
 
-    static auto addVar(T)(string name, string type, Scope scpe, size_t line)
-        if (is(T:VarSymbol))
-    {
-        if (findVariable(name, scpe, false))
-            throw new SemanticError(line,"Duplicate declaration for variable ",name);
+    //static auto addVar(T)(string name, string type, Scope scpe, size_t line)
+    //    if (is(T:VarSymbol))
+    //{
+    //    if (findVariable(name, scpe, false))
+    //        throw new SemanticError(line,"Duplicate declaration for variable ",name);
 
-        //auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(scpe.top(), scpe);
-        //if (!methodSymbol)
-        //    throw new SemanticError(line,"addVar: Failed to load method symbol");
+    //    //auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(scpe.top(), scpe);
+    //    //if (!methodSymbol)
+    //    //    throw new SemanticError(line,"addVar: Failed to load method symbol");
 
-        auto varSymbol   = new T(name, type, scpe);
-        //varSymbol.offset = methodSymbol.stackOffset;
+    //    auto varSymbol = new T(name, type, scpe);
+    //    //varSymbol.offset = methodSymbol.stackOffset;
 
-        //methodSymbol.stackOffset -= int.sizeof;
+    //    //methodSymbol.stackOffset -= int.sizeof;
 
-        insert(varSymbol);
-        return varSymbol;
-    }
+    //    insert(varSymbol);
+    //    return varSymbol;
+    //}
 
-    static auto addIVar(string name, string type, string modifier, Scope scpe, size_t line)
-    {
-        if (findVariable(name, scpe, false))
-            throw new SemanticError(line,"Duplicate declaration for variable ",name);
+    //static auto addIVar(string name, string type, string modifier, Scope scpe, size_t line)
+    //{
+    //    if (findVariable(name, scpe, false))
+    //        throw new SemanticError(line,"Duplicate declaration for variable ",name);
       
-        auto varSymbol = new IVarSymbol(name, type, modifier, scpe);
+    //    auto varSymbol = new IVarSymbol(name, type, modifier, scpe);
         
-        auto classSymbol = cast(ClassSymbol)SymbolTable.findClass(scpe.top());
-        if (!classSymbol)
-            throw new Exception("addIVar: Failed to load class symbol");
+    //    auto classSymbol = cast(ClassSymbol)SymbolTable.findClass(scpe.top());
+    //    if (!classSymbol)
+    //        throw new Exception("addIVar: Failed to load class symbol");
 
-        varSymbol.offset = classSymbol.size;
-        if (varSymbol.type == "char")
-            classSymbol.size += char.sizeof;
-        else if (varSymbol.type == "bool")
-            classSymbol.size += bool.sizeof;
-        else
-            classSymbol.size += int.sizeof;
+    //    varSymbol.offset = classSymbol.size;
+    //    if (varSymbol.type == "char")
+    //        classSymbol.size += char.sizeof;
+    //    else if (varSymbol.type == "bool")
+    //        classSymbol.size += bool.sizeof;
+    //    else
+    //        classSymbol.size += int.sizeof;
 
-        insert(varSymbol);
-        return varSymbol;
-    }
+    //    insert(varSymbol);
+    //    return varSymbol;
+    //}
 
     static auto addTemporary(string type)
     {
@@ -290,6 +290,20 @@ class ClassSymbol : Symbol
         super("C",className,className,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
     }
 
+    auto addInstanceVar(string name, string type, string modifier, size_t line)
+    {
+        auto classScope = this.scpe;
+        classScope.push(this.name);
+
+        if (SymbolTable.findVariable(name, classScope, false))
+            throw new SemanticError(line, "Duplicate declaration for variable ",name);
+
+        auto varSymbol = new IVarSymbol(name, type, modifier, classScope); 
+        SymbolTable.insert(varSymbol);
+
+        return varSymbol;
+    }
+
     override string toString()
     {
         return text(typeid(typeof(this)),Symbol.toString(),"size: ",size,"\n");
@@ -298,18 +312,40 @@ class ClassSymbol : Symbol
 
 class MethodSymbol : Symbol
 {
+    size_t size;
     string[] params;
-    int stackOffset;
 
     this(string methodName, string returnType, string modifier, Scope scpe)
     {
-        this.stackOffset = -8;
         super("M",methodName,returnType,modifier,scpe);
     }
 
-    void addParam(Symbol s)
+    auto addParam(string name, string type, size_t line)
     {
-        params ~= s.id;
+        auto methodScope = this.scpe;
+        methodScope.push(this.name);
+
+        if (SymbolTable.findVariable(name, methodScope, false))
+            throw new SemanticError(line, "Duplicate declaration for variable ",name);
+
+        auto varSymbol = new ParamSymbol(name, type, this.scpe);
+        SymbolTable.insert(varSymbol);
+
+        return varSymbol;
+    }
+
+    auto addLocal(string name, string type, size_t line)
+    {
+        auto methodScope = this.scpe;
+        methodScope.push(this.name);
+
+        if (SymbolTable.findVariable(name, methodScope, false))
+            throw new SemanticError(line, "Duplicate declaration for variable ",name);
+
+        auto varSymbol = new LVarSymbol(name, type, methodScope);
+        SymbolTable.insert(varSymbol);
+
+        return varSymbol;
     }
 
     override string toString()
@@ -320,7 +356,7 @@ class MethodSymbol : Symbol
 
 abstract class VarSymbol : Symbol
 {
-    int offset;
+    size_t offset;
 
     this(string prefix, string name, string type, string modifier, Scope scpe)
     {

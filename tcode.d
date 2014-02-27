@@ -24,7 +24,6 @@ void generateTCode(string destFileName)
 
 private:
 Stream _file;
-string[][string] _regs;
 
 void genGlobalData()
 {
@@ -72,7 +71,32 @@ void processICode()
 
 void genFuncCode(Quad quad)
 {
+    auto methodSymbol = cast(MethodSymbol)SymbolTable.getById(quad.opd1);
+    if (!methodSymbol)
+        throw new Exception("genFuncCode: Failed to load symbol for method " ~ quad.opd1);
 
+    switch (quad.opcode) {
+    case "FRAME":
+        write(quad.label, "MOV", "R1", "SP");
+        write(null, "ADI", "R1", "-8");
+        write(null, "CMP", "R1", "SL");
+        write(null, "BLT", "R1", "OVERFLOW");
+        write(null, "MOV", "FP", "SP");
+        write(null, "ADI", "SP", "-4");
+        write(null, "STR", "R1", "(SP)");
+        write(null, "ADI", "SP", "-4");
+        break;
+    case "CALL":
+        write(quad.label, "MOV", "R1", "PC");
+        write(null, "ADI", "R1", "36");
+        write(null, "STR", "R1", "(FP)");
+        write(null, "JMP", quad.opd1);
+        break;
+    case "FUNC":
+        break;
+    default:
+        break;
+    }
 }
 
 void genMathCode(Quad quad)
@@ -90,21 +114,4 @@ auto write(string label, string opcode, string opd1, string opd2=null, string co
     comment = comment ? ";" ~ comment : "";
 
     _file.writefln(format, label, opcode, opd1, opd2, comment);
-}
-
-auto getRegister()
-{
-    string reg;
-
-    foreach (k,v; _regs)
-        if (v.length == 0)
-            return k;
-
-    return reg;
-}
-
-static this()
-{
-    foreach (i; 1..REG_COUNT+1)
-        _regs[text("R",i)] = null;
 }

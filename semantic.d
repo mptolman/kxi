@@ -552,19 +552,18 @@ void tPush(string type, size_t line)
     _sas.push(SAR(SARType.TYPE_SAR,type,line));
 }
 
-void vPush(string name, Scope scpe, size_t line)
+void vPush(Symbol symbol, size_t line)
 {
-    debug writefln("(%s) vPush: %s",line,name);
+    debug writefln("(%s) vPush: %s",line,symbol.name);
 
-    auto symbol = SymbolTable.findVariable(name, scpe, false);
-    if (!symbol)
-        throw new Exception("vPush: Failed to load symbol for "~name);
-
+    //auto symbol = SymbolTable.findVariable(name, scpe, false);
+    //if (!symbol)
+    //    throw new Exception("vPush: Failed to load symbol for "~name);
     if (cast(IVarSymbol)symbol)
         // for class static initializer
-        _sas.push(SAR(SARType.SID_SAR,name,scpe,line,symbol.id));
+        _sas.push(SAR(SARType.SID_SAR,symbol.type,symbol.scpe,line,symbol.id));
     else
-        _sas.push(SAR(SARType.ID_SAR,name,scpe,line,symbol.id));
+        _sas.push(SAR(SARType.ID_SAR,symbol.type,symbol.scpe,line,symbol.id));
 }
 
 void while_sa(size_t line)

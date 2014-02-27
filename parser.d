@@ -1,6 +1,6 @@
 import std.conv;
 import std.stdio;
-import exception, icode, lexer, semantic, symbol;
+import container, exception, icode, lexer, semantic, symbol;
 
 void parse(string srcFileName)
 {
@@ -20,6 +20,7 @@ void parse(string srcFileName)
  ***************************/
 private:
 bool _firstPass;
+Queue!Symbol _activeSymbols;
 Lexer _tokens;
 Scope _scope;
 Token _ct;
@@ -88,11 +89,14 @@ void compilation_unit()
     next();
     assertType(TType.MAIN);
 
-    auto methodName = _ct.value;
+    auto methodName  = _ct.value;
     auto methodScope = _scope;
 
+    MethodSymbol methodSymbol;
+
     if (_firstPass) {
-        SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, methodScope, _ct.line);
+        methodSymbol = SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, methodScope, _ct.line);
+        _activeSymbols.push(methodSymbol);
         icode.callMain();
     }
 
@@ -104,10 +108,7 @@ void compilation_unit()
     assertType(TType.PAREN_CLOSE);     
     next();
 
-    if (!_firstPass)
-        icode.funcBody(methodName, methodScope);        
-
-    method_body(methodName, methodScope);
+    method_body(methodSymbol);
 
     _scope.pop();
 }
@@ -119,13 +120,15 @@ void class_declaration()
     //    {class_member_declaration} "}" 
     // ;
 
+    ClassSymbol classSymbol;
+
     assertType(TType.CLASS);    
     next();
     assertType(TType.IDENTIFIER);
     auto className = _ct.value;
 
     if (_firstPass) {
-        SymbolTable.addClass(className, _ct.line);
+        classSymbol = SymbolTable.addClass(className, _ct.line);
         SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, _scope, _ct.line); // static initializer
     }
     else {
@@ -138,7 +141,7 @@ void class_declaration()
     assertType(TType.BLOCK_BEGIN);     
     next();
     while (_ct.type != TType.BLOCK_END)
-        class_member_declaration();
+        class_member_declaration(classSymbol);
     assertType(TType.BLOCK_END);
     next();
 
@@ -148,7 +151,7 @@ void class_declaration()
     _scope.pop();
 }
 
-void class_member_declaration()
+void class_member_declaration(ClassSymbol classSymbol)
 {
     // class_member_declaration::=
     //      modifier type identifier field_declaration
@@ -172,7 +175,7 @@ void class_member_declaration()
         auto identifier = _ct.value;
 
         next();
-        field_declaration(identifier, type, modifier);
+        field_declaration(classSymbol, identifier, type, modifier);
     }
     else if (_ct.type == TType.IDENTIFIER) {
         constructor_declaration();
@@ -182,32 +185,29 @@ void class_member_declaration()
     }
 }
 
-void field_declaration(string identifier, string type, string modifier)
+void field_declaration(ClassSymbol classSymbol, string identifier, string type, string modifier)
 {
     // field_declaration::=
     //     ["[" "]"] ["=" assignment_expression ] ";"  
     //    | "(" [parameter_list] ")" method_body
     //    ;
 
-    Symbol s;
-
     if (_ct.type == TType.PAREN_OPEN) {
+        MethodSymbol methodSymbol;
+
         if (_firstPass)
-            s = SymbolTable.addMethod(identifier, type, modifier, _scope, _ct.line);
+            methodSymbol = SymbolTable.addMethod(identifier, type, modifier, _scope, _ct.line);
 
         auto methodScope = _scope;
         _scope.push(identifier);
 
         next();
         if (_ct.type != TType.PAREN_CLOSE)
-            parameter_list(cast(MethodSymbol)s);
+            parameter_list(methodSymbol);
         assertType(TType.PAREN_CLOSE);        
         next();
 
-        if (!_firstPass)
-            icode.funcBody(identifier, methodScope);
-
-        method_body(identifier, methodScope);
+        method_body(methodSymbol);
         _scope.pop();
     }
     else {
@@ -218,10 +218,12 @@ void field_declaration(string identifier, string type, string modifier)
             next();
         }
 
+        Symbol varSymbol;
+
         if (_firstPass)
-            s = SymbolTable.addIVar(identifier, type, modifier, _scope, _ct.line);
+            varSymbol = classSymbol.addInstanceVar(identifier, type, modifier, _ct.line);
         else
-            vPush(identifier, _scope, _ct.line);
+            vPush(varSymbol, _ct.line);
 
         if (_ct.type == TType.ASSIGN_OP) {
             if (!_firstPass)
@@ -244,10 +246,10 @@ void constructor_declaration()
 
     assertType(TType.IDENTIFIER);
 
-    auto ctorName = _ct.value;
+    auto ctorName  = _ct.value;
     auto ctorScope = _scope;
 
-    MethodSymbol methodSymbol;
+    static MethodSymbol methodSymbol;
 
     if (_firstPass)
         methodSymbol = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, _scope, _ct.line);
@@ -264,12 +266,10 @@ void constructor_declaration()
     assertType(TType.PAREN_CLOSE); 
     next();
 
-    if (!_firstPass) {
-        icode.funcBody(ctorName, ctorScope);
+    if (!_firstPass)
         icode.classInit(ctorName); // call the static initializer
-    }
 
-    method_body(ctorName, ctorScope, true);
+    method_body(methodSymbol);
 
     if (!_firstPass)
         icode.funcReturn("this");
@@ -313,11 +313,11 @@ void parameter(MethodSymbol methodSymbol)
         next();
     }
 
-    if (methodSymbol)
-        methodSymbol.addParam(SymbolTable.addVar!(ParamSymbol)(identifier, type, _scope, _ct.line));
+    if (_firstPass)
+        methodSymbol.addParam(identifier, type, _ct.line);
 }
 
-void method_body(string methodName, Scope methodScope, bool methodIsCtor=false)
+void method_body(MethodSymbol methodSymbol)
 {
     // method_body::=
     //    "{" {variable_declaration} {statement} "}" ;
@@ -326,22 +326,27 @@ void method_body(string methodName, Scope methodScope, bool methodIsCtor=false)
     next();
 
     if (!_firstPass)
-        funcBegin_sa(methodIsCtor);
+        icode.funcBody(methodSymbol.name, methodSymbol.scpe);
+
+    //if (!_firstPass)
+    //    funcBegin_sa(methodIsCtor);
 
     while (_ct.type == TType.TYPE || (_ct.type == TType.IDENTIFIER && peek().type == TType.IDENTIFIER))
-        variable_declaration();
+        variable_declaration(methodSymbol);
 
     while (_ct.type != TType.BLOCK_END)
         statement();
 
     if (!_firstPass)
-        funcEnd_sa(methodName, methodScope, _ct.line);
+        icode.funcReturn();
+    //if (!_firstPass)
+        //funcEnd_sa(methodName, methodScope, _ct.line);
 
     assertType(TType.BLOCK_END);
     next();
 }
 
-void variable_declaration()
+void variable_declaration(MethodSymbol methodSymbol)
 {
     // variable_declaration::= 
     //    type identifier ["[" "]"] ["=" assignment_expression ] ";" ;
@@ -350,7 +355,7 @@ void variable_declaration()
     auto type = _ct.value;
 
     if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-        tPush(type,_ct.line);
+        tPush(type, _ct.line);
         tExist();
     }
 
@@ -366,10 +371,12 @@ void variable_declaration()
         next();
     }
 
+    static Symbol varSymbol;
+
     if (_firstPass)
-        SymbolTable.addVar!(LVarSymbol)(identifier, type, _scope, _ct.line);
+        varSymbol = methodSymbol.addLocal(identifier, type, _ct.line);
     else
-        vPush(identifier, _scope, _ct.line);
+        vPush(varSymbol, _ct.line);
 
     if (_ct.type == TType.ASSIGN_OP) {
         if (!_firstPass)
@@ -822,4 +829,9 @@ void numeric_literal()
         lPush(value, "int", _ct.line);
 
     next();
+}
+
+static this()
+{
+    _activeSymbols = new Queue!Symbol;
 }
