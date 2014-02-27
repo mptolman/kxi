@@ -298,8 +298,20 @@ class ClassSymbol : Symbol
         if (SymbolTable.findVariable(name, classScope, false))
             throw new SemanticError(line, "Duplicate declaration for variable ",name);
 
-        auto varSymbol = new IVarSymbol(name, type, modifier, classScope); 
+        auto varSymbol = new IVarSymbol(name, type, modifier, classScope, this.size); 
         SymbolTable.insert(varSymbol);
+
+        switch (type) {
+        case "bool":
+            this.size += bool.sizeof;
+            break;
+        case "char":
+            this.size += char.sizeof;
+            break;
+        default:
+            this.size += int.sizeof;
+            break;
+        }
 
         return varSymbol;
     }
@@ -312,7 +324,7 @@ class ClassSymbol : Symbol
 
 class MethodSymbol : Symbol
 {
-    size_t size;
+    int offset = -8;
     string[] params;
 
     this(string methodName, string returnType, string modifier, Scope scpe)
@@ -328,9 +340,10 @@ class MethodSymbol : Symbol
         if (SymbolTable.findVariable(name, methodScope, false))
             throw new SemanticError(line, "Duplicate declaration for variable ",name);
 
-        auto varSymbol = new ParamSymbol(name, type, this.scpe);
+        auto varSymbol = new ParamSymbol(name, type, this.scpe, this.offset);
         SymbolTable.insert(varSymbol);
 
+        this.offset -= 4;
         this.params ~= varSymbol.id;
         
         return varSymbol;
@@ -344,8 +357,10 @@ class MethodSymbol : Symbol
         if (SymbolTable.findVariable(name, methodScope, false))
             throw new SemanticError(line, "Duplicate declaration for variable ",name);
 
-        auto varSymbol = new LVarSymbol(name, type, methodScope);
+        auto varSymbol = new LVarSymbol(name, type, methodScope, this.offset);
         SymbolTable.insert(varSymbol);
+
+        this.offset -= 4;
 
         return varSymbol;
     }
@@ -358,19 +373,20 @@ class MethodSymbol : Symbol
 
 abstract class VarSymbol : Symbol
 {
-    size_t offset;
+    int offset;
 
-    this(string prefix, string name, string type, string modifier, Scope scpe)
+    this(string prefix, string name, string type, string modifier, Scope scpe, int offset)
     {
         super(prefix,name,type,modifier,scpe);
+        this.offset = offset;
     }
 }
 
 class LVarSymbol : VarSymbol
 {
-    this(string name, string type, Scope scpe)
+    this(string name, string type, Scope scpe, int offset)
     {
-        super("L",name,type,PRIVATE_MODIFIER,scpe);
+        super("L",name,type,PRIVATE_MODIFIER,scpe,offset);
     }
 
     override string toString()
@@ -381,9 +397,9 @@ class LVarSymbol : VarSymbol
 
 class ParamSymbol : VarSymbol
 {
-    this(string name, string type, Scope scpe)
+    this(string name, string type, Scope scpe, int offset)
     {
-        super("P",name,type,PRIVATE_MODIFIER,scpe);
+        super("P",name,type,PRIVATE_MODIFIER,scpe,offset);
     }
 
     override string toString()
@@ -394,9 +410,9 @@ class ParamSymbol : VarSymbol
 
 class IVarSymbol : VarSymbol
 {
-    this(string name, string type, string modifier, Scope scpe)
+    this(string name, string type, string modifier, Scope scpe, int offset)
     {
-        super("V",name,type,modifier,scpe);
+        super("V",name,type,modifier,scpe,offset);
     }
 
     override string toString()

@@ -196,28 +196,28 @@ void eoe_sa()
     _sas.clear();
 }
 
-void funcBegin_sa(bool funcIsCtor)
-{
-    debug writeln("funcBegin_sa");
+//void funcBegin_sa(bool funcIsCtor)
+//{
+//    debug writeln("funcBegin_sa");
 
-    _funcHasReturnStatement = funcIsCtor;
-}
+//    _funcHasReturnStatement = funcIsCtor;
+//}
 
-void funcEnd_sa(string methodName, Scope methodScope, size_t line)
-{
-    debug writeln("funcEnd_sa");
+//void funcEnd_sa(string methodName, Scope methodScope, size_t line)
+//{
+//    debug writeln("funcEnd_sa");
 
-    if (_funcHasReturnStatement)
-        return;
+//    if (_funcHasReturnStatement)
+//        return;
 
-    auto symbol = SymbolTable.findMethod(methodName, methodScope, false);
-    if (!symbol)
-        throw new Exception("funcEnd_sa: Failed to load symbol for "~methodName);
-    if (symbol.type != "void")
-        throw new SemanticError(line,"Method ",methodName," must return a value of type ",symbol.type);
+//    auto symbol = SymbolTable.findMethod(methodName, methodScope, false);
+//    if (!symbol)
+//        throw new Exception("funcEnd_sa: Failed to load symbol for "~methodName);
+//    if (symbol.type != "void")
+//        throw new SemanticError(line,"Method ",methodName," must return a value of type ",symbol.type);
 
-    icode.funcReturn();
-}
+//    icode.funcReturn();
+//}
 
 void func_sa()
 {
@@ -432,8 +432,6 @@ void return_sa(Scope scpe, size_t line)
 {
     debug writeln("return_sa");
 
-    _funcHasReturnStatement = true;
-
     while (!_os.empty())
         doStackOp();
 
@@ -584,7 +582,6 @@ private:
 Stack!SAR _sas;
 Stack!string _os;
 immutable size_t[string] _opWeights;
-bool _funcHasReturnStatement;
 
 void doStackOp()
 {
