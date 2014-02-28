@@ -1,6 +1,8 @@
 import std.conv;
 import std.stdio;
-import container, symbol;
+import container, scpe, symbol;
+
+bool _insideClass;
 
 struct Quad
 {
@@ -23,25 +25,25 @@ void callMain()
     addQuad("QUIT");
 }
 
-void funcCall(string methodId, string opd1, string[] args=null, string returnId=null)
+void funcCall(string symId, string opd1, string[] args=null, string returnId=null)
 {
-    auto method = SymbolTable.getById(methodId);
+    auto method = SymbolTable.getById(symId);
     if (!method)
         throw new Exception("funcCall: Failed to load method symbol");
 
-    addQuad("FRAME", methodId, opd1);
+    addQuad("FRAME", symId, opd1);
     foreach (arg; args)
         addQuad("PUSH", arg);
-    addQuad("CALL", methodId);
+    addQuad("CALL", symId);
 
     if (returnId && method.type != "void")
         addQuad("PEEK", returnId);
 }
 
-void funcBody(Symbol methodSymbol)
+void funcBegin(string symId)
 {
-    setLabel(methodSymbol.id, true);
-    addQuad("FUNC", methodSymbol.id);
+    setLabel(symId, true);
+    addQuad("FUNC", symId);
 }
 
 void funcReturn(string r=null)
@@ -55,9 +57,14 @@ void funcReturn(string r=null)
 //----------------------------
 // class member initialization
 //----------------------------
-void classBegin(Symbol classSymbol)
+void classBegin(string className)
 {
-    _classInitLabel = classSymbol.id;
+    auto symbol = SymbolTable.findMethod("__"~className, Scope(GLOBAL_SCOPE), false);
+    if (!symbol)
+        throw new Exception(text("classBegin: Failed to load symbol for static initializer for class ",className));
+
+    _classInitLabel = symbol.id;
+    addStaticInitQuad("FUNC", symbol.id);
 }
 
 void classInit(string className)
@@ -65,12 +72,13 @@ void classInit(string className)
     auto symbol = SymbolTable.findMethod("__"~className, Scope(GLOBAL_SCOPE), false);
     if (!symbol)
         throw new Exception(text("classInit: Failed to load symbol for static initializer for class ",className));
+
     funcCall(symbol.id, "this");
 }
 
 void classEnd()
-{
-    addClassInitQuad("RTN");
+{    
+    addStaticInitQuad("RTN");
     _quads ~= _classInitQuads;
     _classInitQuads = null;
 }
@@ -78,10 +86,10 @@ void classEnd()
 //----------------------------
 // if statement
 //----------------------------
-void ifCond(string symbolId)
+void ifCond(string symId)
 {
     auto skipIf = makeLabel("SKIPIF");
-    addQuad("BF", symbolId, skipIf);
+    addQuad("BF", symId, skipIf);
     _labelStack.push(skipIf);
 }
 
@@ -111,10 +119,10 @@ void beginWhile()
     _labelStack.push(_currentLabel);
 }
 
-void whileCond(string symbolId)
+void whileCond(string symId)
 {
     auto endWhile = makeLabel("ENDWHILE");
-    addQuad("BF", symbolId, endWhile);
+    addQuad("BF", symId, endWhile);
     _labelStack.push(endWhile);
 }
 
@@ -146,32 +154,20 @@ void arrRef(string opd1, string opd2, string opd3)
 //----------------------------
 // I/O
 //----------------------------
-void read(string symId, string type)
+void read(string symId)
 {
     addQuad("READ", symId);
-    //if (type == "int")
-    //    addQuad("RDI", symId);
-    //else if (type == "char")
-    //    addQuad("RDC", symId);
-    //else
-    //    throw new Exception(text("icode.read: Invalid type ",type));
 }
 
-void write(string symId, string type)
+void write(string symId)
 {
     addQuad("WRITE", symId);
-    //if (type == "int")
-    //    addQuad("WRTI", symId);
-    //else if (type == "char")
-    //    addQuad("WRTC", symId);
-    //else
-    //    throw new Exception(text("icode.write: Invalid type ",type));
 }
 
 //----------------------------
 // Operators
 //----------------------------
-void assignOp(string opd1, string opd2, bool memberInit=false)
+void assignOp(string opd1, string opd2)
 {
     string opcode = "MOV";
     auto rhs = SymbolTable.getById(opd1);
@@ -180,25 +176,22 @@ void assignOp(string opd1, string opd2, bool memberInit=false)
         switch (rhs.type) {
         case "int":
             opcode = "MOVI";
-            opd1 = rhs.name;
+            opd1   = rhs.name;
             break;
         case "bool":
             opcode = "MOVI";
-            opd1 = rhs.name == "true" ? "1" : "0";
+            opd1   = rhs.name == "true" ? "1" : "0";
             break;
         case "null":
             opcode = "MOVI";
-            opd1 = "0";
+            opd1   = "0";
             break;
         default:
             break;
         }
     }
 
-    if (memberInit)
-        addClassInitQuad(opcode,opd1,opd2);
-    else
-        addQuad(opcode,opd1,opd2);
+    addQuad(opcode, opd1, opd2);
 }
 
 void mathOp(string op, string opd1, string opd2, string opd3)
@@ -315,11 +308,16 @@ Stack!string _labelStack;
 
 void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
 {
-    _quads ~= Quad(opcode,opd1,opd2,opd3,_currentLabel);
-    _currentLabel = null;
+    if (_insideClass) {
+        addStaticInitQuad(opcode,opd1,opd2,opd3);
+    }
+    else {
+        _quads ~= Quad(opcode,opd1,opd2,opd3,_currentLabel);
+        _currentLabel = null;
+    }
 }
 
-void addClassInitQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
+void addStaticInitQuad(string opcode, string opd1=null, string opd2=null, string opd3=null)
 {
     _classInitQuads ~= Quad(opcode,opd1,opd2,opd3,_classInitLabel);
     _classInitLabel = null;

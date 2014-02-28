@@ -1,12 +1,10 @@
 import std.algorithm;
 import std.array;
 import std.conv;
-import std.string;
-import exception;
+import exception, scpe;
 
 immutable PUBLIC_MODIFIER = "public";
 immutable PRIVATE_MODIFIER = "private";
-immutable GLOBAL_SCOPE = "g";
 
 struct SymbolTable
 {
@@ -97,16 +95,25 @@ public:
     //    return varSymbol;
     //}
 
-    static auto addTemporary(string type)
+    static auto addTemporary(string type, Scope scpe)
     {
-        auto symbol = new TempSymbol(type);
+        auto methodName = scpe.top;
+
+        auto searchScope = scpe;
+        searchScope.pop();
+
+        auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(methodName, searchScope, false);
+        if (!methodSymbol)
+            throw new Exception("addTemporary: Failed to load method symbol for " ~ methodName);        
+
+        auto symbol = new TempSymbol(type, scpe);
         insert(symbol);
         return symbol;
     }
 
-    static auto addReference(string name, string type)
+    static auto addReference(string type, Scope scpe)
     {
-        auto symbol = new RefSymbol(name, type);
+        auto symbol = new RefSymbol(type, scpe);
         insert(symbol);
         return symbol;
     }
@@ -191,68 +198,6 @@ public:
     }
 }
 
-struct Scope
-{
-private:
-    string scpe;
-
-public:    
-    void push(string s)
-    {
-        scpe ~= scpe.length ? '.' ~ s : s;
-    }
-
-    void pop()
-    {
-        auto pos = lastIndexOf(scpe,'.');
-        scpe = pos >= 0 ? scpe[0..pos] : null;
-    }
-
-    auto top()
-    {
-        auto pos = lastIndexOf(scpe,'.');
-        return pos >= 0 ? scpe[pos+1..$].idup : scpe.idup;
-    }
-
-    void reset()
-    {
-        scpe = null;
-    }
-
-    auto length()
-    {
-        return scpe.length;
-    }
-
-    auto toString()
-    {
-        return scpe;
-    }
-
-    auto contains(Scope s)
-    {
-        for (; s.length; s.pop())
-            if (s.scpe == this.scpe)
-                return true;
-        return false;
-    }
-
-    const hash_t toHash()
-    {
-        return typeid(scpe).getHash(&scpe);
-    }
-
-    const bool opEquals(ref const Scope s)
-    {
-        return cmp(this.scpe, s.scpe) == 0;
-    }
-
-    const int opCmp(ref const Scope s)
-    {
-        return cmp(this.scpe, s.scpe);
-    }
-}
-
 abstract class Symbol
 {
 private:
@@ -272,6 +217,7 @@ public:
     string name;
     string type;
     string modifier;
+    int offset;
     size_t line;
     Scope scpe;
 
@@ -324,7 +270,6 @@ class ClassSymbol : Symbol
 
 class MethodSymbol : Symbol
 {
-    int offset = -8;
     string[] params;
 
     this(string methodName, string returnType, string modifier, Scope scpe)
@@ -373,12 +318,9 @@ class MethodSymbol : Symbol
 
 abstract class VarSymbol : Symbol
 {
-    int offset;
-
     this(string prefix, string name, string type, string modifier, Scope scpe, int offset)
     {
-        super(prefix,name,type,modifier,scpe);
-        this.offset = offset;
+        super(prefix,name,type,modifier,scpe,offset);
     }
 }
 
@@ -436,9 +378,9 @@ class GlobalSymbol : Symbol
 
 class TempSymbol : Symbol
 {
-    this(string type)
+    this(string type, Scope scpe)
     {
-        super("T",null,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
+        super("T",null,type,PRIVATE_MODIFIER,scpe);
     }
 
     override string toString()
@@ -449,9 +391,9 @@ class TempSymbol : Symbol
 
 class RefSymbol : Symbol
 {
-    this(string name, string type)
+    this(string type, Scope scpe)
     {
-        super("R",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
+        super("R",name,type,PRIVATE_MODIFIER,scpe);
     }
 
     override string toString()

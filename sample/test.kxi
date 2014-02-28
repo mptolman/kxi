@@ -1,7 +1,13 @@
+class Foo
+{
+    public int x = 1 + 2;
+
+    Foo() {}
+
+    public int y;
+}
+
 void main()
 {
-    int x = 0;
-    int y = 1;
-    
-    x = y + 1;
+
 }

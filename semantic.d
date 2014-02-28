@@ -2,7 +2,7 @@ import std.array; // split
 import std.conv;
 import std.stdio;
 import std.string;
-import container, exception, icode, symbol;
+import container, exception, icode, scpe, symbol;
 
 enum SARType : byte
 {
@@ -88,7 +88,7 @@ void atoi_sa()
     if (symbol.type != "char")
         throw new SemanticError(sar.line,"Invalid argument for atoi. Expected char, not ",symbol.type);
 
-    auto temp = SymbolTable.addTemporary("int");
+    auto temp = SymbolTable.addTemporary("int", _currentScope);
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
 }
 
@@ -133,7 +133,7 @@ void cin_sa()
     if (symbol.type != "int" && symbol.type != "char")
         throw new SemanticError(sar.line,"Invalid type for cin. Expected char or int, not ",symbol.type);
 
-    icode.read(symbol.id, symbol.type);
+    icode.read(symbol.id);
 }
 
 void comma_sa()
@@ -160,7 +160,7 @@ void cout_sa()
     if (symbol.type != "int" && symbol.type != "char")
         throw new SemanticError(sar.line,"Invalid type for cout. Expected char or int, not ",symbol.type);
 
-    icode.write(symbol.id, symbol.type);
+    icode.write(symbol.id);
 }
 
 void cparen_sa(size_t line)
@@ -256,7 +256,7 @@ void iExist()
 
         checkFuncArgs(id_sar, methodSymbol);
 
-        tempSymbol = SymbolTable.addTemporary(methodSymbol.type);
+        tempSymbol = SymbolTable.addTemporary(methodSymbol.type, _currentScope);
 
         icode.funcCall(methodSymbol.id, "this", id_sar.args, tempSymbol.id);
         break;
@@ -269,7 +269,7 @@ void iExist()
         if (splitType[0] != "@")
             throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array");
 
-        tempSymbol = SymbolTable.addTemporary(splitType[1]);
+        tempSymbol = SymbolTable.addTemporary(splitType[1], _currentScope);
 
         icode.arrRef(varSymbol.id, id_sar.id, tempSymbol.id);
         break;
@@ -301,11 +301,11 @@ void if_sa(size_t line)
     icode.ifCond(symbol.id);
 }
 
-void iPush(string name, Scope scpe, size_t line)
+void iPush(string name, size_t line)
 {
     debug writefln("(%s) iPush: %s",line,name);
 
-    _sas.push(SAR(SARType.ID_SAR,name,scpe,line));
+    _sas.push(SAR(SARType.ID_SAR,name,_currentScope,line));
 }
 
 void itoa_sa()
@@ -321,7 +321,7 @@ void itoa_sa()
     if (symbol.type != "int")
         throw new SemanticError(sar.line,"Invalid argument for itoa. Expected int, not ",symbol.type);
 
-    auto temp = SymbolTable.addTemporary("char");
+    auto temp = SymbolTable.addTemporary("char", _currentScope);
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
 }
 
@@ -365,8 +365,8 @@ void newarr_sa()
     }
 
     auto elemsz_symbol  = SymbolTable.addGlobal(to!string(elemsz), "int");
-    auto totalsz_symbol = SymbolTable.addTemporary("int");
-    auto arr_symbol     = SymbolTable.addTemporary("@:"~type_sar.name);
+    auto totalsz_symbol = SymbolTable.addTemporary("int", _currentScope);
+    auto arr_symbol     = SymbolTable.addTemporary("@:"~type_sar.name, _currentScope);
 
     icode.mathOp("*", elemsz_symbol.id, arrsz_symbol.id, totalsz_symbol.id);
     icode.malloc(totalsz_symbol.id, arr_symbol.id);
@@ -402,11 +402,11 @@ void newobj_sa()
     checkFuncArgs(al_sar, ctor_symbol);
 
     // Allocate memory for object
-    auto mem_symbol = SymbolTable.addTemporary(type_sar.name);
+    auto mem_symbol = SymbolTable.addTemporary(type_sar.name, _currentScope);
     icode.malloc(class_symbol.size, mem_symbol.id);
 
     // Call constructor
-    auto temp_symbol = SymbolTable.addTemporary(type_sar.name);
+    auto temp_symbol = SymbolTable.addTemporary(type_sar.name, _currentScope);
     icode.funcCall(ctor_symbol.id, mem_symbol.id, al_sar.args, temp_symbol.id);
 
     auto new_sar = SAR(SARType.NEW_SAR, type_sar.name, type_sar.line, temp_symbol.id);
@@ -428,13 +428,14 @@ void oPush(string op, size_t line)
     _os.push(op);
 }
 
-void return_sa(Scope scpe, size_t line)
+void return_sa(size_t line)
 {
     debug writeln("return_sa");
 
     while (!_os.empty())
         doStackOp();
 
+    auto scpe = _currentScope;
     auto methodName = scpe.top();
     scpe.pop();
 
@@ -498,7 +499,7 @@ void rExist()
         if (varSymbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
             throw new SemanticError(member_sar.line,"Variable ",class_symbol.name,".",member_sar.name," is private");
 
-        ref_symbol = SymbolTable.addReference(null, varSymbol.type);
+        ref_symbol = SymbolTable.addReference(varSymbol.type, _currentScope);
 
         if (member_sar.sarType == SARType.ARR_SAR)
             icode.arrRef(varSymbol.id, member_sar.id, ref_symbol.id);
@@ -514,7 +515,7 @@ void rExist()
 
         checkFuncArgs(member_sar, methodSymbol);
 
-        ref_symbol = SymbolTable.addReference(null, methodSymbol.type);
+        ref_symbol = SymbolTable.addReference(methodSymbol.type, _currentScope);
 
         icode.funcCall(methodSymbol.id, obj_symbol.id, member_sar.args, ref_symbol.id);
         break;
@@ -549,14 +550,7 @@ void vPush(Symbol symbol, size_t line)
 {
     debug writefln("(%s) vPush: %s",line,symbol.name);
 
-    //auto symbol = SymbolTable.findVariable(name, scpe, false);
-    //if (!symbol)
-    //    throw new Exception("vPush: Failed to load symbol for "~name);
-    if (cast(IVarSymbol)symbol)
-        // for class static initializer
-        _sas.push(SAR(SARType.SID_SAR,symbol.type,symbol.scpe,line,symbol.id));
-    else
-        _sas.push(SAR(SARType.ID_SAR,symbol.type,symbol.scpe,line,symbol.id));
+    _sas.push(SAR(SARType.ID_SAR,symbol.type,symbol.scpe,line,symbol.id));
 }
 
 void while_sa(size_t line)
@@ -607,7 +601,6 @@ void doStackOp()
     case "=":
         switch (l_sar.sarType) {
         case SARType.ID_SAR:
-        case SARType.SID_SAR:
         case SARType.ARR_SAR:
             break; // allow
         default:            
@@ -621,7 +614,7 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot assign type ",r_symbol.type," to type ",l_symbol.type);
         }
 
-        icode.assignOp(r_symbol.id, l_symbol.id, l_sar.sarType == SARType.SID_SAR);
+        icode.assignOp(r_symbol.id, l_symbol.id);
         break;
     case "+":
     case "-":
@@ -630,7 +623,7 @@ void doStackOp()
         if (l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid operands for '",op,"' operator. Types do not match");
 
-        auto temp_symbol = SymbolTable.addTemporary(l_symbol.type);
+        auto temp_symbol = SymbolTable.addTemporary(l_symbol.type, _currentScope);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
         icode.mathOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
@@ -648,7 +641,7 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type," and ",r_symbol.type);
         }
 
-        auto temp_symbol = SymbolTable.addTemporary("bool");
+        auto temp_symbol = SymbolTable.addTemporary("bool", _currentScope);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
         icode.relOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
@@ -658,7 +651,7 @@ void doStackOp()
         if (l_symbol.type != "bool" || l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid boolean expression");
 
-        auto temp_symbol = SymbolTable.addTemporary("bool");
+        auto temp_symbol = SymbolTable.addTemporary("bool", _currentScope);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
         icode.boolOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
