@@ -23,22 +23,26 @@ void generateTCode(string destFileName)
 
 private:
 Stream _file;
+string _label;
+string _comment;
 
 void genGlobalData()
 {
     foreach (symbol; SymbolTable.getGlobals()) {
+        _label = symbol.id;
+
         switch (symbol.type) {
         case "int":
-            writeAsm(symbol.id, ".INT", symbol.name);
+            writeAsm(".INT", symbol.name);
             break;
         case "char":
-            writeAsm(symbol.id, ".BYT", "'"~symbol.name~"'");
+            writeAsm(".BYT", "'"~symbol.name~"'");
             break;
         case "bool":
-            writeAsm(symbol.id, ".INT", symbol.name == "true" ? "1" : "0");
+            writeAsm(".INT", symbol.name == "true" ? "1" : "0");
             break;
         case "null":
-            writeAsm(symbol.id, ".INT", "0");
+            writeAsm(".INT", "0");
             break;
         default:
             throw new Exception("generateGlobals: Invalid global variable type " ~ symbol.type);
@@ -46,15 +50,22 @@ void genGlobalData()
     }
 
     // Built-in globals
-    writeAsm("STROVERFLOW", ".BYT", "'Stack overflow has occurred! Terminating application.\\n'");
-    writeAsm("STROVERFLOW_SZ", ".INT", "54");
-    writeAsm("STRUNDERFLOW", ".BYT", "'Stack underflow has occurred! Terminating application.\\n'");
-    writeAsm("STRUNDERFLOW_SZ", ".INT", "55");
+    _label = "STROVERFLOW";
+    writeAsm(".BYT", "'Stack overflow has occurred! Terminating application.\\n'");
+    _label = "STROVERFLOW_SZ";
+    writeAsm(".INT", "54");
+    _label = "STRUNDERFLOW";
+    writeAsm(".BYT", "'Stack underflow has occurred! Terminating application.\\n'");
+    _label = "STRUNDERFLOW_SZ";
+    writeAsm(".INT", "55");
 }
 
-void processICode()
+auto processICode()
 {
     foreach (quad; icode.getQuads()) {
+        _label = quad.label;
+        _comment = text("[",quad.opcode,"] ",quad.opd1,' ',quad.opd2,' ',quad.opd3);
+
         switch (quad.opcode) {
         case "FRAME":
         case "CALL":
@@ -68,8 +79,35 @@ void processICode()
         case "DIV":
             genMathCode(quad);
             break;
+        case "EQ":
+        case "NE":
+        case "LT":
+        case "GT":
+        case "LE":
+        case "GE":
+            genBooleanCode(quad);
+            break;
+        case "BF":
+        case "BT":
+        case "JMP":
+            genControlFlowCode(quad);
+            break;
+        case "AND":
+        case "OR":
+            genLogicalCode(quad);
+            break;
+        case "MOV":
+        case "MOVI":
+            genMoveCode(quad);
+            break;
+        case "READ":
+            genReadCode(quad);
+            break;
+        case "WRITE":
+            genWriteCode(quad);
+            break;
         case "QUIT":
-            writeAsm(quad.label, "TRP", "0", null, "[QUIT]");
+            writeAsm("TRP", "0");
             break;
         default:
             break;
@@ -77,7 +115,7 @@ void processICode()
     }
 }
 
-void genFuncCode(Quad quad)
+auto genFuncCode(Quad quad)
 {
     auto methodSymbol = cast(MethodSymbol)SymbolTable.getById(quad.opd1);
     if (!methodSymbol)
@@ -85,75 +123,241 @@ void genFuncCode(Quad quad)
 
     switch (quad.opcode) {
     case "FRAME":
-        writeAsm(quad.label, "MOV", "R1", "SP", "[FRAME] "~quad.opd1);
-        writeAsm(null, "ADI", "R1", "-12");
-        writeAsm(null, "CMP", "R1", "SL");
-        writeAsm(null, "BLT", "R1", "OVERFLOW");
-        writeAsm(null, "MOV", "FP", "SP");
-        writeAsm(null, "ADI", "SP", "-4");
-        writeAsm(null, "STR", "R1", "(SP)");
-        writeAsm(null, "ADI", "SP", "-4");
+        writeAsm("MOV", "R1", "SP", "[FRAME] "~quad.opd1);
+        writeAsm("ADI", "R1", "-12");
+        writeAsm("CMP", "R1", "SL");
+        writeAsm("BLT", "R1", "OVERFLOW");
+        writeAsm("MOV", "FP", "SP");
+        writeAsm("ADI", "SP", "-4");
+        writeAsm("STR", "R1", "(SP)");
+        writeAsm("ADI", "SP", "-4");
         break;
     case "CALL":
-        writeAsm(quad.label, "MOV", "R1", "PC", "[CALL] "~quad.opd1);
-        writeAsm(null, "ADI", "R1", "36");
-        writeAsm(null, "STR", "R1", "(FP)");
-        writeAsm(null, "JMP", quad.opd1);
+        writeAsm("MOV", "R1", "PC", "[CALL] "~quad.opd1);
+        writeAsm("ADI", "R1", "36");
+        writeAsm("STR", "R1", "(FP)");
+        writeAsm("JMP", quad.opd1);
         break;
     case "FUNC":
-        writeAsm(quad.label, "FUNC", quad.opd1);
+        writeAsm("FUNC", quad.opd1);
         break;
     default:
         break;
     }
 }
 
-void genMathCode(Quad quad)
+auto genMathCode(Quad quad)
 {
     auto s1 = SymbolTable.getById(quad.opd1);
     auto s2 = SymbolTable.getById(quad.opd2);
     auto s3 = SymbolTable.getById(quad.opd3);
 
     switch (quad.opcode) {
-    case "ADD":        
+    case "ADD":
+    case "SUB":
+    case "MUL":
+    case "DIV":
+        loadRegister("R1", s1);
+        loadRegister("R2", s2);
+        writeAsm(quad.opcode, "R1", "R2");
+        storeRegister("R1", s3);
+        break;
+    case "ADI":
+        loadRegister("R1", s1);
+        writeAsm("ADI", "R1", quad.opd2);
+        storeRegister("R1", s3);
         break;
     default:
         break;
     }
 }
 
-auto getLocation(string symId)
+auto genBooleanCode(Quad quad)
 {
-    auto symbol = SymbolTable.getById(symId);
+    auto s1 = SymbolTable.getById(quad.opd1);
+    auto s2 = SymbolTable.getById(quad.opd2);
+    auto s3 = SymbolTable.getById(quad.opd3);
 
+    auto label1 = icode.makeLabel();
+    auto label2 = icode.makeLabel();
+
+    loadRegister("R1", s1);
+    loadRegister("R2", s2);
+    loadRegister("R3", s3);
+
+    writeAsm("MOV", "R3", "R1");
+    writeAsm("CMP", "R3", "R2");
+
+    switch (quad.opcode) {
+    case "EQ":
+        writeAsm("BRZ", "R3", label1);
+        break;
+    case "NE":
+        writeAsm("BNZ", "R3", label1);
+        break;        
+    case "LT":
+        writeAsm("BLT", "R3", label1);
+        break;
+    case "GT":
+        writeAsm("BGT", "R3", label1);
+        break;
+    case "LE":
+        writeAsm("BLT", "R3", label1);
+        writeAsm("BRZ", "R3", label1);
+        break;
+    case "GE":
+        writeAsm("BGT", "R3", label1);
+        writeAsm("BRZ", "R3", label1);
+        break;
+    default:
+        break;
+    }
+
+    // Set to FALSE
+    writeAsm("SUB", "R3", "R3");
+    writeAsm("JMP", label2);
+
+    // Set to TRUE
+    _label = label1;
+    writeAsm("ADI", "R3", "1");
+
+    _label = label2;
+    storeRegister("R3", s3);
+}
+
+auto genControlFlowCode(Quad quad)
+{
+    auto s1 = SymbolTable.getById(quad.opd1);
+
+    switch (quad.opcode) {
+    case "BF":
+        loadRegister("R1", s1);
+        writeAsm("BRZ", "R1", quad.opd2);
+        break;
+    case "BT":
+        loadRegister("R1", s1);
+        writeAsm("BNZ", "R1", quad.opd2);
+        break;
+    case "JMP":
+        writeAsm("JMP", quad.opd1);
+        break;
+    default:
+        throw new Exception("genControlFlowCode: Invalid opcode ",quad.opcode);
+    }
+}
+
+auto genLogicalCode(Quad quad)
+{
+    auto s1 = SymbolTable.getById(quad.opd1);
+    auto s2 = SymbolTable.getById(quad.opd2);
+    auto s3 = SymbolTable.getById(quad.opd3);
+
+    loadRegister("R1", s1);
+    loadRegister("R2", s2);
+
+    if (quad.opcode == "AND")
+        writeAsm("AND", "R1", "R2");
+    else if (quad.opcode == "OR")
+        writeAsm("OR", "R1", "R2");
+    else
+        throw new Exception("genLogicalCode: Invalid opcode " ~ quad.opcode);
+
+    storeRegister("R1", s3);
+}
+
+auto genMoveCode(Quad quad)
+{
+    auto s1 = SymbolTable.getById(quad.opd1);
+    auto s2 = SymbolTable.getById(quad.opd2);
+
+    switch (quad.opcode) {
+    case "MOV":
+        loadRegister("R1", s1);
+        storeRegister("R1", s2);        
+        break;
+    case "MOVI":
+        writeAsm("SUB", "R1", "R1");
+        writeAsm("ADI", "R1", quad.opd1);
+        storeRegister("R1", s2);
+        break;
+    default:
+        break;
+    }
+}
+
+auto genReadCode(Quad quad)
+{
+    auto s = SymbolTable.getById(quad.opd1);
+
+    writeAsm("TRP", s.type == "char" ? "4" : "2");
+    storeRegister("R0", s);
+}
+
+auto genWriteCode(Quad quad)
+{
+    auto s = SymbolTable.getById(quad.opd1);
+
+    loadRegister("R0", s);
+    writeAsm("TRP", s.type == "char" ? "3" : "1");
 }
 
 auto genBuiltIns()
 {
-    writeAsm("OVERFLOW", "LDA", "R1", "STROVERFLOW");
-    writeAsm(null, "LDR", "R2", "STROVERFLOW_SZ");
-    writeAsm("PRNTOVERFLOW", "LDB", "R0", "(R1)");
-    writeAsm(null, "TRP", "3");
-    writeAsm(null, "ADI", "R1", "1");
-    writeAsm(null, "ADI", "R2", "-1");
-    writeAsm(null, "BNZ", "R2", "PRNTOVERFLOW");
-    writeAsm(null, "TRP", "0");
+    //writeAsm("OVERFLOW", "LDA", "R1", "STROVERFLOW");
+    //writeAsm("LDR", "R2", "STROVERFLOW_SZ");
+    //writeAsm("PRNTOVERFLOW", "LDB", "R0", "(R1)");
+    //writeAsm("TRP", "3");
+    //writeAsm("ADI", "R1", "1");
+    //writeAsm("ADI", "R2", "-1");
+    //writeAsm("BNZ", "R2", "PRNTOVERFLOW");
+    //writeAsm("TRP", "0");
 
-    writeAsm("UNDERFLOW", "LDA", "R1", "STRUNDERFLOW");
-    writeAsm(null, "LDR", "R2", "STRUNDERFLOW_SZ");
-    writeAsm("PRNTUNDERFLOW", "LDB", "R0", "(R1)");
-    writeAsm(null, "TRP", "3");
-    writeAsm(null, "ADI", "R1", "1");
-    writeAsm(null, "ADI", "R2", "-1");
-    writeAsm(null, "BNZ", "R2", "PRNTUNDERFLOW");
-    writeAsm(null, "TRP", "0");
+    //writeAsm("UNDERFLOW", "LDA", "R1", "STRUNDERFLOW");
+    //writeAsm("LDR", "R2", "STRUNDERFLOW_SZ");
+    //writeAsm("PRNTUNDERFLOW", "LDB", "R0", "(R1)");
+    //writeAsm("TRP", "3");
+    //writeAsm("ADI", "R1", "1");
+    //writeAsm("ADI", "R2", "-1");
+    //writeAsm("BNZ", "R2", "PRNTUNDERFLOW");
+    //writeAsm("TRP", "0");
 }
 
-auto writeAsm(string label, string opcode, string opd1, string opd2=null, string comment=null)
+auto loadRegister(string reg, Symbol symbol)
+{
+    if (cast(GlobalSymbol)symbol) {
+        writeAsm(symbol.type == "char" ? "LDB" : "LDR", reg, symbol.id);
+    }
+    else if (cast(IVarSymbol)symbol) {
+        writeAsm("MOV", reg, "FP");
+        writeAsm("ADI", reg, "-8");
+        writeAsm("LDR", reg, "("~reg~")");
+        writeAsm("ADI", reg, to!string((cast(VarSymbol)symbol).offset));
+        writeAsm("LDR", reg, "("~reg~")");
+    }
+    else if (cast(VarSymbol)symbol) {
+        writeAsm("MOV", reg, "FP");
+        writeAsm("ADI", reg, to!string((cast(VarSymbol)symbol).offset));
+        writeAsm("LDR", reg, "("~reg~")");
+    }
+}
+
+auto storeRegister(string reg, Symbol symbol)
+{
+
+}
+
+//auto setLabel(string label)
+//{
+//    _label = label;
+//}
+
+auto writeAsm(string opcode, string opd1, string opd2=null, string comment=null)
 {
     static auto format = "%-15s %-4s %-3s %-15s %s";
 
-    comment = comment ? ";" ~ comment : comment;
+    comment = _comment ? ";" ~ _comment : _comment;
     
-    _file.writefln(format, label, opcode, opd1, opd2, comment);
+    _file.writefln(format, _label, opcode, opd1, opd2, comment);
+    _label = null;
+    _comment = null;
 }

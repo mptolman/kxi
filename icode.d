@@ -148,22 +148,24 @@ void arrRef(string opd1, string opd2, string opd3)
 //----------------------------
 void read(string symId, string type)
 {
-    if (type == "int")
-        addQuad("RDI", symId);
-    else if (type == "char")
-        addQuad("RDC", symId);
-    else
-        throw new Exception(text("icode.read: Invalid type ",type));
+    addQuad("READ", symId);
+    //if (type == "int")
+    //    addQuad("RDI", symId);
+    //else if (type == "char")
+    //    addQuad("RDC", symId);
+    //else
+    //    throw new Exception(text("icode.read: Invalid type ",type));
 }
 
 void write(string symId, string type)
 {
-    if (type == "int")
-        addQuad("WRTI", symId);
-    else if (type == "char")
-        addQuad("WRTC", symId);
-    else
-        throw new Exception(text("icode.write: Invalid type ",type));
+    addQuad("WRITE", symId);
+    //if (type == "int")
+    //    addQuad("WRTI", symId);
+    //else if (type == "char")
+    //    addQuad("WRTC", symId);
+    //else
+    //    throw new Exception(text("icode.write: Invalid type ",type));
 }
 
 //----------------------------
@@ -280,6 +282,15 @@ void malloc(string sizeId, string addrId)
     addQuad("NEW", sizeId, addrId);
 }
 
+auto makeLabel(string prefix=null)
+{
+    static size_t[string] _labelCount;
+    
+    if (!prefix)
+        prefix = "L";
+    return text(prefix,++_labelCount[prefix]);
+}
+
 auto getQuads()
 {
     return _quads;
@@ -312,15 +323,6 @@ void addClassInitQuad(string opcode, string opd1=null, string opd2=null, string 
 {
     _classInitQuads ~= Quad(opcode,opd1,opd2,opd3,_classInitLabel);
     _classInitLabel = null;
-}
-
-auto makeLabel(string prefix=null)
-{
-    static size_t[string] _labelCount;
-    
-    if (!prefix)
-        prefix = "L";
-    return text(prefix,++_labelCount[prefix]);
 }
 
 void setLabel(string label, bool priority=false)
