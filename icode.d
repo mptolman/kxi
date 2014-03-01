@@ -16,14 +16,14 @@ struct Quad
 //----------------------------
 // Methods
 //----------------------------
-void callMain()
-{
-    auto main = SymbolTable.findMethod("main", Scope(GLOBAL_SCOPE), false);
-    if (!main)
-        throw new Exception("initMain: Failed to locate main in symbol table");
-    funcCall(main.id,"this");
-    addQuad("QUIT");
-}
+//void callMain()
+//{
+//    auto main = SymbolTable.findMethod("main", Scope(GLOBAL_SCOPE), false);
+//    if (!main)
+//        throw new Exception("initMain: Failed to locate main in symbol table");
+//    funcCall(main.id,"this");
+//    addQuad("QUIT");
+//}
 
 void funcCall(string symId, string opd1, string[] args=null, string returnId=null)
 {
@@ -40,10 +40,10 @@ void funcCall(string symId, string opd1, string[] args=null, string returnId=nul
         addQuad("PEEK", returnId);
 }
 
-void funcBegin(string symId)
+void funcBegin()
 {
-    setLabel(symId, true);
-    addQuad("FUNC", symId);
+    setLabel(_currentMethod.id, true);
+    addQuad("FUNC", _currentMethod.id);
 }
 
 void funcReturn(string r=null)
@@ -54,26 +54,23 @@ void funcReturn(string r=null)
         addQuad("RETURN", r);
 }
 
+void terminate()
+{
+    addQuad("QUIT");
+}
+
 //----------------------------
 // class member initialization
 //----------------------------
-void classBegin(string className)
+void classBegin()
 {
-    auto symbol = SymbolTable.findMethod("__"~className, Scope(GLOBAL_SCOPE), false);
-    if (!symbol)
-        throw new Exception(text("classBegin: Failed to load symbol for static initializer for class ",className));
-
-    _classInitLabel = symbol.id;
-    addStaticInitQuad("FUNC", symbol.id);
+    _classInitLabel = _currentStaticInit.id;
+    addStaticInitQuad("FUNC", _currentStaticInit.id);
 }
 
-void classInit(string className)
+void classInit()
 {
-    auto symbol = SymbolTable.findMethod("__"~className, Scope(GLOBAL_SCOPE), false);
-    if (!symbol)
-        throw new Exception(text("classInit: Failed to load symbol for static initializer for class ",className));
-
-    funcCall(symbol.id, "this");
+    funcCall(_currentStaticInit.id, "this");
 }
 
 void classEnd()

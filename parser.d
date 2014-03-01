@@ -89,15 +89,15 @@ void compilation_unit()
     assertType(TType.MAIN);
     auto methodName  = _ct.value;
 
-    MethodSymbol methodSymbol;
-
     if (_firstPass) {
-        methodSymbol = SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, _currentScope, _ct.line);
-        _symbolQueue.push(methodSymbol);
-        icode.callMain();
+        _currentMethod = SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, _currentScope, _ct.line);
+        _symbolQueue.push(_currentMethod);
+
+        icode.funcCall(_currentMethod.id, "main");
+        icode.terminate();
     }
     else {
-        methodSymbol = cast(MethodSymbol)_symbolQueue.front;
+        _currentMethod = cast(MethodSymbol)_symbolQueue.front;
         _symbolQueue.pop();
     }
 
@@ -109,7 +109,7 @@ void compilation_unit()
     assertType(TType.PAREN_CLOSE);     
     next();
 
-    method_body(methodSymbol);
+    method_body();
 
     _currentScope.pop();
 }
@@ -121,22 +121,26 @@ void class_declaration()
     //    {class_member_declaration} "}" 
     // ;
 
-    ClassSymbol classSymbol;
-
     assertType(TType.CLASS);    
     next();
     assertType(TType.IDENTIFIER);
     auto className = _ct.value;
 
     if (_firstPass) {
-        classSymbol = SymbolTable.addClass(className, _ct.line);
-        _symbolQueue.push(classSymbol);        
-        SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, _currentScope, _ct.line); // static initializer
+        _currentClass = SymbolTable.addClass(className, _ct.line);
+        _symbolQueue.push(_currentClass);
+
+        _currentStaticInit = SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, _currentScope, _ct.line);
+        _symbolQueue.push(_currentStaticInit);
     }
     else {
-        classSymbol = cast(ClassSymbol)_symbolQueue.front;
+        _currentClass = cast(ClassSymbol)_symbolQueue.front;
         _symbolQueue.pop();
-        icode.classBegin(className);
+
+        _currentStaticInit = cast(MethodSymbol)_symbolQueue.front;
+        _symbolQueue.pop();
+
+        icode.classBegin();
     }
 
     _currentScope.push(className);
@@ -145,7 +149,7 @@ void class_declaration()
     assertType(TType.BLOCK_BEGIN);     
     next();
     while (_ct.type != TType.BLOCK_END)
-        class_member_declaration(classSymbol);
+        class_member_declaration();
     assertType(TType.BLOCK_END);
     next();
 
@@ -155,7 +159,7 @@ void class_declaration()
     _currentScope.pop();
 }
 
-void class_member_declaration(ClassSymbol classSymbol)
+void class_member_declaration()
 {
     // class_member_declaration::=
     //      modifier type identifier field_declaration
@@ -179,7 +183,7 @@ void class_member_declaration(ClassSymbol classSymbol)
         auto identifier = _ct.value;
 
         next();
-        field_declaration(classSymbol, identifier, type, modifier);
+        field_declaration(identifier, type, modifier);
     }
     else if (_ct.type == TType.IDENTIFIER) {
         constructor_declaration();
@@ -189,7 +193,7 @@ void class_member_declaration(ClassSymbol classSymbol)
     }
 }
 
-void field_declaration(ClassSymbol classSymbol, string identifier, string type, string modifier)
+void field_declaration(string identifier, string type, string modifier)
 {
     // field_declaration::=
     //     ["[" "]"] ["=" assignment_expression ] ";"  
@@ -197,14 +201,12 @@ void field_declaration(ClassSymbol classSymbol, string identifier, string type, 
     //    ;
 
     if (_ct.type == TType.PAREN_OPEN) {
-        MethodSymbol methodSymbol;
-
         if (_firstPass) {
-            methodSymbol = SymbolTable.addMethod(identifier, type, modifier, _currentScope, _ct.line);
-            _symbolQueue.push(methodSymbol);
+            _currentMethod = SymbolTable.addMethod(identifier, type, modifier, _currentScope, _ct.line);
+            _symbolQueue.push(_currentMethod);
         }
         else {
-            methodSymbol = cast(MethodSymbol)_symbolQueue.front;
+            _currentMethod = cast(MethodSymbol)_symbolQueue.front;
             _symbolQueue.pop();
         }
 
@@ -212,11 +214,11 @@ void field_declaration(ClassSymbol classSymbol, string identifier, string type, 
 
         next();
         if (_ct.type != TType.PAREN_CLOSE)
-            parameter_list(methodSymbol);
+            parameter_list();
         assertType(TType.PAREN_CLOSE);        
         next();
 
-        method_body(methodSymbol);
+        method_body();
 
         _currentScope.pop();
     }
@@ -229,11 +231,12 @@ void field_declaration(ClassSymbol classSymbol, string identifier, string type, 
         }
 
         if (_firstPass) {
-            _symbolQueue.push(classSymbol.addInstanceVar(identifier, type, modifier, _ct.line));
+            _symbolQueue.push(_currentClass.addInstanceVar(identifier, type, modifier, _ct.line));
         }
         else {
             vPush(_symbolQueue.front, _ct.line);
             _symbolQueue.pop();
+
             icode._insideClass = true;
         }
 
@@ -260,20 +263,16 @@ void constructor_declaration()
     //    class_name "(" [parameter_list] ")" method_body ;
 
     assertType(TType.IDENTIFIER);
-
     auto ctorName  = _ct.value;
-    auto ctorScope = _currentScope;
-
-    MethodSymbol methodSymbol;
 
     if (_firstPass) {
-        methodSymbol = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, _currentScope, _ct.line);
-        _symbolQueue.push(methodSymbol);
+        _currentMethod = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, _currentScope, _ct.line);
+        _symbolQueue.push(_currentMethod);
     }
     else {
-        methodSymbol = cast(MethodSymbol)_symbolQueue.front;
+        _currentMethod = cast(MethodSymbol)_symbolQueue.front;
         _symbolQueue.pop();
-        cd_sa(methodSymbol, _ct.line);
+        cd_sa(_ct.line);
     }
 
     _currentScope.push(ctorName);
@@ -282,28 +281,28 @@ void constructor_declaration()
     assertType(TType.PAREN_OPEN);
     next();
     if (_ct.type != TType.PAREN_CLOSE)
-        parameter_list(methodSymbol);
+        parameter_list();
     assertType(TType.PAREN_CLOSE); 
     next();
 
-    method_body(methodSymbol);
+    method_body(true);
 
     _currentScope.pop();
 }
 
-void parameter_list(MethodSymbol methodSymbol)
+void parameter_list()
 {
     // parameter_list::= parameter { "," parameter } ;
 
-    parameter(methodSymbol);
+    parameter();
 
     while (_ct.type == TType.COMMA) {
         next();
-        parameter(methodSymbol);
+        parameter();
     }
 }
 
-void parameter(MethodSymbol methodSymbol)
+void parameter()
 {
     // parameter::= type identifier ["[" "]"] ;
 
@@ -328,10 +327,10 @@ void parameter(MethodSymbol methodSymbol)
     }
 
     if (_firstPass)
-        methodSymbol.addParam(identifier, type, _ct.line);
+        _currentMethod.addParam(identifier, type, _ct.line);
 }
 
-void method_body(MethodSymbol methodSymbol)
+void method_body(bool isCtor=false)
 {
     // method_body::=
     //    "{" {variable_declaration} {statement} "}" ;
@@ -339,28 +338,28 @@ void method_body(MethodSymbol methodSymbol)
     assertType(TType.BLOCK_BEGIN);
     next();
 
-    auto isCtor = methodSymbol.type == "this";
-
     if (!_firstPass) {
-        icode.funcBegin(methodSymbol.id);
+        icode.funcBegin();
         if (isCtor)
-            icode.classInit(methodSymbol.name); // call static initializer at beginning of ctor
+            icode.funcCall(_currentStaticInit.id, "this");
     }
 
     while (_ct.type == TType.TYPE || (_ct.type == TType.IDENTIFIER && peek().type == TType.IDENTIFIER))
-        variable_declaration(methodSymbol);
+        variable_declaration();
 
     while (_ct.type != TType.BLOCK_END)
         statement();
 
-    if (!_firstPass)
-        icode.funcReturn(isCtor ? "this" : null);
+    if (!_firstPass && isCtor)
+        icode.funcReturn("this");
+    else if (!_firstPass)
+        icode.funcReturn();
 
     assertType(TType.BLOCK_END);
     next();
 }
 
-void variable_declaration(MethodSymbol methodSymbol)
+void variable_declaration()
 {
     // variable_declaration::= 
     //    type identifier ["[" "]"] ["=" assignment_expression ] ";" ;
@@ -386,7 +385,7 @@ void variable_declaration(MethodSymbol methodSymbol)
     }
 
     if (_firstPass) {
-        _symbolQueue.push(methodSymbol.addLocal(identifier, type, _ct.line));
+        _symbolQueue.push(_currentMethod.addLocal(identifier, type, _ct.line));
     }
     else {
         vPush(_symbolQueue.front, _ct.line);
@@ -481,7 +480,7 @@ void new_declaration()
     }
     else if (_ct.type == TType.ARRAY_BEGIN) {
         if (!_firstPass)
-            oPush(_ct.value,_ct.line);
+            oPush(_ct.value, _ct.line);
         next();
         expression();
         assertType(TType.ARRAY_END);
@@ -515,12 +514,13 @@ void statement()
         break;
     case TType.IF:
         next();
-        assertType(TType.PAREN_OPEN);
+        assertType(TType.PAREN_OPEN);        
         if (!_firstPass)
             oPush(_ct.value, _ct.line);
 
         next();
         expression();
+
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
             cparen_sa(_ct.line);
@@ -550,6 +550,7 @@ void statement()
 
         next();
         expression();
+
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
             cparen_sa(_ct.line);
@@ -619,6 +620,7 @@ void expression()
 
         next();
         expression();
+        
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass)
             cparen_sa(_ct.line);
@@ -804,8 +806,8 @@ void character_literal()
     // character_literal::= "\’" character "\’" ;
     assertType(TType.CHAR_DELIM);
     next();
-    assertType(TType.CHAR_LITERAL);
 
+    assertType(TType.CHAR_LITERAL);
     auto character = _ct.value;
 
     if (_ct.value == "\\") {
@@ -818,7 +820,6 @@ void character_literal()
         case "n":
         case "t":
         case "'":
-            // allow
             break;
         default:        
             throw new SyntaxError(_ct.line,"Invalid character escape sequence '",character,"'");
@@ -844,7 +845,6 @@ void numeric_literal()
     // numeric_literal::= ["+" | "-"]number ;
 
     assertType(TType.INT_LITERAL);
-
     auto value = to!string(to!int(_ct.value));
 
     if (_firstPass) {

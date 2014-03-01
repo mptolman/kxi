@@ -108,13 +108,12 @@ void cbracket_sa()
     _os.pop();
 }
 
-void cd_sa(Symbol ctorSymbol, size_t line)
+void cd_sa(size_t line)
 {
     debug writeln("cd_sa");
 
-    auto className = ctorSymbol.scpe.top();
-    if (ctorSymbol.name != className)
-        throw new SemanticError(line,"Constructor '",ctorSymbol.name,"' does not match class name ",className);
+    if (_currentMethod.name != _currentClass.name)
+        throw new SemanticError(line,"Constructor '",_currentMethod.name,"' does not match class name ",_currentClass.name);
 }
 
 void cin_sa()

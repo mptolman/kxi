@@ -97,14 +97,14 @@ public:
 
     static auto addTemporary(string type, Scope scpe)
     {
-        auto methodName = scpe.top;
+        //auto methodName = scpe.top;
 
-        auto searchScope = scpe;
-        searchScope.pop();
+        //auto searchScope = scpe;
+        //searchScope.pop();
 
-        auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(methodName, searchScope, false);
-        if (!methodSymbol)
-            throw new Exception("addTemporary: Failed to load method symbol for " ~ methodName);        
+        //auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(methodName, searchScope, false);
+        //if (!methodSymbol)
+        //    throw new Exception("addTemporary: Failed to load method symbol for " ~ methodName);        
 
         auto symbol = new TempSymbol(type, scpe);
         insert(symbol);
@@ -203,13 +203,14 @@ abstract class Symbol
 private:
     static size_t[string] counter;
 
-    this(string prefix, string name, string type, string modifier, Scope scpe)
+    this(string prefix, string name, string type, string modifier, Scope scpe, int offset=0)
     {
         this.id = text(prefix,++counter[prefix]);
         this.name = name;
         this.type = type;
         this.modifier = modifier;
         this.scpe = scpe;
+        this.offset = offset;
     }
 
 public:
@@ -275,6 +276,7 @@ class MethodSymbol : Symbol
     this(string methodName, string returnType, string modifier, Scope scpe)
     {
         super("M",methodName,returnType,modifier,scpe);
+        this.offset = -12;
     }
 
     auto addParam(string name, string type, size_t line)
@@ -308,6 +310,16 @@ class MethodSymbol : Symbol
         this.offset -= 4;
 
         return varSymbol;
+    }
+
+    auto addTemporary(string type)
+    {
+        auto tempSymbol = new TempSymbol(type);
+        SymbolTable.insert(tempSymbol);
+
+        this.offset -= 4;
+
+        return tempSymbol;
     }
 
     override string toString()
