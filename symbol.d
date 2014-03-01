@@ -95,29 +95,6 @@ public:
     //    return varSymbol;
     //}
 
-    static auto addTemporary(string type, Scope scpe)
-    {
-        //auto methodName = scpe.top;
-
-        //auto searchScope = scpe;
-        //searchScope.pop();
-
-        //auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(methodName, searchScope, false);
-        //if (!methodSymbol)
-        //    throw new Exception("addTemporary: Failed to load method symbol for " ~ methodName);        
-
-        auto symbol = new TempSymbol(type, scpe);
-        insert(symbol);
-        return symbol;
-    }
-
-    static auto addReference(string type, Scope scpe)
-    {
-        auto symbol = new RefSymbol(type, scpe);
-        insert(symbol);
-        return symbol;
-    }
-
 //--------------------------
 // Search symbol table
 //--------------------------    
@@ -230,8 +207,6 @@ public:
 
 class ClassSymbol : Symbol
 {
-    size_t size;
-
     this(string className)
     {
         super("C",className,className,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
@@ -245,18 +220,18 @@ class ClassSymbol : Symbol
         if (SymbolTable.findVariable(name, classScope, false))
             throw new SemanticError(line, "Duplicate declaration for variable ",name);
 
-        auto varSymbol = new IVarSymbol(name, type, modifier, classScope, this.size); 
+        auto varSymbol = new IVarSymbol(name, type, modifier, classScope, this.offset); 
         SymbolTable.insert(varSymbol);
 
         switch (type) {
         case "bool":
-            this.size += bool.sizeof;
+            this.offset += bool.sizeof;
             break;
         case "char":
-            this.size += char.sizeof;
+            this.offset += char.sizeof;
             break;
         default:
-            this.size += int.sizeof;
+            this.offset += int.sizeof;
             break;
         }
 
@@ -265,7 +240,7 @@ class ClassSymbol : Symbol
 
     override string toString()
     {
-        return text(typeid(typeof(this)),Symbol.toString(),"size: ",size,"\n");
+        return text(typeid(typeof(this)),Symbol.toString(),"size: ",offset,"\n");
     }
 }
 
@@ -275,8 +250,7 @@ class MethodSymbol : Symbol
 
     this(string methodName, string returnType, string modifier, Scope scpe)
     {
-        super("M",methodName,returnType,modifier,scpe);
-        this.offset = -12;
+        super("M",methodName,returnType,modifier,scpe,-12);
     }
 
     auto addParam(string name, string type, size_t line)
@@ -314,12 +288,28 @@ class MethodSymbol : Symbol
 
     auto addTemporary(string type)
     {
-        auto tempSymbol = new TempSymbol(type);
+        auto methodScope = this.scpe;
+        methodScope.push(this.name);
+
+        auto tempSymbol = new TempSymbol(type, methodScope, this.offset);
         SymbolTable.insert(tempSymbol);
 
         this.offset -= 4;
 
         return tempSymbol;
+    }
+
+    auto addReference(string type)
+    {
+        auto methodScope = this.scpe;
+        methodScope.push(this.name);
+
+        auto refSymbol = new RefSymbol(type, methodScope, this.offset);
+        SymbolTable.insert(refSymbol);
+
+        this.offset -= 4;
+
+        return refSymbol;
     }
 
     override string toString()
@@ -390,9 +380,9 @@ class GlobalSymbol : Symbol
 
 class TempSymbol : Symbol
 {
-    this(string type, Scope scpe)
+    this(string type, Scope scpe, int offset)
     {
-        super("T",null,type,PRIVATE_MODIFIER,scpe);
+        super("T",null,type,PRIVATE_MODIFIER,scpe,offset);
     }
 
     override string toString()
@@ -403,9 +393,9 @@ class TempSymbol : Symbol
 
 class RefSymbol : Symbol
 {
-    this(string type, Scope scpe)
+    this(string type, Scope scpe, int offset)
     {
-        super("R",name,type,PRIVATE_MODIFIER,scpe);
+        super("R",name,type,PRIVATE_MODIFIER,scpe,offset);
     }
 
     override string toString()

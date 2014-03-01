@@ -68,11 +68,6 @@ void classBegin()
     addStaticInitQuad("FUNC", _currentStaticInit.id);
 }
 
-void classInit()
-{
-    funcCall(_currentStaticInit.id, "this");
-}
-
 void classEnd()
 {    
     addStaticInitQuad("RTN");

@@ -223,6 +223,8 @@ void field_declaration(string identifier, string type, string modifier)
         _currentScope.pop();
     }
     else {
+        auto saveCurrentMethod = _currentMethod;
+
         if (_ct.type == TType.ARRAY_BEGIN) {
             type = "@:" ~ type;
             next();
@@ -238,6 +240,7 @@ void field_declaration(string identifier, string type, string modifier)
             _symbolQueue.pop();
 
             icode._insideClass = true;
+            _currentMethod = _currentStaticInit;
         }
 
         if (_ct.type == TType.ASSIGN_OP) {
@@ -252,6 +255,7 @@ void field_declaration(string identifier, string type, string modifier)
 
         if (!_firstPass) {
             eoe_sa();
+            _currentMethod = saveCurrentMethod;
             icode._insideClass = false;
         }
     }
@@ -620,7 +624,7 @@ void expression()
 
         next();
         expression();
-        
+
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass)
             cparen_sa(_ct.line);

@@ -4,10 +4,10 @@ class Foo
 
     Foo() {}
 
-    public int y;
+    public int y = 0;
 }
 
 void main()
 {
-
+    Foo foo = new Foo();
 }
