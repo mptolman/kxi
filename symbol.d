@@ -247,6 +247,7 @@ class ClassSymbol : Symbol
 class MethodSymbol : Symbol
 {
     string[] params;
+    string[] locals;
 
     this(string methodName, string returnType, string modifier, Scope scpe)
     {
@@ -281,6 +282,7 @@ class MethodSymbol : Symbol
         auto varSymbol = new LVarSymbol(name, type, methodScope, this.offset);
         SymbolTable.insert(varSymbol);
 
+        this.locals ~= varSymbol.id;
         this.offset -= 4;
 
         return varSymbol;
@@ -294,6 +296,7 @@ class MethodSymbol : Symbol
         auto tempSymbol = new TempSymbol(type, methodScope, this.offset);
         SymbolTable.insert(tempSymbol);
 
+        this.locals ~= tempSymbol.id;
         this.offset -= 4;
 
         return tempSymbol;
@@ -307,6 +310,7 @@ class MethodSymbol : Symbol
         auto refSymbol = new RefSymbol(type, methodScope, this.offset);
         SymbolTable.insert(refSymbol);
 
+        this.locals ~= refSymbol.id;
         this.offset -= 4;
 
         return refSymbol;

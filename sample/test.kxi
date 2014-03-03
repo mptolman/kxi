@@ -1,5 +1,20 @@
+class A
+{
+    public int x = 0;
+
+    A()
+    {
+    }
+    
+    public void f()
+    {
+    }
+}
+
+
 void main()
 {
-   int x = 1 + 2;
-   cout << x; 
+   int y = 100;
+   A a = new A();
+   cout << y;
 }

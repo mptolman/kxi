@@ -349,16 +349,13 @@ void newarr_sa()
 
     size_t elemsz;
     switch(type_sar.name) {
-    case "int":
-        elemsz = int.sizeof;
-        break;
     case "char":
         elemsz = char.sizeof;
         break;
     case "bool":
         elemsz = bool.sizeof;
         break;
-    default: // pointer
+    default:
         elemsz = int.sizeof;
         break;
     }
