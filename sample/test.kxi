@@ -1,13 +1,5 @@
-class Foo
-{
-    public int x = 1 + 2;
-
-    Foo() {}
-
-    public int y = 0;
-}
-
 void main()
 {
-    Foo foo = new Foo();
+   int x = 1 + 2;
+   cout << x; 
 }
