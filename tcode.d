@@ -143,7 +143,7 @@ auto genFuncCode(Quad quad)
         throw new Exception("genFuncCode: Failed to load symbol for method " ~ quad.opd1);
 
     switch (quad.opcode) {
-    case "FRAME":        
+    case "FRAME":
         writeAsm("MOV", "R1", "SP");
         writeAsm("ADI", "R1", "-12");
         writeAsm("CMP", "R1", "SL");
@@ -152,7 +152,7 @@ auto genFuncCode(Quad quad)
         writeAsm("MOV", "R1", "FP");
         writeAsm("MOV", "FP", "SP");
         writeAsm("ADI", "SP", "-4");
-        writeAsm("STR", "FP", "(SP)", "Push PFP");
+        writeAsm("STR", "R1", "(SP)", "Push PFP");
         writeAsm("ADI", "SP", "-4");
         writeAsm("STR", "R2", "(SP)", "Push `this` pointer");
         writeAsm("ADI", "SP", "-4");
@@ -203,12 +203,12 @@ auto genStackCode(Quad quad)
     switch (quad.opcode) {
     case "PUSH":
         // Save FP
-        //writeAsm("MOV", "R8", "FP");
+        writeAsm("MOV", "R9", "FP");
 
-        //// Point to PFP
-        //writeAsm("MOV", "R1", "FP");
-        //writeAsm("ADI", "R1", "-4");
-        //writeAsm("LDR", "FP", "(R1)");
+        // Point to PFP
+        writeAsm("MOV", "R1", "FP");
+        writeAsm("ADI", "R1", "-4");
+        writeAsm("LDR", "FP", "(R1)");
 
         // Push parameter to current stack frame
         loadRegister("R1", quad.opd1);
@@ -216,7 +216,7 @@ auto genStackCode(Quad quad)
         writeAsm("ADI", "SP", "-4");
 
         // Restore FP
-        //writeAsm("MOV", "FP", "R8");
+        writeAsm("MOV", "FP", "R9");
         break;
     case "POP":
         writeAsm("ADI", "SP", "4");

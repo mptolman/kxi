@@ -723,7 +723,7 @@ void expressionz()
     case TType.INT_LITERAL:
         if (_ct.value[0] == '-' || _ct.value[0] == '+') {
             if (!_firstPass)
-                oPush(to!string(_ct.value[0]), _ct.line);
+                oPush("+", _ct.line);
             expression();
         }
         break;

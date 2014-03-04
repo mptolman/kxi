@@ -511,7 +511,7 @@ void rExist()
 
         checkFuncArgs(member_sar, methodSymbol);
 
-        ref_symbol = _currentMethod.addReference(methodSymbol.type);
+        ref_symbol = _currentMethod.addTemporary(methodSymbol.type);
 
         icode.funcCall(methodSymbol.id, obj_symbol.id, member_sar.args, ref_symbol.id);
         break;
