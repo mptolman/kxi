@@ -267,7 +267,7 @@ class MethodSymbol : Symbol
         if (SymbolTable.findVariable(name, methodScope, false))
             throw new SemanticError(line, "Duplicate declaration for variable ",name);
 
-        auto varSymbol = new ParamSymbol(name, type, this.scpe, this.offset);
+        auto varSymbol = new ParamSymbol(name, type, methodScope, this.offset);
         SymbolTable.insert(varSymbol);
 
         this.offset -= 4;
@@ -316,7 +316,7 @@ class MethodSymbol : Symbol
         if (!refSymbol) {
             refSymbol = new RefSymbol(name, type, methodScope, this.offset);
             SymbolTable.insert(refSymbol);
-            
+
             this.locals ~= refSymbol.id;
             this.offset -= 4;
         }

@@ -114,6 +114,9 @@ auto processICode()
         case "MOVI":
             genMoveCode(quad);
             break;
+        case "AEF":
+            genArrayRefCode(quad);
+            break;
         case "REF":
             genRefCode(quad);
             break;
@@ -370,6 +373,32 @@ auto genMoveCode(Quad quad)
     }
 }
 
+auto genArrayRefCode(Quad quad)
+{
+    auto baseSymbol = SymbolTable.getById(quad.opd1);
+    auto indexSymbol = SymbolTable.getById(quad.opd2);
+    auto addrSymbol = SymbolTable.getById(quad.opd3);
+
+    loadRegister("R1", baseSymbol);
+    loadRegister("R2", indexSymbol);
+
+    writeAsm("SUB", "R3", "R3");
+    switch (addrSymbol.type) {
+    case "char":
+        writeAsm("ADI", "R3", to!string(char.sizeof));
+        break;
+    case "bool":
+        writeAsm("ADI", "R3", to!string(bool.sizeof));
+        break;
+    default:
+        writeAsm("ADI", "R3", to!string(int.sizeof));
+        break;
+    }
+    writeAsm("MUL", "R2", "R3");
+    writeAsm("ADD", "R1", "R2");
+    storeRegister("R1", addrSymbol, false);
+}
+
 auto genRefCode(Quad quad)
 {
     auto objSymbol = SymbolTable.getById(quad.opd1);
@@ -439,22 +468,24 @@ auto genBuiltIns()
 
 auto loadRegister(string reg, Symbol symbol)
 {
+    auto loadOp = symbol.type == "char" ? "LDB" : "LDR";
+
     if (cast(GlobalSymbol)symbol) {
-        writeAsm(symbol.type == "char" ? "LDB" : "LDR", reg, symbol.id);
+        writeAsm(loadOp, reg, symbol.id);
     }
     else if (cast(IVarSymbol)symbol) {
         writeAsm("MOV", reg, "FP");
         writeAsm("ADI", reg, "-8");
         writeAsm("LDR", reg, "("~reg~")");
         writeAsm("ADI", reg, to!string(symbol.offset));
-        writeAsm("LDR", reg, "("~reg~")");
+        writeAsm(loadOp, reg, "("~reg~")");
     }
     else {
         writeAsm("MOV", reg, "FP");
         writeAsm("ADI", reg, to!string(symbol.offset));
         writeAsm("LDR", reg, "("~reg~")");
         if (cast(RefSymbol)symbol)
-            writeAsm("LDR", reg, "("~reg~")");
+            writeAsm(loadOp, reg, "("~reg~")");
     }
 }
 
@@ -475,22 +506,33 @@ auto loadRegister(string reg, string symId)
 
 auto storeRegister(string reg, Symbol symbol, bool indirect=true)
 {
+    auto storeOp = symbol.type == "char" ? "STB" : "STR";
+
     if (cast(GlobalSymbol)symbol) {
-        writeAsm(symbol.type == "char" ? "STB" : "STR", reg, symbol.id);
+        writeAsm(storeOp, reg, symbol.id);
     }
     else if (cast(IVarSymbol)symbol) {
-        writeAsm("MOV", "R9", "FP");
+        writeAsm("MOV", "R9", "FP"); // use `this` as base address
         writeAsm("ADI", "R9", "-8");
         writeAsm("LDR", "R9", "(R9)");
         writeAsm("ADI", "R9", to!string(symbol.offset));
-        writeAsm("STR", reg, "(R9)");
+        writeAsm(storeOp, reg, "(R9)");
+    }
+    else if (cast(RefSymbol)symbol) {
+        writeAsm("MOV", "R9", "FP");
+        writeAsm("ADI", "R9", to!string(symbol.offset));
+        if (indirect) {
+            writeAsm("LDR", "R9", "(R9)");
+            writeAsm(storeOp, reg, "(R9)");
+        }
+        else {
+            writeAsm("STR", reg, "(R9)");
+        }
     }
     else {
         writeAsm("MOV", "R9", "FP");
         writeAsm("ADI", "R9", to!string(symbol.offset));
-        if (cast(RefSymbol)symbol && indirect)
-            writeAsm("LDR", "R9", "(R9)");
-        writeAsm("STR", reg, "(R9)");
+        writeAsm(storeOp, reg, "(R9)");
     }
 }
 

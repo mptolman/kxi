@@ -268,7 +268,7 @@ void iExist()
         if (splitType[0] != "@")
             throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array");
 
-        tempSymbol = _currentMethod.addTemporary(splitType[1]);
+        tempSymbol = _currentMethod.addReference(text(id_sar.name,'[',id_sar.id,']'),splitType[1]);
 
         icode.arrRef(varSymbol.id, id_sar.id, tempSymbol.id);
         break;

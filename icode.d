@@ -32,7 +32,7 @@ void funcCall(string symId, string opd1, string[] args=null, string returnId=nul
         throw new Exception("funcCall: Failed to load method symbol");
 
     addQuad("FRAME", symId, opd1);
-    foreach (arg; args)
+    foreach (arg; args.dup.reverse)
         addQuad("PUSH", arg);
     addQuad("CALL", symId);
 
