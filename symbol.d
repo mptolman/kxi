@@ -136,6 +136,11 @@ public:
         return null;
     }
 
+    static auto findReference(string name, Scope scpe)
+    {
+        return findFirst!RefSymbol(name,scpe,false);
+    }
+
     static auto findFirst(T)(string name, Scope scpe, bool recurse=true)
     {
         auto matches = find!T(name,scpe,recurse);
@@ -302,16 +307,19 @@ class MethodSymbol : Symbol
         return tempSymbol;
     }
 
-    auto addReference(string type)
+    auto addReference(string name, string type)
     {
         auto methodScope = this.scpe;
         methodScope.push(this.name);
 
-        auto refSymbol = new RefSymbol(type, methodScope, this.offset);
-        SymbolTable.insert(refSymbol);
-
-        this.locals ~= refSymbol.id;
-        this.offset -= 4;
+        auto refSymbol = SymbolTable.findReference(name, methodScope);
+        if (!refSymbol) {
+            refSymbol = new RefSymbol(name, type, methodScope, this.offset);
+            SymbolTable.insert(refSymbol);
+            
+            this.locals ~= refSymbol.id;
+            this.offset -= 4;
+        }
 
         return refSymbol;
     }
@@ -397,7 +405,7 @@ class TempSymbol : Symbol
 
 class RefSymbol : Symbol
 {
-    this(string type, Scope scpe, int offset)
+    this(string name, string type, Scope scpe, int offset)
     {
         super("R",name,type,PRIVATE_MODIFIER,scpe,offset);
     }

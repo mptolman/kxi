@@ -1,4 +1,5 @@
 class A {
+    public int x;
     public int y;
     
     A()
@@ -17,6 +18,8 @@ class A {
 void main() 
 {
     A a = new A();
-    int x = 1;
-    cout << x-1;
+    a.x = 1;
+    a.y = 2;
+    cout << a.x + a.y;
+    cout << '\n';
 }

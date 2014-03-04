@@ -495,7 +495,7 @@ void rExist()
         if (varSymbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
             throw new SemanticError(member_sar.line,"Variable ",class_symbol.name,".",member_sar.name," is private");
 
-        ref_symbol = _currentMethod.addReference(varSymbol.type);
+        ref_symbol = _currentMethod.addReference(text(obj_sar.name,'.',member_sar.name), varSymbol.type);
 
         if (member_sar.sarType == SARType.ARR_SAR)
             icode.arrRef(varSymbol.id, member_sar.id, ref_symbol.id);
