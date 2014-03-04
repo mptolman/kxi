@@ -131,7 +131,7 @@ auto processICode()
             writeAsm("TRP", "0");
             break;
         default:
-            break;
+            throw new Exception("processICode: Unimplemented instruction "~to!string(quad));
         }
     }
 }
@@ -152,34 +152,29 @@ auto genFuncCode(Quad quad)
         writeAsm("MOV", "R1", "FP");
         writeAsm("MOV", "FP", "SP");
         writeAsm("ADI", "SP", "-4");
-        writeAsm("STR", "R1", "(SP)", "Push PFP");
+        writeAsm("STR", "FP", "(SP)", "Push PFP");
         writeAsm("ADI", "SP", "-4");
         writeAsm("STR", "R2", "(SP)", "Push `this` pointer");
         writeAsm("ADI", "SP", "-4");
         break;
     case "CALL":
-        writeAsm("MOV", "R1", "PC", "[CALL] "~quad.opd1);
+        writeAsm("MOV", "R1", "PC");
         writeAsm("ADI", "R1", "36");
         writeAsm("STR", "R1", "(FP)", "Push return address");
         writeAsm("JMP", quad.opd1);
         break;
     case "FUNC":
-        writeAsm("ADI", "R0", "0");
-        //if (methodSymbol.locals) {
-        //    writeAsm("SUB", "R1", "R1");
-        //    writeAsm("SUB", "R1", "R1");
-        //    writeAsm("ADI", "R1", to!string(methodSymbol.locals.length));
-        //    writeAsm("SUB", "R2", "R2");
-        //    writeAsm("ADI", "R2", "-4");
-        //    writeAsm("MUL", "R1", "R2");
-        //    writeAsm("MOV", "R2", "SP");
-        //    writeAsm("ADD", "R2", "R1");
-        //    writeAsm("CMP", "R2", "SL");
-        //    writeAsm("BLT", "R2", "OVERFLOW");
-        //}
-        //else {
-        //    writeAsm("ADI", "R1", "0");
-        //}
+        if (methodSymbol.locals) {
+            int stackOffset = methodSymbol.locals.length * -4;
+            writeAsm("MOV", "R1", "SP");
+            writeAsm("ADI", "R1", to!string(stackOffset));
+            writeAsm("CMP", "R1", "SL");
+            writeAsm("BLT", "R1", "OVERFLOW");
+            writeAsm("ADI", "SP", to!string(stackOffset));
+        }
+        else {
+            writeAsm("ADI", "R1", "0");
+        }
         break;
     default:
         throw new Exception("genFuncCode: Invalid opcode "~quad.opcode);
@@ -207,9 +202,21 @@ auto genStackCode(Quad quad)
 {
     switch (quad.opcode) {
     case "PUSH":
+        // Save FP
+        //writeAsm("MOV", "R8", "FP");
+
+        //// Point to PFP
+        //writeAsm("MOV", "R1", "FP");
+        //writeAsm("ADI", "R1", "-4");
+        //writeAsm("LDR", "FP", "(R1)");
+
+        // Push parameter to current stack frame
         loadRegister("R1", quad.opd1);
         writeAsm("STR", "R1", "(SP)");
         writeAsm("ADI", "SP", "-4");
+
+        // Restore FP
+        //writeAsm("MOV", "FP", "R8");
         break;
     case "POP":
         writeAsm("ADI", "SP", "4");
@@ -472,18 +479,18 @@ auto storeRegister(string reg, Symbol symbol, bool indirect=true)
         writeAsm(symbol.type == "char" ? "STB" : "STR", reg, symbol.id);
     }
     else if (cast(IVarSymbol)symbol) {
-        writeAsm("MOV", "R0", "FP");
-        writeAsm("ADI", "R0", "-8");
-        writeAsm("LDR", "R0", "(R0)");
-        writeAsm("ADI", "R0", to!string(symbol.offset));
-        writeAsm("STR", reg, "(R0)");
+        writeAsm("MOV", "R9", "FP");
+        writeAsm("ADI", "R9", "-8");
+        writeAsm("LDR", "R9", "(R9)");
+        writeAsm("ADI", "R9", to!string(symbol.offset));
+        writeAsm("STR", reg, "(R9)");
     }
     else {
-        writeAsm("MOV", "R0", "FP");
-        writeAsm("ADI", "R0", to!string(symbol.offset));
+        writeAsm("MOV", "R9", "FP");
+        writeAsm("ADI", "R9", to!string(symbol.offset));
         if (cast(RefSymbol)symbol && indirect)
-            writeAsm("LDR", "R0", "(R0)");
-        writeAsm("STR", reg, "(R0)");
+            writeAsm("LDR", "R9", "(R9)");
+        writeAsm("STR", reg, "(R9)");
     }
 }
 

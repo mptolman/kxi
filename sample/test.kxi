@@ -1,20 +1,22 @@
-class A
-{
-    public int x = 0;
-
+class A {
+    public int y;
+    
     A()
     {
     }
     
-    public void f()
+    public int factorial(int x)
     {
+        cout << x;
+        cout << '\n';
+        if (x <= 1) {
+            return 1;
+        }
+        return x * factorial(x-1);
     }
 }
 
-
-void main()
-{
-   int y = 100;
-   A a = new A();
-   cout << y;
+void main() {
+    A a = new A();
+    int x = a.factorial(5);
 }
