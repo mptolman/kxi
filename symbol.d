@@ -53,48 +53,6 @@ public:
         return symbol;
     }
 
-    //static auto addVar(T)(string name, string type, Scope scpe, size_t line)
-    //    if (is(T:VarSymbol))
-    //{
-    //    if (findVariable(name, scpe, false))
-    //        throw new SemanticError(line,"Duplicate declaration for variable ",name);
-
-    //    //auto methodSymbol = cast(MethodSymbol)SymbolTable.findMethod(scpe.top(), scpe);
-    //    //if (!methodSymbol)
-    //    //    throw new SemanticError(line,"addVar: Failed to load method symbol");
-
-    //    auto varSymbol = new T(name, type, scpe);
-    //    //varSymbol.offset = methodSymbol.stackOffset;
-
-    //    //methodSymbol.stackOffset -= int.sizeof;
-
-    //    insert(varSymbol);
-    //    return varSymbol;
-    //}
-
-    //static auto addIVar(string name, string type, string modifier, Scope scpe, size_t line)
-    //{
-    //    if (findVariable(name, scpe, false))
-    //        throw new SemanticError(line,"Duplicate declaration for variable ",name);
-      
-    //    auto varSymbol = new IVarSymbol(name, type, modifier, scpe);
-        
-    //    auto classSymbol = cast(ClassSymbol)SymbolTable.findClass(scpe.top());
-    //    if (!classSymbol)
-    //        throw new Exception("addIVar: Failed to load class symbol");
-
-    //    varSymbol.offset = classSymbol.size;
-    //    if (varSymbol.type == "char")
-    //        classSymbol.size += char.sizeof;
-    //    else if (varSymbol.type == "bool")
-    //        classSymbol.size += bool.sizeof;
-    //    else
-    //        classSymbol.size += int.sizeof;
-
-    //    insert(varSymbol);
-    //    return varSymbol;
-    //}
-
 //--------------------------
 // Search symbol table
 //--------------------------    
@@ -229,9 +187,6 @@ class ClassSymbol : Symbol
         SymbolTable.insert(varSymbol);
 
         switch (type) {
-        case "bool":
-            this.offset += bool.sizeof;
-            break;
         case "char":
             this.offset += char.sizeof;
             break;

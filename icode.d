@@ -16,15 +16,6 @@ struct Quad
 //----------------------------
 // Methods
 //----------------------------
-//void callMain()
-//{
-//    auto main = SymbolTable.findMethod("main", Scope(GLOBAL_SCOPE), false);
-//    if (!main)
-//        throw new Exception("initMain: Failed to locate main in symbol table");
-//    funcCall(main.id,"this");
-//    addQuad("QUIT");
-//}
-
 void funcCall(string symId, string opd1, string[] args=null, string returnId=null)
 {
     auto method = SymbolTable.getById(symId);
@@ -196,7 +187,7 @@ void mathOp(string op, string opd1, string opd2, string opd3)
         if (cast(GlobalSymbol)rhs && rhs.type == "int")            
             addQuad("ADI", opd1, rhs.name, opd3);
         else if (cast(GlobalSymbol)lhs && lhs.type == "int")
-            addQuad("ADI", opd1, lhs.name, opd3);
+            addQuad("ADI", opd2, lhs.name, opd3);
         else
             addQuad("ADD", opd1, opd2, opd3);
         break;
