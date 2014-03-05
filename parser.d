@@ -432,6 +432,19 @@ void assignment_expression()
         new_declaration();
         break;
     case TType.ATOI:
+        next();
+        assertType(TType.PAREN_OPEN);
+        if (!_firstPass)
+            oPush(_ct.value, _ct.line);
+        next();
+        expression();
+        assertType(TType.PAREN_CLOSE);
+        if (!_firstPass) {
+            cparen_sa(_ct.line);
+            atoi_sa();
+        }
+        next();
+        break;
     case TType.ITOA:
         next();
         assertType(TType.PAREN_OPEN);
@@ -442,10 +455,7 @@ void assignment_expression()
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
             cparen_sa(_ct.line);
-            if (_ct.type == TType.ATOI)
-                atoi_sa();
-            else
-                itoa_sa();
+            itoa_sa();
         }        
         next();
         break;

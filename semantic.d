@@ -90,6 +90,8 @@ void atoi_sa()
 
     auto temp = _currentMethod.addTemporary("int");
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
+
+    icode.atoi(symbol.id, temp.id);
 }
 
 void bal_sa()
@@ -299,6 +301,8 @@ void itoa_sa()
 
     auto temp = _currentMethod.addTemporary("char");
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
+
+    icode.itoa(symbol.id, temp.id);
 }
 
 void lPush(Symbol symbol, size_t line)

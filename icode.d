@@ -245,6 +245,16 @@ void boolOp(string op, string opd1, string opd2, string opd3)
     }
 }
 
+void atoi(string opd1, string opd2)
+{
+    addQuad("ATOI", opd1, opd2);
+}
+
+void itoa(string opd1, string opd2)
+{
+    addQuad("ITOA", opd1, opd2);
+}
+
 //----------------------------
 // Memory allocation
 //----------------------------

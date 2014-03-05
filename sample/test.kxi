@@ -1,23 +1,9 @@
-class A
-{
-    A()
-    {
-    
-    }
-    
-    public int factorial(int x)
-    {
-        if (x <= 1)
-            return 1;
-        return x * factorial(x-1);
-    }
-}
-
 void main()
 {
-    int key;
-    
-    cin >> key;
-    key = 5 + key * -1 - 2;
-    cout << key;
+    int x = atoi('9');
+    char c = itoa(x);
+    cout << x;
+    cout << '\n';
+    cout << c;
+    cout << '\n';
 }

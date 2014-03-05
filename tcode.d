@@ -130,6 +130,10 @@ auto processICode()
         case "NEWI":
             genMallocCode(quad);
             break;
+        case "ATOI":
+        case "ITOA":
+            genConvertCode(quad);
+            break;
         case "QUIT":
             writeAsm("TRP", "0");
             break;
@@ -437,6 +441,16 @@ auto genMallocCode(Quad quad)
     else {
         writeAsm("ADI", "HP", quad.opd1);
     }
+}
+
+auto genConvertCode(Quad quad)
+{
+    loadRegister("R0", quad.opd1);
+    if (quad.opcode == "ITOA")
+        writeAsm("TRP", "11");
+    else
+        writeAsm("TRP", "10");
+    storeRegister("R0", quad.opd2);
 }
 
 auto genBuiltIns()
