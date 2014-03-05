@@ -1,4 +1,4 @@
-import icode, parser, symbol, tcode;
+import parser, tcode;
 
 void compile(string srcFileName, string destFileName)
 {    

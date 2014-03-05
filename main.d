@@ -14,7 +14,6 @@ int main(string[] args)
         string destFileName = args.length > 2 ? args[2] : stripRight(args[1]) ~ ".asm";
 
         compile(srcFileName, destFileName);
-        writeln("success");
     }
     catch (Exception e) {
         writeln(e.msg);

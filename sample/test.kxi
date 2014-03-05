@@ -16,9 +16,8 @@ class A
 void main()
 {
     int key;
-    A a = new A();
     
     cin >> key;
-    cout << a.factorial(key);
-    cout << '\n';
+    key = 5 + key * -1 - 2;
+    cout << key;
 }

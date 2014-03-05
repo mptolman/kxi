@@ -195,29 +195,6 @@ void eoe_sa()
     _sas.clear();
 }
 
-//void funcBegin_sa(bool funcIsCtor)
-//{
-//    debug writeln("funcBegin_sa");
-
-//    _funcHasReturnStatement = funcIsCtor;
-//}
-
-//void funcEnd_sa(string methodName, Scope methodScope, size_t line)
-//{
-//    debug writeln("funcEnd_sa");
-
-//    if (_funcHasReturnStatement)
-//        return;
-
-//    auto symbol = SymbolTable.findMethod(methodName, methodScope, false);
-//    if (!symbol)
-//        throw new Exception("funcEnd_sa: Failed to load symbol for "~methodName);
-//    if (symbol.type != "void")
-//        throw new SemanticError(line,"Method ",methodName," must return a value of type ",symbol.type);
-
-//    icode.funcReturn();
-//}
-
 void func_sa()
 {
     debug writeln("func_sa");
@@ -430,14 +407,6 @@ void return_sa(size_t line)
 
     while (!_os.empty())
         doStackOp();
-
-    //auto scpe = _currentScope;
-    //auto methodName = scpe.top();
-    //scpe.pop();
-
-    //auto methodSymbol = SymbolTable.findMethod(methodName, scpe, false);
-    //if (!methodSymbol)
-    //    throw new SemanticError(line,"return_sa: Failed to load method symbol");
 
     auto expectedRtnType = _currentMethod.type;
 
