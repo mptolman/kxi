@@ -283,13 +283,6 @@ auto getQuads()
     return _quads;
 }
 
-void printICode()
-{    
-    foreach (q; _quads) {
-        writefln("%s\t%s %s %s %s",q.label,q.opcode,q.opd1,q.opd2,q.opd3);
-    }
-}
-
 private:
 Quad[] _quads;
 Quad[] _classInitQuads;
