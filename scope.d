@@ -8,6 +8,8 @@ Scope _currentScope;
 ClassSymbol _currentClass;
 MethodSymbol _currentMethod;
 MethodSymbol _currentStaticInit;
+string _kxi;
+bool _kxiIsNew;
 
 struct Scope
 {

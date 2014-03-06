@@ -3,6 +3,7 @@ import std.stdio;
 import container, scpe, symbol;
 
 bool _insideClass;
+string _line;
 
 struct Quad
 {
@@ -305,6 +306,10 @@ void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null
         addStaticInitQuad(opcode,opd1,opd2,opd3);
     }
     else {
+        if (scpe._kxiIsNew) {
+            _quads ~= Quad("COMMENT",scpe._kxi.dup);
+            scpe._kxiIsNew = false;
+        }
         _quads ~= Quad(opcode,opd1,opd2,opd3,_currentLabel);
         _currentLabel = null;
     }

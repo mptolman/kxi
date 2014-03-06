@@ -61,11 +61,6 @@ public:
         return id in byId ? byId[id] : null;
     }
 
-    static auto getByScope(Scope scpe)
-    {
-        return byScope[scpe];
-    }
-
     static auto getGlobals()
     {
         return byScope[Scope(GLOBAL_SCOPE)].filter!(a => cast(GlobalSymbol)a).array;
@@ -128,14 +123,6 @@ public:
 
         return matches;
     }
-
-    static string toString()
-    {
-        string s;
-        foreach (i,j; byId)
-            s ~= j.toString() ~ "\n";            
-        return s;
-    }
 }
 
 abstract class Symbol
@@ -145,12 +132,12 @@ private:
 
     this(string prefix, string name, string type, string modifier, Scope scpe, int offset=0)
     {
-        this.id = text(prefix,++counter[prefix]);
-        this.name = name;
-        this.type = type;
+        this.id       = text(prefix,++counter[prefix]);
+        this.name     = name;
+        this.type     = type;
         this.modifier = modifier;
-        this.scpe = scpe;
-        this.offset = offset;
+        this.scpe     = scpe;
+        this.offset   = offset;
     }
 
 public:
@@ -159,13 +146,7 @@ public:
     string type;
     string modifier;
     int offset;
-    size_t line;
     Scope scpe;
-
-    override string toString()
-    {
-        return text("\nid: ",id,"\nvalue: ",name,"\ntype: ",type,"\nscope: ",scpe,"\nmodifier: ",modifier,"\n");
-    }
 }
 
 class ClassSymbol : Symbol
@@ -186,21 +167,8 @@ class ClassSymbol : Symbol
         auto varSymbol = new IVarSymbol(name, type, modifier, classScope, this.offset); 
         SymbolTable.insert(varSymbol);
 
-        switch (type) {
-        case "char":
-            this.offset += char.sizeof;
-            break;
-        default:
-            this.offset += int.sizeof;
-            break;
-        }
-
+        this.offset += type == "char" ? char.sizeof : int.sizeof;
         return varSymbol;
-    }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),Symbol.toString(),"size: ",offset,"\n");
     }
 }
 
@@ -242,8 +210,8 @@ class MethodSymbol : Symbol
         auto varSymbol = new LVarSymbol(name, type, methodScope, this.offset);
         SymbolTable.insert(varSymbol);
 
-        this.locals ~= varSymbol.id;
         this.offset -= 4;
+        this.locals ~= varSymbol.id;
 
         return varSymbol;
     }
@@ -256,8 +224,8 @@ class MethodSymbol : Symbol
         auto tempSymbol = new TempSymbol(type, methodScope, this.offset);
         SymbolTable.insert(tempSymbol);
 
-        this.locals ~= tempSymbol.id;
         this.offset -= 4;
+        this.locals ~= tempSymbol.id;
 
         return tempSymbol;
     }
@@ -272,16 +240,11 @@ class MethodSymbol : Symbol
             refSymbol = new RefSymbol(name, type, methodScope, this.offset);
             SymbolTable.insert(refSymbol);
 
-            this.locals ~= refSymbol.id;
             this.offset -= 4;
+            this.locals ~= refSymbol.id;
         }
 
         return refSymbol;
-    }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),Symbol.toString(),"params: ",params,"\n");
     }
 }
 
@@ -299,11 +262,6 @@ class LVarSymbol : VarSymbol
     {
         super("L",name,type,PRIVATE_MODIFIER,scpe,offset);
     }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),VarSymbol.toString);
-    }
 }
 
 class ParamSymbol : VarSymbol
@@ -311,11 +269,6 @@ class ParamSymbol : VarSymbol
     this(string name, string type, Scope scpe, int offset)
     {
         super("P",name,type,PRIVATE_MODIFIER,scpe,offset);
-    }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),VarSymbol.toString);
     }
 }
 
@@ -325,11 +278,6 @@ class IVarSymbol : VarSymbol
     {
         super("V",name,type,modifier,scpe,offset);
     }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),VarSymbol.toString(),"offset: ",offset,"\n");
-    }
 }
 
 class GlobalSymbol : Symbol
@@ -337,11 +285,6 @@ class GlobalSymbol : Symbol
     this(string name, string type)
     {
         super("G",name,type,PUBLIC_MODIFIER,Scope(GLOBAL_SCOPE));
-    }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),Symbol.toString);
     }
 }
 
@@ -351,11 +294,6 @@ class TempSymbol : Symbol
     {
         super("T",null,type,PRIVATE_MODIFIER,scpe,offset);
     }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),Symbol.toString);
-    }
 }
 
 class RefSymbol : Symbol
@@ -363,10 +301,5 @@ class RefSymbol : Symbol
     this(string name, string type, Scope scpe, int offset)
     {
         super("R",name,type,PRIVATE_MODIFIER,scpe,offset);
-    }
-
-    override string toString()
-    {
-        return text(typeid(typeof(this)),Symbol.toString);
     }
 }

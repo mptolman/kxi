@@ -1,6 +1,6 @@
 import std.ascii;
 import std.stdio;
-import container;
+import container, scpe;
 
 enum TType : byte
 {
@@ -97,14 +97,20 @@ public:
         _file.rewind();
     }
 
+    void toggleRecordKxi()
+    {
+        _recordKxi = _recordKxi ? false : true;
+    }
+
 private:
     File _file;
     Queue!Token _tokens;
     size_t _lineNum;
-    static immutable BUFFER_SIZE = 500;
+    bool _recordKxi;
 
     void loadMoreTokens()
     {
+        immutable MAX_ID_LEN = 80;
         enum State : byte
         {
             ALPHANUM,
@@ -124,196 +130,197 @@ private:
             START
         }
 
-        immutable MAX_ID_LEN = 80;
+        auto line = _file.readln();
+        ++_lineNum;
 
-        char[] line;
-        while (_file.readln(line)) {
-            ++_lineNum;
+        if (_recordKxi && scpe._kxiIsNew) {
+            scpe._kxi ~= line;
+        }
+        else if (_recordKxi) {
+            scpe._kxi = line;
+            scpe._kxiIsNew = true;
+        }
 
-            string tok;
-            State state = State.START;
-            for (auto i = 0; i < line.length; ++i) {
-                auto c = line[i];
+        string tok;
+        State state = State.START;
+        for (auto i = 0; i < line.length; ++i) {
+            auto c = line[i];
 
-                final switch (state) {
-                case State.START:
-                    tok = [c];
+            final switch (state) {
+            case State.START:
+                tok = [c];
 
-                    if (isWhite(c)) { /* ignore whitespace */ }
-                    else if (isAlpha(c))
-                        state = State.ALPHANUM;
-                    else if (isDigit(c))
-                        state = State.DIGIT;
-                    else if (c == '<')
-                        state = State.LT;
-                    else if (c == '>')
-                        state = State.GT;
-                    else if (c == '=')
-                        state = State.EQUALS;
-                    else if (c == '&')
-                        state = State.AND;
-                    else if (c == '|')
-                        state = State.OR;
-                    else if (c == '!')
-                        state = State.NOT;
-                    else if (c == '\'')
-                        state = State.CHAR_BEGIN;
-                    else if (c == '/')
-                        state = State.POSSIBLE_COMMENT;
-                    else if (c == '+' || c == '-')
-                        state = State.PLUS_OR_MINUS;
-                    else if (tok in tokenMap)
-                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    else
-                        _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
-                    break;
-
-                case State.ALPHANUM:
-                    if (isAlphaNum(c) || c == '_') {
-                        tok ~= c;
-                        break;
-                    }
-                    if (tok in tokenMap)
-                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    else if (tok.length < MAX_ID_LEN)
-                        _tokens.push(Token(TType.IDENTIFIER,tok,_lineNum));
-                    else
-                        _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
-                    state = State.START;
-                    --i;
-                    break;
-
-                case State.DIGIT:
-                    if (isDigit(c)) {
-                        tok ~= c;
-                        break;
-                    }
-                    _tokens.push(Token(TType.INT_LITERAL,tok,_lineNum));
-                    state = State.START;
-                    --i;
-                    break;
-
-                case State.PLUS_OR_MINUS:
-                    if (isDigit(c)) {
-                        tok ~= c;
-                        state = State.DIGIT;
-                        break;
-                    }
+                if (isWhite(c)) { /* ignore whitespace */ }
+                else if (isAlpha(c))
+                    state = State.ALPHANUM;
+                else if (isDigit(c))
+                    state = State.DIGIT;
+                else if (c == '<')
+                    state = State.LT;
+                else if (c == '>')
+                    state = State.GT;
+                else if (c == '=')
+                    state = State.EQUALS;
+                else if (c == '&')
+                    state = State.AND;
+                else if (c == '|')
+                    state = State.OR;
+                else if (c == '!')
+                    state = State.NOT;
+                else if (c == '\'')
+                    state = State.CHAR_BEGIN;
+                else if (c == '/')
+                    state = State.POSSIBLE_COMMENT;
+                else if (c == '+' || c == '-')
+                    state = State.PLUS_OR_MINUS;
+                else if (tok in tokenMap)
                     _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    state = State.START;
-                    --i;
-                    break;
-
-                case State.EQUALS:
-                    if (c == '=')
-                        tok ~= c;
-                    else
-                        --i;
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    state = State.START;
-                    break;
-
-                case State.AND:
-                    if (c == '&') {
-                        tok ~= c;
-                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    }
-                    else {
-                        --i;
-                    }
-                    state = State.START;
-                    break;
-
-                case State.OR:
-                    if (c == '|') {
-                        tok ~= c;
-                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    }
-                    else {
-                        --i;
-                    }
-                    state = State.START;
-                    break;
-
-                case State.NOT:
-                    if (c == '=') {
-                        tok ~= c;
-                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    }
-                    else {
-                        --i;
-                    }
-                    state = State.START;
-                    break;
-
-                case State.LT:
-                    if (c == '=' || c == '<')
-                        tok ~= c;
-                    else
-                        --i;
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    state = State.START;
-                    break;
-
-                case State.GT:
-                    if (c == '=' || c == '>')
-                        tok ~= c;
-                    else
-                        --i;
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    state = State.START;
-                    break;
-
-                case State.CHAR_BEGIN:
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    tok = [c];
-                    _tokens.push(Token(TType.CHAR_LITERAL,tok,_lineNum));
-                    if (c == '\\')
-                        state = State.CHAR_ESCAPE;
-                    else
-                        state = State.CHAR_END;
-                    break;
-
-                case State.CHAR_ESCAPE:
-                    tok = [c];
-                    _tokens.push(Token(TType.CHAR_LITERAL,tok,_lineNum));
-                    state = State.CHAR_END;
-                    break;
-
-                case State.CHAR_END:
-                    tok = [c];
-                    if (c == '\'') {
-                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                        state = State.START;
-                        break;
-                    }
+                else
                     _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
-                    state = State.START;
-                    --i;
-                    break;
+                break;
 
-                case State.POSSIBLE_COMMENT:
-                    if (c == '/') {
-                        state = State.COMMENT;
-                        break;
-                    }
-                    else {
-                        // Divide operator
-                        _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    }
-                    state = State.START;
-                    --i;
-                    break;
-
-                case State.COMMENT:
-                    if (c == '\n')
-                        state = State.START;
+            case State.ALPHANUM:
+                if (isAlphaNum(c) || c == '_') {
+                    tok ~= c;
                     break;
                 }
-            }
-
-            if (_tokens.size() >= BUFFER_SIZE)
+                if (tok in tokenMap)
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                else if (tok.length < MAX_ID_LEN)
+                    _tokens.push(Token(TType.IDENTIFIER,tok,_lineNum));
+                else
+                    _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
+                state = State.START;
+                --i;
                 break;
+
+            case State.DIGIT:
+                if (isDigit(c)) {
+                    tok ~= c;
+                    break;
+                }
+                _tokens.push(Token(TType.INT_LITERAL,tok,_lineNum));
+                state = State.START;
+                --i;
+                break;
+
+            case State.PLUS_OR_MINUS:
+                if (isDigit(c)) {
+                    tok ~= c;
+                    state = State.DIGIT;
+                    break;
+                }
+                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                state = State.START;
+                --i;
+                break;
+
+            case State.EQUALS:
+                if (c == '=')
+                    tok ~= c;
+                else
+                    --i;
+                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                state = State.START;
+                break;
+
+            case State.AND:
+                if (c == '&') {
+                    tok ~= c;
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                }
+                else {
+                    --i;
+                }
+                state = State.START;
+                break;
+
+            case State.OR:
+                if (c == '|') {
+                    tok ~= c;
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                }
+                else {
+                    --i;
+                }
+                state = State.START;
+                break;
+
+            case State.NOT:
+                if (c == '=') {
+                    tok ~= c;
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                }
+                else {
+                    --i;
+                }
+                state = State.START;
+                break;
+
+            case State.LT:
+                if (c == '=' || c == '<')
+                    tok ~= c;
+                else
+                    --i;
+                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                state = State.START;
+                break;
+
+            case State.GT:
+                if (c == '=' || c == '>')
+                    tok ~= c;
+                else
+                    --i;
+                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                state = State.START;
+                break;
+
+            case State.CHAR_BEGIN:
+                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                tok = [c];
+                _tokens.push(Token(TType.CHAR_LITERAL,tok,_lineNum));
+                if (c == '\\')
+                    state = State.CHAR_ESCAPE;
+                else
+                    state = State.CHAR_END;
+                break;
+
+            case State.CHAR_ESCAPE:
+                tok = [c];
+                _tokens.push(Token(TType.CHAR_LITERAL,tok,_lineNum));
+                state = State.CHAR_END;
+                break;
+
+            case State.CHAR_END:
+                tok = [c];
+                if (c == '\'') {
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                    state = State.START;
+                    break;
+                }
+                _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
+                state = State.START;
+                --i;
+                break;
+
+            case State.POSSIBLE_COMMENT:
+                if (c == '/') {
+                    state = State.COMMENT;
+                    break;
+                }
+                else {
+                    // Divide operator
+                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
+                }
+                state = State.START;
+                --i;
+                break;
+
+            case State.COMMENT:
+                if (c == '\n')
+                    state = State.START;
+                break;
+            }
         }
 
         if (_file.eof)

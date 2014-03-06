@@ -10,6 +10,7 @@ void parse(string srcFileName)
     compilation_unit(); // first pass
 
     _tokens.rewind();
+    _tokens.toggleRecordKxi(); // for embedding kxi into assembly file
 
     _firstPass = false;
     compilation_unit(); // second pass
@@ -150,11 +151,12 @@ void class_declaration()
     next();
     while (_ct.type != TType.BLOCK_END)
         class_member_declaration();
-    assertType(TType.BLOCK_END);
-    next();
 
     if (!_firstPass)
         icode.classEnd();
+
+    assertType(TType.BLOCK_END);
+    next();
 
     _currentScope.pop();
 }
@@ -239,6 +241,7 @@ void field_declaration(string identifier, string type, string modifier)
             vPush(_symbolQueue.front, _ct.line);
             _symbolQueue.pop();
 
+            // Add field declarations to built-in static initializer function            
             icode._insideClass = true;
             _currentMethod = _currentStaticInit;
         }
@@ -340,13 +343,14 @@ void method_body(bool isCtor=false)
     //    "{" {variable_declaration} {statement} "}" ;
 
     assertType(TType.BLOCK_BEGIN);
-    next();
 
     if (!_firstPass) {
         icode.funcBegin();
         if (isCtor)
-            icode.funcCall(_currentStaticInit.id, "this");
+            icode.funcCall(_currentStaticInit.id, "this"); // call the static initializer first
     }
+
+    next();
 
     while (_ct.type == TType.TYPE || (_ct.type == TType.IDENTIFIER && peek().type == TType.IDENTIFIER))
         variable_declaration();

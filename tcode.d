@@ -2,6 +2,7 @@ import std.conv;
 import std.file;
 import std.stdio;
 import std.stream;
+import std.string;
 import container, icode, symbol;
 
 void generateTCode(string destFileName)
@@ -25,6 +26,10 @@ private:
 Stream _file;
 string _label;
 string _comment;
+
+string _formatTwoOpd = "%-15s %-4s %-3s %-15s %s";
+string _formatOneOpd = "%-15s %-4s %-19s %s";
+string[string] _opcodeFormatMap;
 
 void genGlobalData()
 {
@@ -72,6 +77,9 @@ auto processICode()
         _comment = text("[",quad.opcode,"] ",quad.opd1,' ',quad.opd2,' ',quad.opd3);
 
         switch (quad.opcode) {
+        case "COMMENT":
+            genComment(quad);
+            break;
         case "FRAME":
         case "CALL":
         case "FUNC":
@@ -140,6 +148,15 @@ auto processICode()
         default:
             throw new Exception("processICode: Unimplemented instruction "~to!string(quad));
         }
+    }
+}
+
+void genComment(Quad quad)
+{
+    foreach (line; quad.opd1.split('\n')) {
+        line = line.stripRight();
+        if (line.length)
+            _file.writefln("; %s",line);
     }
 }
 
@@ -557,14 +574,27 @@ auto storeRegister(string reg, string symId)
 
 auto writeAsm(string opcode, string opd1, string opd2=null, string comment=null)
 {
-    static auto format = "%-15s %-4s %-3s %-15s %s";
+    string format;
 
     if (comment)
         comment = ";" ~ comment;
     else if (_comment)
         comment = ";" ~ _comment;
     
+    if (opcode in _opcodeFormatMap)
+        format = _opcodeFormatMap[opcode];
+    else
+        format = _formatTwoOpd;
+
     _file.writefln(format, _label, opcode, opd1, opd2, comment);
     _label = null;
     _comment = null;
+}
+
+static this()
+{
+    _opcodeFormatMap = [
+        "TRP" : _formatOneOpd,
+        "JMP" : _formatOneOpd
+    ];
 }
