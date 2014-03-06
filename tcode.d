@@ -69,7 +69,7 @@ auto processICode()
     foreach (quad; icode.getQuads()) {
         debug writefln("%s\t%s %s %s %s",quad.label,quad.opcode,quad.opd1,quad.opd2,quad.opd3);
 
-        _label = quad.label;
+        _label   = quad.label;
         _comment = text("[",quad.opcode,"] ",quad.opd1,' ',quad.opd2,' ',quad.opd3);
 
         switch (quad.opcode) {
@@ -205,6 +205,7 @@ auto genFuncReturn(Quad quad)
 {
     if (quad.opcode == "RETURN")
         loadRegister("R3", quad.opd1);
+
     writeAsm("MOV", "SP", "FP");
     writeAsm("MOV", "R1", "SP");
     writeAsm("CMP", "R1", "SB");
@@ -213,8 +214,10 @@ auto genFuncReturn(Quad quad)
     writeAsm("MOV", "R2", "FP");
     writeAsm("ADI", "R2", "-4");
     writeAsm("LDR", "FP", "(R2)");
+
     if (quad.opcode == "RETURN")
         writeAsm("STR", "R3", "(SP)");
+
     writeAsm("JMR", "R1");
 }
 
@@ -225,7 +228,7 @@ auto genStackCode(Quad quad)
         // Save FP
         writeAsm("MOV", "R9", "FP");
 
-        // Point to PFP
+        // Load PFP
         writeAsm("MOV", "R1", "FP");
         writeAsm("ADI", "R1", "-4");
         writeAsm("LDR", "FP", "(R1)");
@@ -253,24 +256,20 @@ auto genStackCode(Quad quad)
 
 auto genMathCode(Quad quad)
 {
-    auto s1 = SymbolTable.getById(quad.opd1);
-    auto s2 = SymbolTable.getById(quad.opd2);
-    auto s3 = SymbolTable.getById(quad.opd3);
-
     switch (quad.opcode) {
     case "ADD":
     case "SUB":
     case "MUL":
     case "DIV":
-        loadRegister("R1", s1);
-        loadRegister("R2", s2);
+        loadRegister("R1", quad.opd1);
+        loadRegister("R2", quad.opd2);
         writeAsm(quad.opcode, "R1", "R2");
-        storeRegister("R1", s3);
+        storeRegister("R1", quad.opd3);
         break;
     case "ADI":
-        loadRegister("R1", s1);
+        loadRegister("R1", quad.opd1);
         writeAsm("ADI", "R1", quad.opd2);
-        storeRegister("R1", s3);
+        storeRegister("R1", quad.opd3);
         break;
     default:
         throw new Exception("genMathCode: Invalid opcode "~quad.opcode);
@@ -279,15 +278,11 @@ auto genMathCode(Quad quad)
 
 auto genBoolCode(Quad quad)
 {
-    auto s1 = SymbolTable.getById(quad.opd1);
-    auto s2 = SymbolTable.getById(quad.opd2);
-    auto s3 = SymbolTable.getById(quad.opd3);
-
     auto label1 = icode.makeLabel();
     auto label2 = icode.makeLabel();
 
-    loadRegister("R1", s1);
-    loadRegister("R2", s2);
+    loadRegister("R1", quad.opd1);
+    loadRegister("R2", quad.opd2);
 
     writeAsm("MOV", "R3", "R1");
     writeAsm("CMP", "R3", "R2");
@@ -327,20 +322,18 @@ auto genBoolCode(Quad quad)
     writeAsm("ADI", "R3", "1");
 
     _label = label2;
-    storeRegister("R3", s3);
+    storeRegister("R3", quad.opd3);
 }
 
 auto genControlFlowCode(Quad quad)
 {
-    auto s1 = SymbolTable.getById(quad.opd1);
-
     switch (quad.opcode) {
     case "BF":
-        loadRegister("R1", s1);
+        loadRegister("R1", quad.opd1);
         writeAsm("BRZ", "R1", quad.opd2);
         break;
     case "BT":
-        loadRegister("R1", s1);
+        loadRegister("R1", quad.opd1);
         writeAsm("BNZ", "R1", quad.opd2);
         break;
     case "JMP":
@@ -353,12 +346,8 @@ auto genControlFlowCode(Quad quad)
 
 auto genLogicCode(Quad quad)
 {
-    auto s1 = SymbolTable.getById(quad.opd1);
-    auto s2 = SymbolTable.getById(quad.opd2);
-    auto s3 = SymbolTable.getById(quad.opd3);
-
-    loadRegister("R1", s1);
-    loadRegister("R2", s2);
+    loadRegister("R1", quad.opd1);
+    loadRegister("R2", quad.opd2);
 
     if (quad.opcode == "AND")
         writeAsm("AND", "R1", "R2");
@@ -367,23 +356,20 @@ auto genLogicCode(Quad quad)
     else
         throw new Exception("genLogicalCode: Invalid opcode " ~ quad.opcode);
 
-    storeRegister("R1", s3);
+    storeRegister("R1", quad.opd3);
 }
 
 auto genMoveCode(Quad quad)
 {
-    auto s1 = SymbolTable.getById(quad.opd1);
-    auto s2 = SymbolTable.getById(quad.opd2);
-
     switch (quad.opcode) {
     case "MOV":
-        loadRegister("R1", s1);
-        storeRegister("R1", s2);        
+        loadRegister("R1", quad.opd1);
+        storeRegister("R1", quad.opd2);        
         break;
     case "MOVI":
         writeAsm("SUB", "R1", "R1");
         writeAsm("ADI", "R1", quad.opd1);
-        storeRegister("R1", s2);
+        storeRegister("R1", quad.opd2);
         break;
     default:
         break;
@@ -445,8 +431,10 @@ auto genWriteCode(Quad quad)
 
 auto genMallocCode(Quad quad)
 {
+    // Store current heap pointer
     storeRegister("HP", quad.opd2);
 
+    // Increment heap pointer
     if (quad.opcode == "NEW") {
         loadRegister("R1", quad.opd1);
         writeAsm("ADD", "HP", "R1");
@@ -459,10 +447,12 @@ auto genMallocCode(Quad quad)
 auto genConvertCode(Quad quad)
 {
     loadRegister("R0", quad.opd1);
+    
     if (quad.opcode == "ITOA")
         writeAsm("TRP", "11");
     else
         writeAsm("TRP", "10");
+
     storeRegister("R0", quad.opd2);
 }
 
