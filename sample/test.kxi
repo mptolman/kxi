@@ -13,51 +13,52 @@ class Node
 class List
 {
     public Node first;
-    public Node last;
     
     List()
     {
         first = null;
-        last = null;
     }
     
     public void push(int data)
     {
         Node node;
+        
         if (first == null) {
             first = new Node(data);
-            last = first;
         }
         else {
-            node = new Node(data);
-            last.next = node;
-            last = node;
+            node = first;
+            while (node.next != null)
+                node = node.next;
+            node.next = new Node(data);
         }
     }
     
     public void pop()
     {
-        Node previous = null;
         Node current = first;
+        Node previous = null;
         
-        if (first == null)
+        if (current == null)
             return;
-            
-        while (current.next != null)
-        {
+        
+        while (current.next != null) {
             previous = current;
             current = current.next;
         }
-        current = previous;
+        
+        previous.next = null;
     }
     
     public void traverse()
     {
         Node current = first;
-        while (current != null) {
+        
+        while (current != null) {            
             cout << current.data;
             current = current.next;
         }
+        cout << '\n';
     }
 }
 
@@ -72,4 +73,5 @@ void main()
     list.push(3);
     list.traverse();
     list.pop();
+    list.traverse();
 }

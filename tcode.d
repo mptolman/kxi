@@ -27,10 +27,6 @@ Stream _file;
 string _label;
 string _comment;
 
-string _formatTwoOpd = "%-15s %-4s %-3s %-15s %s";
-string _formatOneOpd = "%-15s %-4s %-19s %s";
-string[string] _opcodeFormatMap;
-
 void genGlobalData()
 {
     foreach (symbol; SymbolTable.getGlobals()) {
@@ -574,27 +570,26 @@ auto storeRegister(string reg, string symId)
 
 auto writeAsm(string opcode, string opd1, string opd2=null, string comment=null)
 {
-    string format;
-
     if (comment)
         comment = ";" ~ comment;
     else if (_comment)
         comment = ";" ~ _comment;
-    
-    if (opcode in _opcodeFormatMap)
-        format = _opcodeFormatMap[opcode];
-    else
-        format = _formatTwoOpd;
 
-    _file.writefln(format, _label, opcode, opd1, opd2, comment);
+    _file.writefln(getFormat(opcode), _label, opcode, opd1, opd2, comment);
     _label = null;
     _comment = null;
 }
 
-static this()
+auto getFormat(string opcode)
 {
-    _opcodeFormatMap = [
-        "TRP" : _formatOneOpd,
-        "JMP" : _formatOneOpd
-    ];
+    static immutable FORMAT_ONE_OPERAND = "%-15s %-4s %-19s %s";
+    static immutable FORMAT_TWO_OPERAND = "%-15s %-4s %-3s %-15s %s";
+
+    switch (opcode) {
+    case "TRP":
+    case "JMP":
+        return FORMAT_ONE_OPERAND;
+    default:
+        return FORMAT_TWO_OPERAND;
+    }
 }
