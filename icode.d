@@ -36,8 +36,8 @@ void funcCall(string symId, string opd1, string[] args=null, string returnId=nul
 
 void funcBegin()
 {
-    setLabel(currentMethod.id, true);
-    addQuad("FUNC", currentMethod.id);
+    setLabel(global.currentMethod.id, true);
+    addQuad("FUNC", global.currentMethod.id);
 }
 
 void funcReturn(string r=null)
@@ -58,8 +58,8 @@ void terminate()
 //----------------------------
 void classBegin()
 {
-    _classInitLabel = currentStaticInit.id;
-    addStaticInitQuad("FUNC", currentStaticInit.id);
+    _classInitLabel = global.currentStaticInit.id;
+    addStaticInitQuad("FUNC", global.currentStaticInit.id);
 }
 
 void classEnd()

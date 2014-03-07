@@ -31,7 +31,7 @@ Token _ct;
 void next()
 {
     _ct = _tokens.next();
-    currentLineNum = _ct.line;
+    global.currentLineNum = _ct.line;
 }
 
 auto peek()
@@ -78,7 +78,7 @@ void compilation_unit()
     //    "void" "main" "(" ")" method_body
     // ;
 
-    currentScope = Scope(GLOBAL_SCOPE);
+    global.currentScope = Scope(GLOBAL_SCOPE);
 
     next();
     while (_ct.type == TType.CLASS)
@@ -92,18 +92,18 @@ void compilation_unit()
     auto methodName = _ct.value;
 
     if (_firstPass) {
-        currentMethod = SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, currentScope, _ct.line);
-        _symbolQueue.push(currentMethod);
+        global.currentMethod = SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, global.currentScope, _ct.line);
+        _symbolQueue.push(global.currentMethod);
 
-        icode.funcCall(currentMethod.id, "main");
+        icode.funcCall(global.currentMethod.id, "main");
         icode.terminate();
     }
     else {
-        currentMethod = cast(MethodSymbol)_symbolQueue.front;
+        global.currentMethod = cast(MethodSymbol)_symbolQueue.front;
         _symbolQueue.pop();
     }
 
-    currentScope.push(methodName);
+    global.currentScope.push(methodName);
 
     next();
     assertType(TType.PAREN_OPEN); 
@@ -113,7 +113,7 @@ void compilation_unit()
 
     method_body();
 
-    currentScope.pop();
+    global.currentScope.pop();
 }
 
 void class_declaration()
@@ -129,23 +129,23 @@ void class_declaration()
     auto className = _ct.value;
 
     if (_firstPass) {
-        currentClass = SymbolTable.addClass(className, _ct.line);
-        _symbolQueue.push(currentClass);
+        global.currentClass = SymbolTable.addClass(className, _ct.line);
+        _symbolQueue.push(global.currentClass);
 
-        currentStaticInit = SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, currentScope, _ct.line);
-        _symbolQueue.push(currentStaticInit);
+        global.currentStaticInit = SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, global.currentScope, _ct.line);
+        _symbolQueue.push(global.currentStaticInit);
     }
     else {
-        currentClass = cast(ClassSymbol)_symbolQueue.front;
+        global.currentClass = cast(ClassSymbol)_symbolQueue.front;
         _symbolQueue.pop();
 
-        currentStaticInit = cast(MethodSymbol)_symbolQueue.front;
+        global.currentStaticInit = cast(MethodSymbol)_symbolQueue.front;
         _symbolQueue.pop();
 
         icode.classBegin();
     }
 
-    currentScope.push(className);
+    global.currentScope.push(className);
 
     next();
     assertType(TType.BLOCK_BEGIN);     
@@ -159,7 +159,7 @@ void class_declaration()
     assertType(TType.BLOCK_END);
     next();
 
-    currentScope.pop();
+    global.currentScope.pop();
 }
 
 void class_member_declaration()
@@ -205,15 +205,15 @@ void field_declaration(string identifier, string type, string modifier)
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (_firstPass) {
-            currentMethod = SymbolTable.addMethod(identifier, type, modifier, currentScope, _ct.line);
-            _symbolQueue.push(currentMethod);
+            global.currentMethod = SymbolTable.addMethod(identifier, type, modifier, global.currentScope, _ct.line);
+            _symbolQueue.push(global.currentMethod);
         }
         else {
-            currentMethod = cast(MethodSymbol)_symbolQueue.front;
+            global.currentMethod = cast(MethodSymbol)_symbolQueue.front;
             _symbolQueue.pop();
         }
 
-        currentScope.push(identifier);
+        global.currentScope.push(identifier);
 
         next();
         if (_ct.type != TType.PAREN_CLOSE)
@@ -223,10 +223,10 @@ void field_declaration(string identifier, string type, string modifier)
 
         method_body();
 
-        currentScope.pop();
+        global.currentScope.pop();
     }
     else {
-        auto saveCurrentMethod = currentMethod;
+        auto saveCurrentMethod = global.currentMethod;
 
         if (_ct.type == TType.ARRAY_BEGIN) {
                 type = "@:" ~ type;
@@ -236,7 +236,7 @@ void field_declaration(string identifier, string type, string modifier)
             }
 
         if (_firstPass) {
-            _symbolQueue.push(currentClass.addInstanceVar(identifier, type, modifier, _ct.line));
+            _symbolQueue.push(global.currentClass.addInstanceVar(identifier, type, modifier, _ct.line));
         }
         else {
             vPush(_symbolQueue.front);
@@ -244,7 +244,7 @@ void field_declaration(string identifier, string type, string modifier)
 
             // Add field declarations to built-in static initializer function            
             icode._insideClass = true;
-            currentMethod = currentStaticInit;
+            global.currentMethod = global.currentStaticInit;
         }
 
         if (_ct.type == TType.ASSIGN_OP) {
@@ -260,7 +260,7 @@ void field_declaration(string identifier, string type, string modifier)
         if (!_firstPass) {
             eoe_sa();
             icode._insideClass = false;
-            currentMethod = saveCurrentMethod;
+            global.currentMethod = saveCurrentMethod;
         }
     }
 }
@@ -274,16 +274,16 @@ void constructor_declaration()
     auto ctorName  = _ct.value;
 
     if (_firstPass) {
-        currentMethod = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, currentScope, _ct.line);
-        _symbolQueue.push(currentMethod);
+        global.currentMethod = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, global.currentScope, _ct.line);
+        _symbolQueue.push(global.currentMethod);
     }
     else {
-        currentMethod = cast(MethodSymbol)_symbolQueue.front;
+        global.currentMethod = cast(MethodSymbol)_symbolQueue.front;
         _symbolQueue.pop();
         cd_sa();
     }
 
-    currentScope.push(ctorName);
+    global.currentScope.push(ctorName);
 
     next();
     assertType(TType.PAREN_OPEN);
@@ -295,7 +295,7 @@ void constructor_declaration()
 
     method_body(true);
 
-    currentScope.pop();
+    global.currentScope.pop();
 }
 
 void parameter_list()
@@ -335,7 +335,7 @@ void parameter()
     }
 
     if (_firstPass)
-        currentMethod.addParam(identifier, type, _ct.line);
+        global.currentMethod.addParam(identifier, type, _ct.line);
 }
 
 void method_body(bool isCtor=false)
@@ -348,7 +348,7 @@ void method_body(bool isCtor=false)
     if (!_firstPass) {
         icode.funcBegin();
         if (isCtor)
-            icode.funcCall(currentStaticInit.id, "this"); // call the static initializer first
+            icode.funcCall(global.currentStaticInit.id, "this"); // call the static initializer first
     }
 
     next();
@@ -394,7 +394,7 @@ void variable_declaration()
     }
 
     if (_firstPass) {
-        _symbolQueue.push(currentMethod.addLocal(identifier, type, _ct.line));
+        _symbolQueue.push(global.currentMethod.addLocal(identifier, type, _ct.line));
     }
     else {
         vPush(_symbolQueue.front);

@@ -378,25 +378,20 @@ auto genMoveCode(Quad quad)
 
 auto genArrayRefCode(Quad quad)
 {
-    auto baseSymbol = SymbolTable.getById(quad.opd1);
+    auto baseSymbol  = SymbolTable.getById(quad.opd1);
     auto indexSymbol = SymbolTable.getById(quad.opd2);
-    auto addrSymbol = SymbolTable.getById(quad.opd3);
+    auto addrSymbol  = SymbolTable.getById(quad.opd3);
 
     loadRegister("R1", baseSymbol);
     loadRegister("R2", indexSymbol);
 
     writeAsm("SUB", "R3", "R3");
-    switch (addrSymbol.type) {
-    case "char":
+    
+    if (addrSymbol.type == "char")
         writeAsm("ADI", "R3", to!string(char.sizeof));
-        break;
-    case "bool":
-        writeAsm("ADI", "R3", to!string(bool.sizeof));
-        break;
-    default:
+    else
         writeAsm("ADI", "R3", to!string(int.sizeof));
-        break;
-    }
+    
     writeAsm("MUL", "R2", "R3");
     writeAsm("ADD", "R1", "R2");
     storeRegister("R1", addrSymbol, false);
@@ -566,7 +561,7 @@ auto writeAsm(string opcode, string opd1, string opd2=null, string comment=null)
         comment = ";" ~ _comment;
 
     _file.writefln(getFormat(opcode), _label, opcode, opd1, opd2, comment);
-    _label = null;
+    _label   = null;
     _comment = null;
 }
 

@@ -88,7 +88,7 @@ void atoi_sa()
     if (symbol.type != "char")
         throw new SemanticError(sar.line,"Invalid argument for atoi. Expected char, not ",symbol.type);
 
-    auto temp = currentMethod.addTemporary("int");
+    auto temp = global.currentMethod.addTemporary("int");
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
 
     icode.atoi(symbol.id, temp.id);
@@ -114,8 +114,8 @@ void cd_sa()
 {
     debug writeln("cd_sa");
 
-    if (currentMethod.name != currentClass.name)
-        throw new SemanticError(currentLineNum,"Constructor '",currentMethod.name,"' does not match class name ",currentClass.name);
+    if (global.currentMethod.name != global.currentClass.name)
+        throw new SemanticError(global.currentLineNum,"Constructor '",global.currentMethod.name,"' does not match class name ",global.currentClass.name);
 }
 
 void cin_sa()
@@ -234,7 +234,7 @@ void iExist()
 
         checkFuncArgs(id_sar, methodSymbol);
 
-        tempSymbol = currentMethod.addTemporary(methodSymbol.type);
+        tempSymbol = global.currentMethod.addTemporary(methodSymbol.type);
 
         icode.funcCall(methodSymbol.id, "this", id_sar.args, tempSymbol.id);
         break;
@@ -247,7 +247,7 @@ void iExist()
         if (splitType[0] != "@")
             throw new SemanticError(id_sar.line,"Identifier '",id_sar.name,"' is not an array");
 
-        tempSymbol = currentMethod.addReference(text(id_sar.name,'[',id_sar.id,']'),splitType[1]);
+        tempSymbol = global.currentMethod.addReference(text(id_sar.name,'[',id_sar.id,']'),splitType[1]);
 
         icode.arrRef(varSymbol.id, id_sar.id, tempSymbol.id);
         break;
@@ -265,25 +265,25 @@ void if_sa()
     debug writeln("if_sa");
     
     if (_sas.empty())
-        throw new SemanticError(currentLineNum,"Expected boolean expression");
+        throw new SemanticError(global.currentLineNum,"Expected boolean expression");
 
     auto sar = _sas.top();
     _sas.pop();
 
     auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
-        throw new SemanticError(currentLineNum,"if_sa: Failed to load symbol");
+        throw new SemanticError(global.currentLineNum,"if_sa: Failed to load symbol");
     if (symbol.type != "bool")
-        throw new SemanticError(currentLineNum,"Expected boolean expression, not ",symbol.type);
+        throw new SemanticError(global.currentLineNum,"Expected boolean expression, not ",symbol.type);
 
     icode.ifCond(symbol.id);
 }
 
 void iPush(string name)
 {
-    debug writefln("(%s) iPush: %s",currentLineNum,name);
+    debug writefln("(%s) iPush: %s",global.currentLineNum,name);
 
-    _sas.push(SAR(SARType.ID_SAR,name,currentScope,currentLineNum));
+    _sas.push(SAR(SARType.ID_SAR,name,global.currentScope,global.currentLineNum));
 }
 
 void itoa_sa()
@@ -299,7 +299,7 @@ void itoa_sa()
     if (symbol.type != "int")
         throw new SemanticError(sar.line,"Invalid argument for itoa. Expected int, not ",symbol.type);
 
-    auto temp = currentMethod.addTemporary("char");
+    auto temp = global.currentMethod.addTemporary("char");
     _sas.push(SAR(SARType.TEMP_SAR,sar.name,sar.line,temp.id));
 
     icode.itoa(symbol.id, temp.id);
@@ -309,7 +309,7 @@ void lPush(Symbol symbol)
 {
     debug writefln("lPush: %s",symbol.name);
 
-    _sas.push(SAR(SARType.LIT_SAR,symbol.name,currentLineNum,symbol.id));
+    _sas.push(SAR(SARType.LIT_SAR,symbol.name,global.currentLineNum,symbol.id));
 }
 
 void newarr_sa()
@@ -335,8 +335,8 @@ void newarr_sa()
         elemsz = int.sizeof;
 
     auto elemsz_symbol  = SymbolTable.addGlobal(to!string(elemsz), "int");
-    auto totalsz_symbol = currentMethod.addTemporary("int");
-    auto arr_symbol     = currentMethod.addTemporary("@:"~type_sar.name);
+    auto totalsz_symbol = global.currentMethod.addTemporary("int");
+    auto arr_symbol     = global.currentMethod.addTemporary("@:"~type_sar.name);
 
     icode.mathOp("*", elemsz_symbol.id, arrsz_symbol.id, totalsz_symbol.id);
     icode.malloc(totalsz_symbol.id, arr_symbol.id);
@@ -372,11 +372,11 @@ void newobj_sa()
     checkFuncArgs(al_sar, ctor_symbol);
 
     // Allocate memory for object
-    auto mem_symbol = currentMethod.addTemporary(type_sar.name);
+    auto mem_symbol = global.currentMethod.addTemporary(type_sar.name);
     icode.malloc(class_symbol.offset, mem_symbol.id);
 
     // Call constructor
-    auto temp_symbol = currentMethod.addTemporary(type_sar.name);
+    auto temp_symbol = global.currentMethod.addTemporary(type_sar.name);
     icode.funcCall(ctor_symbol.id, mem_symbol.id, al_sar.args, temp_symbol.id);
 
     auto new_sar = SAR(SARType.NEW_SAR, type_sar.name, type_sar.line, temp_symbol.id);
@@ -387,11 +387,11 @@ void newobj_sa()
 
 void oPush(string op)
 {    
-    debug writefln("(%s) oPush: %s",currentLineNum,op);
+    debug writefln("(%s) oPush: %s",global.currentLineNum,op);
 
     while (!_os.empty && _opWeights[_os.top] >= _opWeights[op] && _opWeights[_os.top] != _opWeights["("]) {
         if (op == "=" && _os.top == "=")
-            throw new SemanticError(currentLineNum,"Nested assignment not supported");
+            throw new SemanticError(global.currentLineNum,"Nested assignment not supported");
         doStackOp();
     }
 
@@ -405,11 +405,11 @@ void return_sa()
     while (!_os.empty())
         doStackOp();
 
-    auto expectedRtnType = currentMethod.type;
+    auto expectedRtnType = global.currentMethod.type;
 
     if (_sas.empty) {
         if (expectedRtnType != "void")
-            throw new SemanticError(currentLineNum,"Method ",currentMethod.name," must return ",expectedRtnType,", not void");
+            throw new SemanticError(global.currentLineNum,"Method ",global.currentMethod.name," must return ",expectedRtnType,", not void");
 
         icode.funcReturn();
     }
@@ -419,9 +419,9 @@ void return_sa()
 
         auto ret_symbol = SymbolTable.getById(ret_sar.id);
         if (!ret_symbol)
-            throw new SemanticError(currentLineNum,"return_sa: Failed to load return symbol");
+            throw new SemanticError(global.currentLineNum,"return_sa: Failed to load return symbol");
         if (ret_symbol.type != expectedRtnType)
-            throw new SemanticError(currentLineNum,"Return statement for method ",currentMethod.name," must be of type ",expectedRtnType,", not ",ret_symbol.type);
+            throw new SemanticError(global.currentLineNum,"Return statement for method ",global.currentMethod.name," must be of type ",expectedRtnType,", not ",ret_symbol.type);
 
         icode.funcReturn(ret_symbol.id);        
     }
@@ -461,7 +461,7 @@ void rExist()
         if (varSymbol.modifier != PUBLIC_MODIFIER && !class_scope.contains(obj_sar.scpe))
             throw new SemanticError(member_sar.line,"Variable ",class_symbol.name,".",member_sar.name," is private");
 
-        ref_symbol = currentMethod.addReference(text(obj_sar.name,'.',member_sar.name), varSymbol.type);
+        ref_symbol = global.currentMethod.addReference(text(obj_sar.name,'.',member_sar.name), varSymbol.type);
 
         if (member_sar.sarType == SARType.ARR_SAR)
             icode.arrRef(varSymbol.id, member_sar.id, ref_symbol.id);
@@ -477,7 +477,7 @@ void rExist()
 
         checkFuncArgs(member_sar, methodSymbol);
 
-        ref_symbol = currentMethod.addTemporary(methodSymbol.type);
+        ref_symbol = global.currentMethod.addTemporary(methodSymbol.type);
 
         icode.funcCall(methodSymbol.id, obj_symbol.id, member_sar.args, ref_symbol.id);
         break;
@@ -503,16 +503,16 @@ void tExist()
 
 void tPush(string type)
 {
-    debug writefln("(%s) tPush: %s",currentLineNum,type);
+    debug writefln("(%s) tPush: %s",global.currentLineNum,type);
     
-    _sas.push(SAR(SARType.TYPE_SAR,type,currentLineNum));
+    _sas.push(SAR(SARType.TYPE_SAR,type,global.currentLineNum));
 }
 
 void vPush(Symbol symbol)
 {
-    debug writefln("(%s) vPush: %s",currentLineNum,symbol.name);
+    debug writefln("(%s) vPush: %s",global.currentLineNum,symbol.name);
 
-    _sas.push(SAR(SARType.ID_SAR,symbol.type,symbol.scpe,currentLineNum,symbol.id));
+    _sas.push(SAR(SARType.ID_SAR,symbol.type,symbol.scpe,global.currentLineNum,symbol.id));
 }
 
 void while_sa()
@@ -520,16 +520,16 @@ void while_sa()
     debug writeln("while_sa");
 
     if (_sas.empty())
-        throw new SemanticError(currentLineNum,"Expected boolean expression");
+        throw new SemanticError(global.currentLineNum,"Expected boolean expression");
 
     auto sar = _sas.top();
     _sas.pop();
 
     auto symbol = SymbolTable.getById(sar.id);
     if (!symbol)
-        throw new SemanticError(currentLineNum,"while_sa: Failed to load symbol");
+        throw new SemanticError(global.currentLineNum,"while_sa: Failed to load symbol");
     if (symbol.type != "bool")
-        throw new SemanticError(currentLineNum,"Expected boolean expression, not ",symbol.type);
+        throw new SemanticError(global.currentLineNum,"Expected boolean expression, not ",symbol.type);
 
     icode.whileCond(symbol.id);
 }
@@ -584,7 +584,7 @@ void doStackOp()
         if (l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid operands for '",op,"' operator. Types do not match");
 
-        auto temp_symbol = currentMethod.addTemporary(l_symbol.type);
+        auto temp_symbol = global.currentMethod.addTemporary(l_symbol.type);
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
         icode.mathOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
@@ -601,7 +601,7 @@ void doStackOp()
                 throw new SemanticError(l_sar.line,"Cannot compare objects of different types. Found ",l_symbol.type," and ",r_symbol.type);
         }
 
-        auto temp_symbol = currentMethod.addTemporary("bool");
+        auto temp_symbol = global.currentMethod.addTemporary("bool");
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
         icode.relOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
@@ -611,7 +611,7 @@ void doStackOp()
         if (l_symbol.type != "bool" || l_symbol.type != r_symbol.type)
             throw new SemanticError(l_sar.line,"Invalid boolean expression");
 
-        auto temp_symbol = currentMethod.addTemporary("bool");
+        auto temp_symbol = global.currentMethod.addTemporary("bool");
         _sas.push(SAR(SARType.TEMP_SAR,temp_symbol.name,l_sar.line,temp_symbol.id));
 
         icode.boolOp(op, l_symbol.id, r_symbol.id, temp_symbol.id);
