@@ -1,6 +1,6 @@
 import std.conv;
 import std.stdio;
-import container, scpe, symbol;
+import container, global, symbol;
 
 bool _insideClass;
 string _line;
@@ -24,8 +24,10 @@ void funcCall(string symId, string opd1, string[] args=null, string returnId=nul
         throw new Exception("funcCall: Failed to load method symbol");
 
     addQuad("FRAME", symId, opd1);
+
     foreach (arg; args.dup.reverse)
         addQuad("PUSH", arg);
+
     addQuad("CALL", symId);
 
     if (returnId && method.type != "void")
@@ -34,8 +36,8 @@ void funcCall(string symId, string opd1, string[] args=null, string returnId=nul
 
 void funcBegin()
 {
-    setLabel(_currentMethod.id, true);
-    addQuad("FUNC", _currentMethod.id);
+    setLabel(currentMethod.id, true);
+    addQuad("FUNC", currentMethod.id);
 }
 
 void funcReturn(string r=null)
@@ -52,12 +54,12 @@ void terminate()
 }
 
 //----------------------------
-// class member initialization
+// Class member initialization
 //----------------------------
 void classBegin()
 {
-    _classInitLabel = _currentStaticInit.id;
-    addStaticInitQuad("FUNC", _currentStaticInit.id);
+    _classInitLabel = currentStaticInit.id;
+    addStaticInitQuad("FUNC", currentStaticInit.id);
 }
 
 void classEnd()
@@ -299,9 +301,9 @@ void addQuad(string opcode, string opd1=null, string opd2=null, string opd3=null
         addStaticInitQuad(opcode,opd1,opd2,opd3);
     }
     else {
-        if (scpe._kxiIsNew) {
-            _quads ~= Quad("COMMENT",scpe._kxi.dup);
-            scpe._kxiIsNew = false;
+        if (global.kxiIsNew) {
+            _quads ~= Quad("COMMENT",global.kxi);
+            global.kxiIsNew = false;
         }
         _quads ~= Quad(opcode,opd1,opd2,opd3,_currentLabel);
         _currentLabel = null;

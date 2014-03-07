@@ -1,6 +1,6 @@
 import std.conv;
 import std.stdio;
-import container, exception, icode, lexer, scpe, semantic, symbol;
+import container, exception, global, icode, lexer, scpe, semantic, symbol;
 
 void parse(string srcFileName)
 {
@@ -31,6 +31,7 @@ Token _ct;
 void next()
 {
     _ct = _tokens.next();
+    currentLineNum = _ct.line;
 }
 
 auto peek()
@@ -64,7 +65,7 @@ void error(T)(T[] types...)
             s ~= text(" or ",t);
     }
     s ~= text(", not ",_ct.type," \"",_ct.value,"\"");
-    throw new SyntaxError(_ct.line,s);
+    throw new SyntaxError(_ct.line, s);
 }
 
 /****************************
@@ -77,7 +78,7 @@ void compilation_unit()
     //    "void" "main" "(" ")" method_body
     // ;
 
-    _currentScope = Scope(GLOBAL_SCOPE);
+    currentScope = Scope(GLOBAL_SCOPE);
 
     next();
     while (_ct.type == TType.CLASS)
@@ -88,21 +89,21 @@ void compilation_unit()
     
     next();
     assertType(TType.MAIN);
-    auto methodName  = _ct.value;
+    auto methodName = _ct.value;
 
     if (_firstPass) {
-        _currentMethod = SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, _currentScope, _ct.line);
-        _symbolQueue.push(_currentMethod);
+        currentMethod = SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, currentScope, _ct.line);
+        _symbolQueue.push(currentMethod);
 
-        icode.funcCall(_currentMethod.id, "main");
+        icode.funcCall(currentMethod.id, "main");
         icode.terminate();
     }
     else {
-        _currentMethod = cast(MethodSymbol)_symbolQueue.front;
+        currentMethod = cast(MethodSymbol)_symbolQueue.front;
         _symbolQueue.pop();
     }
 
-    _currentScope.push(methodName);
+    currentScope.push(methodName);
 
     next();
     assertType(TType.PAREN_OPEN); 
@@ -112,7 +113,7 @@ void compilation_unit()
 
     method_body();
 
-    _currentScope.pop();
+    currentScope.pop();
 }
 
 void class_declaration()
@@ -128,23 +129,23 @@ void class_declaration()
     auto className = _ct.value;
 
     if (_firstPass) {
-        _currentClass = SymbolTable.addClass(className, _ct.line);
-        _symbolQueue.push(_currentClass);
+        currentClass = SymbolTable.addClass(className, _ct.line);
+        _symbolQueue.push(currentClass);
 
-        _currentStaticInit = SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, _currentScope, _ct.line);
-        _symbolQueue.push(_currentStaticInit);
+        currentStaticInit = SymbolTable.addMethod("__"~className, "void", PRIVATE_MODIFIER, currentScope, _ct.line);
+        _symbolQueue.push(currentStaticInit);
     }
     else {
-        _currentClass = cast(ClassSymbol)_symbolQueue.front;
+        currentClass = cast(ClassSymbol)_symbolQueue.front;
         _symbolQueue.pop();
 
-        _currentStaticInit = cast(MethodSymbol)_symbolQueue.front;
+        currentStaticInit = cast(MethodSymbol)_symbolQueue.front;
         _symbolQueue.pop();
 
         icode.classBegin();
     }
 
-    _currentScope.push(className);
+    currentScope.push(className);
 
     next();
     assertType(TType.BLOCK_BEGIN);     
@@ -158,7 +159,7 @@ void class_declaration()
     assertType(TType.BLOCK_END);
     next();
 
-    _currentScope.pop();
+    currentScope.pop();
 }
 
 void class_member_declaration()
@@ -176,7 +177,7 @@ void class_member_declaration()
         auto type = _ct.value;
 
         if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-            tPush(type, _ct.line);
+            tPush(type);
             tExist();
         }
 
@@ -204,15 +205,15 @@ void field_declaration(string identifier, string type, string modifier)
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (_firstPass) {
-            _currentMethod = SymbolTable.addMethod(identifier, type, modifier, _currentScope, _ct.line);
-            _symbolQueue.push(_currentMethod);
+            currentMethod = SymbolTable.addMethod(identifier, type, modifier, currentScope, _ct.line);
+            _symbolQueue.push(currentMethod);
         }
         else {
-            _currentMethod = cast(MethodSymbol)_symbolQueue.front;
+            currentMethod = cast(MethodSymbol)_symbolQueue.front;
             _symbolQueue.pop();
         }
 
-        _currentScope.push(identifier);
+        currentScope.push(identifier);
 
         next();
         if (_ct.type != TType.PAREN_CLOSE)
@@ -222,33 +223,33 @@ void field_declaration(string identifier, string type, string modifier)
 
         method_body();
 
-        _currentScope.pop();
+        currentScope.pop();
     }
     else {
-        auto saveCurrentMethod = _currentMethod;
+        auto saveCurrentMethod = currentMethod;
 
         if (_ct.type == TType.ARRAY_BEGIN) {
-            type = "@:" ~ type;
-            next();
-            assertType(TType.ARRAY_END); 
-            next();
-        }
+                type = "@:" ~ type;
+                next();
+                assertType(TType.ARRAY_END); 
+                next();
+            }
 
         if (_firstPass) {
-            _symbolQueue.push(_currentClass.addInstanceVar(identifier, type, modifier, _ct.line));
+            _symbolQueue.push(currentClass.addInstanceVar(identifier, type, modifier, _ct.line));
         }
         else {
-            vPush(_symbolQueue.front, _ct.line);
+            vPush(_symbolQueue.front);
             _symbolQueue.pop();
 
             // Add field declarations to built-in static initializer function            
             icode._insideClass = true;
-            _currentMethod = _currentStaticInit;
+            currentMethod = currentStaticInit;
         }
 
         if (_ct.type == TType.ASSIGN_OP) {
             if (!_firstPass)
-                oPush(_ct.value, _ct.line);            
+                oPush(_ct.value);            
             next();
             assignment_expression();
         }
@@ -258,8 +259,8 @@ void field_declaration(string identifier, string type, string modifier)
 
         if (!_firstPass) {
             eoe_sa();
-            _currentMethod = saveCurrentMethod;
             icode._insideClass = false;
+            currentMethod = saveCurrentMethod;
         }
     }
 }
@@ -273,16 +274,16 @@ void constructor_declaration()
     auto ctorName  = _ct.value;
 
     if (_firstPass) {
-        _currentMethod = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, _currentScope, _ct.line);
-        _symbolQueue.push(_currentMethod);
+        currentMethod = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, currentScope, _ct.line);
+        _symbolQueue.push(currentMethod);
     }
     else {
-        _currentMethod = cast(MethodSymbol)_symbolQueue.front;
+        currentMethod = cast(MethodSymbol)_symbolQueue.front;
         _symbolQueue.pop();
-        cd_sa(_ct.line);
+        cd_sa();
     }
 
-    _currentScope.push(ctorName);
+    currentScope.push(ctorName);
 
     next();
     assertType(TType.PAREN_OPEN);
@@ -294,7 +295,7 @@ void constructor_declaration()
 
     method_body(true);
 
-    _currentScope.pop();
+    currentScope.pop();
 }
 
 void parameter_list()
@@ -317,7 +318,7 @@ void parameter()
     auto type = _ct.value;
 
     if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-        tPush(type, _ct.line);
+        tPush(type);
         tExist();
     }
 
@@ -334,7 +335,7 @@ void parameter()
     }
 
     if (_firstPass)
-        _currentMethod.addParam(identifier, type, _ct.line);
+        currentMethod.addParam(identifier, type, _ct.line);
 }
 
 void method_body(bool isCtor=false)
@@ -347,7 +348,7 @@ void method_body(bool isCtor=false)
     if (!_firstPass) {
         icode.funcBegin();
         if (isCtor)
-            icode.funcCall(_currentStaticInit.id, "this"); // call the static initializer first
+            icode.funcCall(currentStaticInit.id, "this"); // call the static initializer first
     }
 
     next();
@@ -376,7 +377,7 @@ void variable_declaration()
     auto type = _ct.value;
 
     if (!_firstPass && _ct.type == TType.IDENTIFIER) {
-        tPush(type, _ct.line);
+        tPush(type);
         tExist();
     }
 
@@ -393,16 +394,16 @@ void variable_declaration()
     }
 
     if (_firstPass) {
-        _symbolQueue.push(_currentMethod.addLocal(identifier, type, _ct.line));
+        _symbolQueue.push(currentMethod.addLocal(identifier, type, _ct.line));
     }
     else {
-        vPush(_symbolQueue.front, _ct.line);
+        vPush(_symbolQueue.front);
         _symbolQueue.pop();
     }
 
     if (_ct.type == TType.ASSIGN_OP) {
         if (!_firstPass)
-            oPush(_ct.value,_ct.line);
+            oPush(_ct.value);
         next();
         assignment_expression();
     }
@@ -431,7 +432,7 @@ void assignment_expression()
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
         if (!_firstPass)
-            tPush(_ct.value, _ct.line);
+            tPush(_ct.value);
         next();
         new_declaration();
         break;
@@ -439,12 +440,12 @@ void assignment_expression()
         next();
         assertType(TType.PAREN_OPEN);
         if (!_firstPass)
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
-            cparen_sa(_ct.line);
+            cparen_sa();
             atoi_sa();
         }
         next();
@@ -453,12 +454,12 @@ void assignment_expression()
         next();
         assertType(TType.PAREN_OPEN);
         if (!_firstPass)
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
-            cparen_sa(_ct.line);
+            cparen_sa();
             itoa_sa();
         }        
         next();
@@ -480,7 +481,7 @@ void new_declaration()
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (!_firstPass) {
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
             bal_sa();
         }
 
@@ -490,7 +491,7 @@ void new_declaration()
         assertType(TType.PAREN_CLOSE);
 
         if (!_firstPass) {
-            cparen_sa(_ct.line);
+            cparen_sa();
             eal_sa();
             newobj_sa();
         }
@@ -498,7 +499,7 @@ void new_declaration()
     }
     else if (_ct.type == TType.ARRAY_BEGIN) {
         if (!_firstPass)
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
         next();
         expression();
         assertType(TType.ARRAY_END);
@@ -534,15 +535,15 @@ void statement()
         next();
         assertType(TType.PAREN_OPEN);        
         if (!_firstPass)
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
 
         next();
         expression();
 
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
-            cparen_sa(_ct.line);
-            if_sa(_ct.line);
+            cparen_sa();
+            if_sa();
         }
 
         next();
@@ -563,7 +564,7 @@ void statement()
         assertType(TType.PAREN_OPEN);
         if (!_firstPass) {
             icode.beginWhile();
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
         }
 
         next();
@@ -571,8 +572,8 @@ void statement()
 
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
-            cparen_sa(_ct.line);
-            while_sa(_ct.line);
+            cparen_sa();
+            while_sa();
         }
 
         next();
@@ -587,7 +588,7 @@ void statement()
             expression();
         assertType(TType.SEMICOLON);
         if (!_firstPass)
-            return_sa(_ct.line);
+            return_sa();
         next();
         break;
     case TType.COUT:
@@ -634,21 +635,21 @@ void expression()
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (!_firstPass)
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
 
         next();
         expression();
 
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass)
-            cparen_sa(_ct.line);
+            cparen_sa();
 
         next();
         expressionz();
     }
     else if (_ct.type == TType.IDENTIFIER) {
         if (!_firstPass)
-            iPush(_ct.value, _ct.line);
+            iPush(_ct.value);
 
         next();
         if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
@@ -670,7 +671,7 @@ void expression()
                 _symbolQueue.push(SymbolTable.addGlobal(_ct.value, "bool"));
             }
             else {
-                lPush(_symbolQueue.front, _ct.line);                
+                lPush(_symbolQueue.front);                
                 _symbolQueue.pop();
             }
             next();
@@ -681,7 +682,7 @@ void expression()
                 _symbolQueue.push(SymbolTable.addGlobal(_ct.value, "null"));
             }
             else {
-                lPush(_symbolQueue.front, _ct.line);           
+                lPush(_symbolQueue.front);           
                 _symbolQueue.pop();
             }
             next();
@@ -722,7 +723,7 @@ void expressionz()
     switch (_ct.type) {
     case TType.ASSIGN_OP:
         if (!_firstPass)
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
         next();
         assignment_expression();
         break;
@@ -730,14 +731,14 @@ void expressionz()
     case TType.REL_OP:
     case TType.MATH_OP:
         if (!_firstPass)
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
         next();
         expression();
         break;
     case TType.INT_LITERAL:
         if (_ct.value[0] == '-' || _ct.value[0] == '+') {
             if (!_firstPass)
-                oPush("+", _ct.line);
+                oPush("+");
             expression();
         }
         break;
@@ -754,7 +755,7 @@ void fn_arr_member()
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (!_firstPass) {
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
             bal_sa();
         }
 
@@ -764,7 +765,7 @@ void fn_arr_member()
 
         assertType(TType.PAREN_CLOSE);
         if (!_firstPass) {
-            cparen_sa(_ct.line);
+            cparen_sa();
             eal_sa();
             func_sa();
         }
@@ -773,7 +774,7 @@ void fn_arr_member()
     else {
         assertType(TType.ARRAY_BEGIN);
         if (!_firstPass)
-            oPush(_ct.value, _ct.line);
+            oPush(_ct.value);
 
         next();
         expression();
@@ -795,7 +796,7 @@ void member_refz()
     next();
     assertType(TType.IDENTIFIER);
     if (!_firstPass)
-        iPush(_ct.value, _ct.line);
+        iPush(_ct.value);
     next();
     if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
         fn_arr_member();
@@ -851,7 +852,7 @@ void character_literal()
         _symbolQueue.push(SymbolTable.addGlobal(character, "char"));
     }
     else {
-        lPush(_symbolQueue.front, _ct.line);
+        lPush(_symbolQueue.front);
         _symbolQueue.pop();
     }
 
@@ -869,7 +870,7 @@ void numeric_literal()
         _symbolQueue.push(SymbolTable.addGlobal(value, "int"));
     }
     else {
-        lPush(_symbolQueue.front, _ct.line);
+        lPush(_symbolQueue.front);
         _symbolQueue.pop();
     }
 

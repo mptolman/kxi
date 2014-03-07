@@ -123,8 +123,7 @@ class Message {
 
     public void msg1(int elm) {
 	print(0, 13);
-	cout << elm;
-	// FIXME: cout << "\n';
+	cout << elm;	
 	cout << '\n';
     }
 

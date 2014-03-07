@@ -1,15 +1,7 @@
 module scpe;
 import std.string;
-import symbol;
 
 immutable GLOBAL_SCOPE = "g";
-
-Scope _currentScope;
-ClassSymbol _currentClass;
-MethodSymbol _currentMethod;
-MethodSymbol _currentStaticInit;
-string _kxi;
-bool _kxiIsNew;
 
 struct Scope
 {

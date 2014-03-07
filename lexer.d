@@ -1,6 +1,6 @@
 import std.ascii;
 import std.stdio;
-import container, scpe;
+import container, global;
 
 enum TType : byte
 {
@@ -93,8 +93,8 @@ public:
     void rewind()
     {
         _tokens.clear();
-        _lineNum = 0;
         _file.rewind();
+        _lineNum = 0;
     }
 
     void toggleRecordKxi()
@@ -133,12 +133,12 @@ private:
         auto line = _file.readln();
         ++_lineNum;
 
-        if (_recordKxi && scpe._kxiIsNew) {
-            scpe._kxi ~= line;
+        if (_recordKxi && global.kxiIsNew) {
+            global.kxi ~= line;
         }
         else if (_recordKxi) {
-            scpe._kxi = line;
-            scpe._kxiIsNew = true;
+            global.kxi = line;
+            global.kxiIsNew = true;
         }
 
         string tok;
