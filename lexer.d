@@ -1,5 +1,7 @@
 import std.ascii;
+import std.conv;
 import std.stdio;
+import std.stream;
 import container, global;
 
 enum TType : byte
@@ -51,95 +53,129 @@ enum TType : byte
 struct Token
 {
     TType type;
-    string value;
+    string lexeme;
     size_t line;
 }
 
 class Lexer
 {
 public:
-    this(File file) 
+    this(string fileName)
     {
-        _file = file;
+        _file = new BufferedFile(fileName);
         _tokens = new Queue!Token;
     }
 
-    this(string fileName)
+    auto peek()
     {
-        this(File(fileName));
+        if (_tokens.empty)
+            loadMoreTokens();
+
+        return _tokens.front;
     }
 
-    Token peek()
+    auto next()
     {
-        if (!_tokens.empty())
-            return _tokens.front();
+        if (_tokens.empty)
+            loadMoreTokens();
 
-        loadMoreTokens();
-        return peek();
-    }
-
-    Token next()
-    {
-        if (!_tokens.empty()) {
-            Token t = _tokens.front();
-            _tokens.pop();
-            return t;
-        }
-
-        loadMoreTokens();
-        return next();
+        auto t = _tokens.front;
+        _tokens.pop();
+        return t;
     }
 
     void rewind()
     {
-        _tokens.clear();
-        _file.rewind();
-        _lineNum = 0;
-    }
-
-    void toggleRecordKxi()
-    {
-        _recordKxi = _recordKxi ? false : true;
+        
     }
 
 private:
-    File _file;
+    Stream _file;
     Queue!Token _tokens;
+
+    char[] _currLine;
+    size_t _currPos;
     size_t _lineNum;
+
     bool _recordKxi;
 
     void loadMoreTokens()
     {
-        immutable MAX_ID_LEN = 80;
-        enum State : byte
-        {
-            ALPHANUM,
-            AND,            
-            CHAR_BEGIN,
-            CHAR_END,
-            CHAR_ESCAPE,
-            COMMENT,
-            DIGIT,
-            EQUALS,
-            GT,
-            LT,
-            NOT,
-            OR,
-            PLUS_OR_MINUS,
-            POSSIBLE_COMMENT,
-            START
-        }
+        static char[] buffer;
 
-        auto line = _file.readln();
+        _currLine = _file.readLine(buffer);
         ++_lineNum;
 
         if (_recordKxi && global.kxiIsNew) {
-            global.kxi ~= line;
+            global.kxi ~= _currLine;
         }
         else if (_recordKxi) {
-            global.kxi = line;
+            global.kxi = _currLine;
             global.kxiIsNew = true;
         }
+
+        while (!_file.eof) {
+            for (_currPos = 0; _currPos < _currLine.length; ++_currPos) {
+                auto c = _currLine[_currPos];
+
+                if (isWhite(c)) {
+                    // ignore whitespace
+                }
+                else if (isAlpha(c)) {
+                    alphaNum();
+                }
+                else if (isDigit(c)) {
+                    digit();
+                }
+                else if (c == '<') {
+                    lt();
+                }
+                else if (c == '=') {
+                    equals();
+                }                    
+            }
+        }
+    }
+
+    void collectWhile(bool function(char) f)
+    {
+        string tok;
+
+        while (_currPos < _currLine.length) {
+            if (f(_currLine[_currPos]))
+                tok ~= _currLine[_currPos++];
+            else {
+                --_currPos;
+                break;
+            }
+        }
+
+        return tok;
+    }
+
+    void alphaNum()
+    {
+        string tok = [_currLine[_currPos++]];
+        tok ~= collectWhile(c => isAlphaNum(c) || c == '_');
+        _tokens.push(Token(tok in tokenMap ? tokenMap[tok] : TType.IDENTIFIER, tok, _lineNum));
+    }
+
+    void digit()
+    {
+        string tok = [_currPos[_currPos++]];
+        tok ~= collectWhile(c => isDigit(c))
+        _tokens.push(Token(TType.INT_LITERAL, tok, _lineNum));
+    }
+
+    void lt()
+    {
+
+    }
+
+    void equals()
+    {
+
+    }
 
         string tok;
         State state = State.START;
