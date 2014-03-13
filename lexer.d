@@ -125,8 +125,8 @@ private:
             global.kxiIsNew = true;
         }
 
-        for (_pos = 0; _pos < _line.length; ++_pos) {
-            char c  = _line[_pos];
+        for (_pos = 0; _pos < _line.length;) {
+            char c  = _line[_pos++];
             _lexeme = [c];
 
             if (isWhite(c)) {
@@ -177,43 +177,38 @@ private:
     auto collectWhile(bool function(char) f)
     {
         string tok;
-        while (_pos < _line.length) {
-            if (f(_line[_pos]))
-                tok ~= _line[_pos++];
-            else {
-                --_pos;
+
+        foreach (c; _line[_pos..$]) {
+            if (f(c))
+                tok ~= c;
+            else
                 break;
-            }
         }
+
+        _pos += tok.length;
         return tok;
     }
 
     void alphaNum()
     {    
-        ++_pos;
         _lexeme ~= collectWhile(c => isAlphaNum(c) || c == '_');
         _tokens.push(Token(_lexeme in tokenMap ? tokenMap[_lexeme] : TType.IDENTIFIER, _lexeme, _lineNum));
     }
 
     void digit()
     {
-        ++_pos;
         _lexeme ~= collectWhile(c => isDigit(c));
         _tokens.push(Token(TType.INT_LITERAL, _lexeme, _lineNum));
     }
 
     void lt()
     {
-        auto next = _line[_pos+1];
-
-        if (next == '<') {
-            ++_pos;
-            _lexeme ~= next;
+        if (_line[_pos] == '<') {
+            _lexeme ~= _line[_pos++];
             _tokens.push(Token(TType.STREAM_OUTPUT, _lexeme, _lineNum));
         }
-        else if (next == '=') {
-            ++_pos;
-            _lexeme ~= next;
+        else if (_line[_pos] == '=') {
+            _lexeme ~= _line[_pos++];
             _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
         }
         else {
@@ -223,15 +218,12 @@ private:
 
     void gt()
     {
-        auto next = _line[_pos+1];
-        if (next == '>') {
-            ++_pos;
-            _lexeme ~= next;
+        if (_line[_pos] == '>') {
+            _lexeme ~= _line[_pos++];
             _tokens.push(Token(TType.STREAM_INPUT, _lexeme, _lineNum));
         }
-        else if (next == '=') {
-            ++_pos;
-            _lexeme ~= next;
+        else if (_line[_pos] == '=') {
+            _lexeme ~= _line[_pos++];
             _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
         }
         else {
@@ -241,8 +233,8 @@ private:
 
     void equals()
     {
-        if (_line[_pos+1] == '=') {
-            _lexeme ~= _line[++_pos];
+        if (_line[_pos] == '=') {
+            _lexeme ~= _line[_pos++];
             _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
         }
         else {
@@ -252,31 +244,31 @@ private:
 
     void not()
     {
-        if (_line[_pos+1] == '=') {
-            _lexeme ~= _line[++_pos];
+        if (_line[_pos] == '=') {
+            _lexeme ~= _line[_pos++];
             _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
         }
     }
 
     void and()
     {
-        if (_line[_pos+1] == '&') {
-            _lexeme ~= _line[++_pos];
+        if (_line[_pos] == '&') {
+            _lexeme ~= _line[_pos++];
             _tokens.push(Token(TType.LOGIC_OP, _lexeme, _lineNum));
         }
     }
 
     void or()
     {
-        if (_line[_pos+1] == '|') {
-            _lexeme ~= _line[++_pos];
+        if (_line[_pos] == '|') {
+            _lexeme ~= _line[_pos++];
             _tokens.push(Token(TType.LOGIC_OP, _lexeme, _lineNum));
         }
     }
 
     void divide()
     {
-        if (_line[_pos+1] == '/')
+        if (_line[_pos] == '/')
             _pos = _line.length; // comment--skip to end of line
         else
             _tokens.push(Token(TType.MATH_OP, _lexeme, _lineNum));
@@ -286,19 +278,19 @@ private:
     {
         _tokens.push(Token(TType.CHAR_DELIM, _lexeme, _lineNum));
 
-        char c = _line[++_pos];
+        char c = _line[_pos++];
         _tokens.push(Token(TType.CHAR_LITERAL, [c], _lineNum));
 
         if (c == '\\')
-            _tokens.push(Token(TType.CHAR_LITERAL, [_line[++_pos]], _lineNum));
+            _tokens.push(Token(TType.CHAR_LITERAL, [_line[_pos++]], _lineNum));
 
-        if (_line[_pos+1] == '\'')
-            _tokens.push(Token(TType.CHAR_DELIM, [_line[++_pos]], _lineNum));
+        if (_line[_pos] == '\'')
+            _tokens.push(Token(TType.CHAR_DELIM, [_line[_pos++]], _lineNum));
     }
 
     void plusOrMinus()
     {    
-        if (isDigit(_line[_pos+1]))
+        if (isDigit(_line[_pos]))
             digit();
         else
             _tokens.push(Token(TType.MATH_OP, _lexeme, _lineNum));
