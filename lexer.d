@@ -1,6 +1,5 @@
 import std.ascii;
 import std.conv;
-import std.stdio;
 import std.stream;
 import container, global;
 
@@ -60,307 +59,249 @@ struct Token
 class Lexer
 {
 public:
+    bool recordKxi;
+
     this(string fileName)
     {
-        _file = new BufferedFile(fileName);
+        _file   = new BufferedFile(fileName);
         _tokens = new Queue!Token;
     }
 
-    auto peek()
+    Token peek()
     {
-        if (_tokens.empty)
-            loadMoreTokens();
+        if (!_tokens.empty)
+            return _tokens.front;
 
-        return _tokens.front;
+        loadMoreTokens();
+        return peek();
     }
 
-    auto next()
+    Token next()
     {
-        if (_tokens.empty)
-            loadMoreTokens();
+        if (!_tokens.empty) {
+            auto t = _tokens.front;
+            _tokens.pop();
+            return t;
+        }
 
-        auto t = _tokens.front;
-        _tokens.pop();
-        return t;
+        loadMoreTokens();
+        return next();
     }
 
     void rewind()
     {
-        
+        _file.seek(0, SeekPos.Set);
+        _tokens.clear();
+        _lineNum = 0;
     }
 
 private:
     Stream _file;
     Queue!Token _tokens;
 
-    char[] _currLine;
-    size_t _currPos;
+    string _line;
+    string _lexeme;
+    size_t _pos;
     size_t _lineNum;
-
-    bool _recordKxi;
 
     void loadMoreTokens()
     {
         static char[] buffer;
 
-        _currLine = _file.readLine(buffer);
+        if (_file.eof) {
+            _tokens.push(Token(TType.EOF, null, _lineNum));
+            return;
+        }
+
+        _line = to!string(_file.readLine(buffer));
+        _line ~= '\n';
         ++_lineNum;
 
-        if (_recordKxi && global.kxiIsNew) {
-            global.kxi ~= _currLine;
+        if (recordKxi && global.kxiIsNew) {
+            global.kxi ~= _line;
         }
-        else if (_recordKxi) {
-            global.kxi = _currLine;
+        else if (recordKxi) {
+            global.kxi = _line;
             global.kxiIsNew = true;
         }
 
-        while (!_file.eof) {
-            for (_currPos = 0; _currPos < _currLine.length; ++_currPos) {
-                auto c = _currLine[_currPos];
+        for (_pos = 0; _pos < _line.length; ++_pos) {
+            char c  = _line[_pos];
+            _lexeme = [c];
 
-                if (isWhite(c)) {
-                    // ignore whitespace
-                }
-                else if (isAlpha(c)) {
-                    alphaNum();
-                }
-                else if (isDigit(c)) {
-                    digit();
-                }
-                else if (c == '<') {
-                    lt();
-                }
-                else if (c == '=') {
-                    equals();
-                }                    
+            if (isWhite(c)) {
+                // ignore whitespace
+            }
+            else if (isAlpha(c)) {
+                alphaNum();
+            }
+            else if (isDigit(c)) {
+                digit();
+            }
+            else if (c == '<') {
+                lt();
+            }
+            else if (c == '>') {
+                gt();
+            }
+            else if (c == '&') {
+                and();
+            }
+            else if (c == '|') {
+                or();
+            }
+            else if (c == '=') {
+                equals();
+            }
+            else if (c == '!') {
+                not();
+            }
+            else if (c == '/') {
+                divide();
+            }
+            else if (c == '\'') {
+                charLiteral();
+            }
+            else if (c == '+' || c == '-') {
+                plusOrMinus();
+            }
+            else if (_lexeme in tokenMap) {
+                _tokens.push(Token(tokenMap[_lexeme], _lexeme, _lineNum));
+            }
+            else {
+                _tokens.push(Token(TType.UNKNOWN, _lexeme, _lineNum));
             }
         }
     }
 
-    void collectWhile(bool function(char) f)
+    auto collectWhile(bool function(char) f)
     {
         string tok;
-
-        while (_currPos < _currLine.length) {
-            if (f(_currLine[_currPos]))
-                tok ~= _currLine[_currPos++];
+        while (_pos < _line.length) {
+            if (f(_line[_pos]))
+                tok ~= _line[_pos++];
             else {
-                --_currPos;
+                --_pos;
                 break;
             }
         }
-
         return tok;
     }
 
     void alphaNum()
-    {
-        string tok = [_currLine[_currPos++]];
-        tok ~= collectWhile(c => isAlphaNum(c) || c == '_');
-        _tokens.push(Token(tok in tokenMap ? tokenMap[tok] : TType.IDENTIFIER, tok, _lineNum));
+    {    
+        ++_pos;
+        _lexeme ~= collectWhile(c => isAlphaNum(c) || c == '_');
+        _tokens.push(Token(_lexeme in tokenMap ? tokenMap[_lexeme] : TType.IDENTIFIER, _lexeme, _lineNum));
     }
 
     void digit()
     {
-        string tok = [_currPos[_currPos++]];
-        tok ~= collectWhile(c => isDigit(c))
-        _tokens.push(Token(TType.INT_LITERAL, tok, _lineNum));
+        ++_pos;
+        _lexeme ~= collectWhile(c => isDigit(c));
+        _tokens.push(Token(TType.INT_LITERAL, _lexeme, _lineNum));
     }
 
     void lt()
     {
+        auto next = _line[_pos+1];
 
+        if (next == '<') {
+            ++_pos;
+            _lexeme ~= next;
+            _tokens.push(Token(TType.STREAM_OUTPUT, _lexeme, _lineNum));
+        }
+        else if (next == '=') {
+            ++_pos;
+            _lexeme ~= next;
+            _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
+        }
+        else {
+            _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
+        }
+    }
+
+    void gt()
+    {
+        auto next = _line[_pos+1];
+        if (next == '>') {
+            ++_pos;
+            _lexeme ~= next;
+            _tokens.push(Token(TType.STREAM_INPUT, _lexeme, _lineNum));
+        }
+        else if (next == '=') {
+            ++_pos;
+            _lexeme ~= next;
+            _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
+        }
+        else {
+            _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
+        }   
     }
 
     void equals()
     {
-
+        if (_line[_pos+1] == '=') {
+            _lexeme ~= _line[++_pos];
+            _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
+        }
+        else {
+            _tokens.push(Token(TType.ASSIGN_OP, _lexeme, _lineNum));
+        }
     }
 
-        string tok;
-        State state = State.START;
-        for (auto i = 0; i < line.length; ++i) {
-            auto c = line[i];
-
-            final switch (state) {
-            case State.START:
-                tok = [c];
-
-                if (isWhite(c)) { /* ignore whitespace */ }
-                else if (isAlpha(c))
-                    state = State.ALPHANUM;
-                else if (isDigit(c))
-                    state = State.DIGIT;
-                else if (c == '<')
-                    state = State.LT;
-                else if (c == '>')
-                    state = State.GT;
-                else if (c == '=')
-                    state = State.EQUALS;
-                else if (c == '&')
-                    state = State.AND;
-                else if (c == '|')
-                    state = State.OR;
-                else if (c == '!')
-                    state = State.NOT;
-                else if (c == '\'')
-                    state = State.CHAR_BEGIN;
-                else if (c == '/')
-                    state = State.POSSIBLE_COMMENT;
-                else if (c == '+' || c == '-')
-                    state = State.PLUS_OR_MINUS;
-                else if (tok in tokenMap)
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                else
-                    _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
-                break;
-
-            case State.ALPHANUM:
-                if (isAlphaNum(c) || c == '_') {
-                    tok ~= c;
-                    break;
-                }
-                if (tok in tokenMap)
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                else if (tok.length < MAX_ID_LEN)
-                    _tokens.push(Token(TType.IDENTIFIER,tok,_lineNum));
-                else
-                    _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
-                state = State.START;
-                --i;
-                break;
-
-            case State.DIGIT:
-                if (isDigit(c)) {
-                    tok ~= c;
-                    break;
-                }
-                _tokens.push(Token(TType.INT_LITERAL,tok,_lineNum));
-                state = State.START;
-                --i;
-                break;
-
-            case State.PLUS_OR_MINUS:
-                if (isDigit(c)) {
-                    tok ~= c;
-                    state = State.DIGIT;
-                    break;
-                }
-                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                state = State.START;
-                --i;
-                break;
-
-            case State.EQUALS:
-                if (c == '=')
-                    tok ~= c;
-                else
-                    --i;
-                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                state = State.START;
-                break;
-
-            case State.AND:
-                if (c == '&') {
-                    tok ~= c;
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                }
-                else {
-                    --i;
-                }
-                state = State.START;
-                break;
-
-            case State.OR:
-                if (c == '|') {
-                    tok ~= c;
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                }
-                else {
-                    --i;
-                }
-                state = State.START;
-                break;
-
-            case State.NOT:
-                if (c == '=') {
-                    tok ~= c;
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                }
-                else {
-                    --i;
-                }
-                state = State.START;
-                break;
-
-            case State.LT:
-                if (c == '=' || c == '<')
-                    tok ~= c;
-                else
-                    --i;
-                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                state = State.START;
-                break;
-
-            case State.GT:
-                if (c == '=' || c == '>')
-                    tok ~= c;
-                else
-                    --i;
-                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                state = State.START;
-                break;
-
-            case State.CHAR_BEGIN:
-                _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                tok = [c];
-                _tokens.push(Token(TType.CHAR_LITERAL,tok,_lineNum));
-                if (c == '\\')
-                    state = State.CHAR_ESCAPE;
-                else
-                    state = State.CHAR_END;
-                break;
-
-            case State.CHAR_ESCAPE:
-                tok = [c];
-                _tokens.push(Token(TType.CHAR_LITERAL,tok,_lineNum));
-                state = State.CHAR_END;
-                break;
-
-            case State.CHAR_END:
-                tok = [c];
-                if (c == '\'') {
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                    state = State.START;
-                    break;
-                }
-                _tokens.push(Token(TType.UNKNOWN,tok,_lineNum));
-                state = State.START;
-                --i;
-                break;
-
-            case State.POSSIBLE_COMMENT:
-                if (c == '/') {
-                    state = State.COMMENT;
-                    break;
-                }
-                else {
-                    // Divide operator
-                    _tokens.push(Token(tokenMap[tok],tok,_lineNum));
-                }
-                state = State.START;
-                --i;
-                break;
-
-            case State.COMMENT:
-                if (c == '\n')
-                    state = State.START;
-                break;
-            }
+    void not()
+    {
+        if (_line[_pos+1] == '=') {
+            _lexeme ~= _line[++_pos];
+            _tokens.push(Token(TType.REL_OP, _lexeme, _lineNum));
         }
+    }
 
-        if (_file.eof)
-            _tokens.push(Token(TType.EOF,null,_lineNum));
+    void and()
+    {
+        if (_line[_pos+1] == '&') {
+            _lexeme ~= _line[++_pos];
+            _tokens.push(Token(TType.LOGIC_OP, _lexeme, _lineNum));
+        }
+    }
+
+    void or()
+    {
+        if (_line[_pos+1] == '|') {
+            _lexeme ~= _line[++_pos];
+            _tokens.push(Token(TType.LOGIC_OP, _lexeme, _lineNum));
+        }
+    }
+
+    void divide()
+    {
+        if (_line[_pos+1] == '/')
+            _pos = _line.length; // comment--skip to end of line
+        else
+            _tokens.push(Token(TType.MATH_OP, _lexeme, _lineNum));
+    }
+
+    void charLiteral()
+    {
+        _tokens.push(Token(TType.CHAR_DELIM, _lexeme, _lineNum));
+
+        char c = _line[++_pos];
+        _tokens.push(Token(TType.CHAR_LITERAL, [c], _lineNum));
+
+        if (c == '\\')
+            _tokens.push(Token(TType.CHAR_LITERAL, [_line[++_pos]], _lineNum));
+
+        if (_line[_pos+1] == '\'')
+            _tokens.push(Token(TType.CHAR_DELIM, [_line[++_pos]], _lineNum));
+    }
+
+    void plusOrMinus()
+    {    
+        if (isDigit(_line[_pos+1]))
+            digit();
+        else
+            _tokens.push(Token(TType.MATH_OP, _lexeme, _lineNum));
     }
 }
 

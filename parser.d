@@ -10,7 +10,7 @@ void parse(string srcFileName)
     compilation_unit(); // first pass
 
     _tokens.rewind();
-    _tokens.toggleRecordKxi(); // for embedding kxi into assembly file
+    _tokens.recordKxi = true; // for embedding kxi into assembly file
 
     _firstPass = false;
     compilation_unit(); // second pass
@@ -51,7 +51,7 @@ void assertType(TType[] types ...)
 void assertValue(string[] values ...)
 {
     foreach (v; values)
-        if (_ct.value == v)
+        if (_ct.lexeme == v)
             return;
 
     error(values);
@@ -64,7 +64,7 @@ void error(T)(T[] types...)
         foreach (t; types[1..$])
             s ~= text(" or ",t);
     }
-    s ~= text(", not ",_ct.type," \"",_ct.value,"\"");
+    s ~= text(", not ",_ct.type," \"",_ct.lexeme,"\"");
     throw new SyntaxError(_ct.line, s);
 }
 
@@ -85,11 +85,11 @@ void compilation_unit()
         class_declaration();
 
     assertValue("void");
-    auto returnType = _ct.value;
+    auto returnType = _ct.lexeme;
     
     next();
     assertType(TType.MAIN);
-    auto methodName = _ct.value;
+    auto methodName = _ct.lexeme;
 
     if (_firstPass) {
         global.currentMethod = SymbolTable.addMethod(methodName, returnType, PUBLIC_MODIFIER, global.currentScope, _ct.line);
@@ -126,7 +126,7 @@ void class_declaration()
     assertType(TType.CLASS);    
     next();
     assertType(TType.IDENTIFIER);
-    auto className = _ct.value;
+    auto className = _ct.lexeme;
 
     if (_firstPass) {
         global.currentClass = SymbolTable.addClass(className, _ct.line);
@@ -170,11 +170,11 @@ void class_member_declaration()
     // ;
 
     if (_ct.type == TType.MODIFIER) {
-        auto modifier = _ct.value;
+        auto modifier = _ct.lexeme;
 
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
-        auto type = _ct.value;
+        auto type = _ct.lexeme;
 
         if (!_firstPass && _ct.type == TType.IDENTIFIER) {
             tPush(type);
@@ -183,7 +183,7 @@ void class_member_declaration()
 
         next();        
         assertType(TType.IDENTIFIER);
-        auto identifier = _ct.value;
+        auto identifier = _ct.lexeme;
 
         next();
         field_declaration(identifier, type, modifier);
@@ -249,7 +249,7 @@ void field_declaration(string identifier, string type, string modifier)
 
         if (_ct.type == TType.ASSIGN_OP) {
             if (!_firstPass)
-                oPush(_ct.value);            
+                oPush(_ct.lexeme);            
             next();
             assignment_expression();
         }
@@ -271,7 +271,7 @@ void constructor_declaration()
     //    class_name "(" [parameter_list] ")" method_body ;
 
     assertType(TType.IDENTIFIER);
-    auto ctorName  = _ct.value;
+    auto ctorName  = _ct.lexeme;
 
     if (_firstPass) {
         global.currentMethod = SymbolTable.addMethod(ctorName, "this", PUBLIC_MODIFIER, global.currentScope, _ct.line);
@@ -315,7 +315,7 @@ void parameter()
     // parameter::= type identifier ["[" "]"] ;
 
     assertType(TType.TYPE,TType.IDENTIFIER);
-    auto type = _ct.value;
+    auto type = _ct.lexeme;
 
     if (!_firstPass && _ct.type == TType.IDENTIFIER) {
         tPush(type);
@@ -324,7 +324,7 @@ void parameter()
 
     next();    
     assertType(TType.IDENTIFIER); 
-    auto identifier = _ct.value;
+    auto identifier = _ct.lexeme;
 
     next();
     if (_ct.type == TType.ARRAY_BEGIN) {
@@ -374,7 +374,7 @@ void variable_declaration()
     //    type identifier ["[" "]"] ["=" assignment_expression ] ";" ;
 
     assertType(TType.TYPE,TType.IDENTIFIER);
-    auto type = _ct.value;
+    auto type = _ct.lexeme;
 
     if (!_firstPass && _ct.type == TType.IDENTIFIER) {
         tPush(type);
@@ -383,7 +383,7 @@ void variable_declaration()
 
     next();
     assertType(TType.IDENTIFIER);
-    auto identifier = _ct.value;
+    auto identifier = _ct.lexeme;
 
     next();
     if (_ct.type == TType.ARRAY_BEGIN) {
@@ -403,7 +403,7 @@ void variable_declaration()
 
     if (_ct.type == TType.ASSIGN_OP) {
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
         next();
         assignment_expression();
     }
@@ -432,7 +432,7 @@ void assignment_expression()
         next();
         assertType(TType.TYPE,TType.IDENTIFIER);
         if (!_firstPass)
-            tPush(_ct.value);
+            tPush(_ct.lexeme);
         next();
         new_declaration();
         break;
@@ -440,7 +440,7 @@ void assignment_expression()
         next();
         assertType(TType.PAREN_OPEN);
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
@@ -454,7 +454,7 @@ void assignment_expression()
         next();
         assertType(TType.PAREN_OPEN);
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
         next();
         expression();
         assertType(TType.PAREN_CLOSE);
@@ -481,7 +481,7 @@ void new_declaration()
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (!_firstPass) {
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
             bal_sa();
         }
 
@@ -499,7 +499,7 @@ void new_declaration()
     }
     else if (_ct.type == TType.ARRAY_BEGIN) {
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
         next();
         expression();
         assertType(TType.ARRAY_END);
@@ -535,7 +535,7 @@ void statement()
         next();
         assertType(TType.PAREN_OPEN);        
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
 
         next();
         expression();
@@ -564,7 +564,7 @@ void statement()
         assertType(TType.PAREN_OPEN);
         if (!_firstPass) {
             icode.beginWhile();
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
         }
 
         next();
@@ -635,7 +635,7 @@ void expression()
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
 
         next();
         expression();
@@ -649,7 +649,7 @@ void expression()
     }
     else if (_ct.type == TType.IDENTIFIER) {
         if (!_firstPass)
-            iPush(_ct.value);
+            iPush(_ct.lexeme);
 
         next();
         if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
@@ -668,7 +668,7 @@ void expression()
         case TType.TRUE:
         case TType.FALSE:   
             if (_firstPass) {
-                _symbolQueue.push(SymbolTable.addGlobal(_ct.value, "bool"));
+                _symbolQueue.push(SymbolTable.addGlobal(_ct.lexeme, "bool"));
             }
             else {
                 lPush(_symbolQueue.front);                
@@ -679,7 +679,7 @@ void expression()
             break;
         case TType.NULL:
             if (_firstPass) {
-                _symbolQueue.push(SymbolTable.addGlobal(_ct.value, "null"));
+                _symbolQueue.push(SymbolTable.addGlobal(_ct.lexeme, "null"));
             }
             else {
                 lPush(_symbolQueue.front);           
@@ -723,7 +723,7 @@ void expressionz()
     switch (_ct.type) {
     case TType.ASSIGN_OP:
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
         next();
         assignment_expression();
         break;
@@ -731,12 +731,12 @@ void expressionz()
     case TType.REL_OP:
     case TType.MATH_OP:
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
         next();
         expression();
         break;
     case TType.INT_LITERAL:
-        if (_ct.value[0] == '-' || _ct.value[0] == '+') {
+        if (_ct.lexeme[0] == '-' || _ct.lexeme[0] == '+') {
             if (!_firstPass)
                 oPush("+");
             expression();
@@ -755,7 +755,7 @@ void fn_arr_member()
 
     if (_ct.type == TType.PAREN_OPEN) {
         if (!_firstPass) {
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
             bal_sa();
         }
 
@@ -774,7 +774,7 @@ void fn_arr_member()
     else {
         assertType(TType.ARRAY_BEGIN);
         if (!_firstPass)
-            oPush(_ct.value);
+            oPush(_ct.lexeme);
 
         next();
         expression();
@@ -796,7 +796,7 @@ void member_refz()
     next();
     assertType(TType.IDENTIFIER);
     if (!_firstPass)
-        iPush(_ct.value);
+        iPush(_ct.lexeme);
     next();
     if (_ct.type == TType.PAREN_OPEN || _ct.type == TType.ARRAY_BEGIN)
         fn_arr_member();
@@ -827,14 +827,14 @@ void character_literal()
     next();
 
     assertType(TType.CHAR_LITERAL);
-    auto character = _ct.value;
+    auto character = _ct.lexeme;
 
-    if (_ct.value == "\\") {
+    if (_ct.lexeme == "\\") {
         next();
         assertType(TType.CHAR_LITERAL);
-        character ~= _ct.value;
+        character ~= _ct.lexeme;
 
-        switch (_ct.value) {
+        switch (_ct.lexeme) {
         case "\\":
         case "n":
         case "t":
@@ -864,7 +864,7 @@ void numeric_literal()
     // numeric_literal::= ["+" | "-"]number ;
 
     assertType(TType.INT_LITERAL);
-    auto value = to!string(to!int(_ct.value));
+    auto value = to!string(to!int(_ct.lexeme));
 
     if (_firstPass) {
         _symbolQueue.push(SymbolTable.addGlobal(value, "int"));
