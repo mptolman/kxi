@@ -10,7 +10,7 @@ int main(string[] args)
     }
 
     try {
-        string srcFileName = args[1];
+        string srcFileName  = args[1];
         string destFileName = args.length > 2 ? args[2] : stripRight(args[1]) ~ ".asm";
 
         compile(srcFileName, destFileName);

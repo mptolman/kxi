@@ -178,14 +178,13 @@ private:
     {
         string tok;
 
-        foreach (c; _line[_pos..$]) {
-            if (f(c))
-                tok ~= c;
+        for (; _pos < _line.length; ++_pos) {
+            if (f(_line[_pos]))
+                tok ~= _line[_pos];
             else
                 break;
         }
 
-        _pos += tok.length;
         return tok;
     }
 
