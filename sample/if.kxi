@@ -1,0 +1,27 @@
+void main()
+{
+    int x = 1;
+    int y = 1;
+    
+    if (x < y) {
+        cout << 'c';
+    }
+    else if (x == y) {
+        if (x == y) {          
+            if (x == 2) {
+                cout << 'c';
+            }
+            else if (x == 0) {
+                cout << 'd';
+            }
+            else if (y == 1) {
+                if (x == 1) {
+                    cout << 'h';
+                }
+            }
+        }
+        else if (y == 1) {
+            cout << 'c';
+        }
+    }
+}

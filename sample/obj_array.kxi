@@ -1,0 +1,26 @@
+class Node
+{
+    public int x;
+    
+    Node(int i)
+    {
+        x = i;
+    }
+}
+
+void main()
+{
+    int i = 0;
+    Node nodes[] = new Node[100];
+    while (i < 100) {
+        nodes[i] = new Node(i);
+        i = i + 1;
+    }
+
+    i = 0;
+    while (i < 100) {
+        cout << nodes[i].x;
+        cout << '\n';
+        i = i + 1;
+    }
+}

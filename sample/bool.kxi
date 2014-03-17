@@ -1,0 +1,19 @@
+class A
+{
+    public bool flag;
+    public int x;
+    
+    A()
+    {
+    }
+}
+
+void main()
+{
+    A a = new A();
+    
+    a.x = 100;
+    a.flag = true;
+    
+    cout << a.x;
+}

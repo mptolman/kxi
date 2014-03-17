@@ -70,7 +70,7 @@ auto processICode()
         debug writefln("%s\t%s %s %s %s",quad.label,quad.opcode,quad.opd1,quad.opd2,quad.opd3);
 
         _label   = quad.label;
-        _comment = text("[",quad.opcode,"] ",quad.opd1,' ',quad.opd2,' ',quad.opd3);
+        _comment = text(quad.opcode,' ',quad.opd1,' ',quad.opd2,' ',quad.opd3);
 
         switch (quad.opcode) {
         case "COMMENT":
