@@ -268,7 +268,8 @@ auto genMathCode(Quad quad)
         break;
     case "ADI":
         loadRegister("R1", quad.opd1);
-        writeAsm("ADI", "R1", quad.opd2);
+        if (to!int(quad.opd2) != 0)
+            writeAsm("ADI", "R1", quad.opd2);
         storeRegister("R1", quad.opd3);
         break;
     default:
@@ -368,7 +369,8 @@ auto genMoveCode(Quad quad)
         break;
     case "MOVI":
         writeAsm("SUB", "R1", "R1");
-        writeAsm("ADI", "R1", quad.opd1);
+        if (to!int(quad.opd1) != 0)
+            writeAsm("ADI", "R1", quad.opd1);
         storeRegister("R1", quad.opd2);
         break;
     default:
@@ -404,7 +406,8 @@ auto genRefCode(Quad quad)
     auto refSymbol = SymbolTable.getById(quad.opd3);
 
     loadRegister("R1", objSymbol);
-    writeAsm("ADI", "R1", to!string(varSymbol.offset));
+    if (varSymbol.offset != 0)
+        writeAsm("ADI", "R1", to!string(varSymbol.offset));
     storeRegister("R1", refSymbol, false);
 }
 
@@ -489,12 +492,14 @@ auto loadRegister(string reg, Symbol symbol)
         writeAsm("MOV", reg, "FP");
         writeAsm("ADI", reg, "-8");
         writeAsm("LDR", reg, "("~reg~")");
-        writeAsm("ADI", reg, to!string(symbol.offset));
+        if (symbol.offset != 0)
+            writeAsm("ADI", reg, to!string(symbol.offset));
         writeAsm(loadOp, reg, "("~reg~")");
     }
     else {
         writeAsm("MOV", reg, "FP");
-        writeAsm("ADI", reg, to!string(symbol.offset));
+        if (symbol.offset != 0)
+            writeAsm("ADI", reg, to!string(symbol.offset));
         writeAsm("LDR", reg, "("~reg~")");
         if (cast(RefSymbol)symbol)
             writeAsm(loadOp, reg, "("~reg~")");
@@ -527,12 +532,14 @@ auto storeRegister(string reg, Symbol symbol, bool indirect=true)
         writeAsm("MOV", "R9", "FP"); // use `this` as base address
         writeAsm("ADI", "R9", "-8");
         writeAsm("LDR", "R9", "(R9)");
-        writeAsm("ADI", "R9", to!string(symbol.offset));
+        if (symbol.offset != 0)
+            writeAsm("ADI", "R9", to!string(symbol.offset));
         writeAsm(storeOp, reg, "(R9)");
     }
     else if (cast(RefSymbol)symbol) {
         writeAsm("MOV", "R9", "FP");
-        writeAsm("ADI", "R9", to!string(symbol.offset));
+        if (symbol.offset != 0)
+            writeAsm("ADI", "R9", to!string(symbol.offset));
         if (indirect) {
             writeAsm("LDR", "R9", "(R9)");
             writeAsm(storeOp, reg, "(R9)");
@@ -543,7 +550,8 @@ auto storeRegister(string reg, Symbol symbol, bool indirect=true)
     }
     else {
         writeAsm("MOV", "R9", "FP");
-        writeAsm("ADI", "R9", to!string(symbol.offset));
+        if (symbol.offset != 0)
+            writeAsm("ADI", "R9", to!string(symbol.offset));
         writeAsm(storeOp, reg, "(R9)");
     }
 }
