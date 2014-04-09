@@ -225,7 +225,7 @@ auto genStackCode(Quad quad)
 {
     switch (quad.opcode) {
     case "PUSH":
-        auto symbol = SymbolTable.getById(quad.opd1);
+        auto symbol   = SymbolTable.getById(quad.opd1);
         auto isGlobal = cast(GlobalSymbol)symbol;
 
         if (!isGlobal) {
