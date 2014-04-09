@@ -225,21 +225,22 @@ auto genStackCode(Quad quad)
 {
     switch (quad.opcode) {
     case "PUSH":
-        // Save FP
-        writeAsm("MOV", "R9", "FP");
+        auto symbol = SymbolTable.getById(quad.opd1);
+        auto isGlobal = cast(GlobalSymbol)symbol;
 
-        // Load PFP
-        writeAsm("MOV", "R1", "FP");
-        writeAsm("ADI", "R1", "-4");
-        writeAsm("LDR", "FP", "(R1)");
+        if (!isGlobal) {
+            writeAsm("MOV", "R9", "FP");
+            writeAsm("MOV", "R1", "FP");
+            writeAsm("ADI", "R1", "-4");
+            writeAsm("LDR", "FP", "(R1)");
+        }
 
-        // Push parameter to current stack frame
-        loadRegister("R1", quad.opd1);
+        loadRegister("R1", symbol);
         writeAsm("STR", "R1", "(SP)");
         writeAsm("ADI", "SP", "-4");
 
-        // Restore FP
-        writeAsm("MOV", "FP", "R9");
+        if (!isGlobal)
+            writeAsm("MOV", "FP", "R9");
         break;
     case "POP":
         writeAsm("ADI", "SP", "4");
