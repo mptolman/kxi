@@ -1,77 +1,65 @@
+import std.container;
+
 class Stack(T)
 {
 private:
-    T[] _data;
+    DList!T dlist;
 
 public:
-    void push(T t)
+    auto push(T t)
     {
-        _data ~= t;
+        dlist.stableInsertFront(t);
     }
 
-    void pop()
+    auto pop()
     {
-        assert(_data.length);
-        _data = _data[0..$-1];
+        dlist.stableRemoveFront();
     }
 
     auto top()
     {
-        assert(_data.length);
-        return _data[$-1];
-    }
-
-    auto size() const
-    {
-        return _data.length;
+        return dlist.front();
     }
 
     auto empty() const
     {
-        return _data.length == 0;
+        return dlist.empty();
     }
 
     auto clear()
     {
-        _data = null;
+        dlist.clear();
     }
 }
 
 class Queue(T)
 {
 private:
-    T[] data;
+    DList!T dlist;
 
 public:
-    void push(T t)
+    auto push(T t)
     {
-        data ~= t;
+        dlist.stableInsertBack(t);
     }
 
-    void pop()
+    auto pop()
     {
-        assert(data.length);
-        data = data[1..$];      
+        dlist.stableRemoveFront();
     }
 
     auto front()
     {
-        assert(data.length);
-        return data[0];
+        return dlist.front();
     }
-
-    auto size() const
-    {
-        return data.length;
-    }    
 
     auto empty() const
     {
-        return data.length == 0;
+        return dlist.empty();
     }
 
-    void clear()
+    auto clear()
     {
-        data = null;
+        dlist.clear();
     }
 }
